@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.moved-aside
+*.hmap
+
+# Swift Package Manager
+/.build
+/Packages
+.swiftpm/
+
+# Build & distribution output (dist/ keeps only the build scripts)
+dist/build/
+dist/*.dmg
+dist/*.zip
+dist/*.pkg
+
+# Notarization credentials
+.netrc

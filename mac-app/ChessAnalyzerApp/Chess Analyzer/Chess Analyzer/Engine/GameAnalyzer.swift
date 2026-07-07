@@ -1,0 +1,659 @@
+import Foundation
+import SwiftUI
+
+// MARK: - Analysis State
+
+enum AnalysisState {
+    case idle
+    case analyzing
+    case completed
+    case cancelled
+}
+
+// MARK: - Move Quality
+
+enum MoveQuality: String, CaseIterable {
+    case brilliant = "!!"
+    case great = "!"
+    case best = "*"
+    case book = "B"
+    case good = "+"
+    case okay = "o"
+    case neutral = ""
+    case inaccuracy = "?!"
+    case mistake = "?"
+    case blunder = "??"
+
+    var label: String {
+        switch self {
+        case .brilliant: return "Brilliant"
+        case .great: return "Great"
+        case .best: return "Best"
+        case .book: return "Book"
+        case .good: return "Good"
+        case .okay: return "Okay"
+        case .neutral: return "Neutral"
+        case .inaccuracy: return "Inaccuracy"
+        case .mistake: return "Mistake"
+        case .blunder: return "Blunder"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .brilliant: return DS.moveBrilliant
+        case .great: return DS.moveGreat
+        case .best: return DS.moveBest
+        case .book: return DS.moveBook
+        case .good: return DS.moveGood
+        case .okay: return DS.moveOkay
+        case .neutral: return DS.moveNeutral
+        case .inaccuracy: return DS.moveInaccuracy
+        case .mistake: return DS.moveMistake
+        case .blunder: return DS.moveBlunder
+        }
+    }
+
+    /// Icon for display (SF Symbol name or nil for text-based annotations)
+    var icon: String? {
+        switch self {
+        case .best: return "star.fill"
+        case .book: return "book.fill"
+        case .good: return "hand.thumbsup.fill"
+        case .okay: return "checkmark"
+        default: return nil
+        }
+    }
+}
+
+// MARK: - Move Classification
+
+struct MoveClassification {
+    let moveIndex: Int
+    let quality: MoveQuality
+    let cpLoss: Double
+    let evalBefore: Double
+    let evalAfter: Double
+    let isWhiteMove: Bool
+}
+
+// MARK: - Game Analyzer
+
+class GameAnalyzer: ObservableObject {
+    @Published var state: AnalysisState = .idle
+    @Published var currentMoveIndex: Int = 0
+    @Published var totalMoves: Int = 0
+    @Published var whiteAccuracy: Double = 0
+    @Published var blackAccuracy: Double = 0
+    @Published var evaluations: [Double] = []
+    @Published var moveClassifications: [MoveClassification] = []
+
+    /// Time per position in milliseconds
+    static let gameAnalysisMovetime: Int = 350
+
+    /// The depth cap for analysis
+    var analysisDepth: Int = 20
+
+    /// The movetime cap for analysis
+    var analysisMovetime: Int = 350
+
+    /// Positions to evaluate (board states from the main line)
+    private var positions: [ChessBoard] = []
+
+    /// Top 3 moves returned by engine for each position (UCI notation)
+    private var topMoves: [[String]] = []
+
+    /// Second-best line evaluation at each position (for ! and !! detection)
+    private var secondBestEvals: [Double?] = []
+
+    /// The main line nodes (for applying annotations after analysis)
+    private var mainLineNodes: [GameNode] = []
+
+    /// UCI moves played from root to each position (for opening book lookup)
+    private var uciMovesAtPosition: [[String]] = []
+
+    var isAnalyzing: Bool { state == .analyzing }
+    var isCompleted: Bool { state == .completed }
+
+    // MARK: - Analysis Control
+
+    /// Start analyzing a game. Returns the first board to evaluate, or nil if no moves.
+    func startAnalysis(gameTree: GameTree) -> ChessBoard? {
+        // Collect main line positions
+        mainLineNodes = gameTree.mainLine
+        totalMoves = mainLineNodes.count // includes root
+
+        guard totalMoves > 1 else {
+            // No moves to analyze
+            state = .completed
+            whiteAccuracy = 100
+            blackAccuracy = 100
+            return nil
+        }
+
+        // Collect board states for each node in the main line
+        positions = mainLineNodes.map { $0.boardState.copy() }
+
+        // Build UCI move sequences for opening book lookup
+        uciMovesAtPosition = []
+        var uciMoves: [String] = []
+        for node in mainLineNodes {
+            uciMovesAtPosition.append(uciMoves)
+            if let move = node.move {
+                uciMoves.append(moveToUCI(move))
+            }
+        }
+
+        analysisDepth = 20
+        analysisMovetime = Self.gameAnalysisMovetime
+        currentMoveIndex = 0
+        evaluations = []
+        topMoves = []
+        secondBestEvals = []
+        moveClassifications = []
+        whiteAccuracy = 0
+        blackAccuracy = 0
+        state = .analyzing
+
+        // Return first position (root) for evaluation
+        return positions[0]
+    }
+
+    private func moveToUCI(_ move: Move) -> String {
+        let files = "abcdefgh"
+        let fromFile = files[files.index(files.startIndex, offsetBy: move.from.file)]
+        let fromRank = move.from.rank + 1
+        let toFile = files[files.index(files.startIndex, offsetBy: move.to.file)]
+        let toRank = move.to.rank + 1
+
+        var uci = "\(fromFile)\(fromRank)\(toFile)\(toRank)"
+
+        if let promotion = move.promotionType {
+            switch promotion {
+            case .queen: uci += "q"
+            case .rook: uci += "r"
+            case .bishop: uci += "b"
+            case .knight: uci += "n"
+            default: break
+            }
+        }
+
+        return uci
+    }
+
+    /// Called when the engine finishes evaluating a position.
+    /// Stores the eval, best move, and 2nd-line eval. Advances the index.
+    /// Returns the next board to evaluate, or nil when done.
+    func onEngineFinished(engine: StockfishEngine) -> ChessBoard? {
+        guard state == .analyzing else { return nil }
+
+        // Store evaluation from engine
+        let eval = engine.evaluation ?? 0
+        evaluations.append(eval)
+
+        // Store top 3 moves (first move from each PV line)
+        var top3: [String] = []
+        for lineId in 1...3 {
+            if let line = engine.analysisLines.first(where: { $0.id == lineId }),
+               let firstMove = line.pvMoves.first {
+                top3.append(firstMove)
+            }
+        }
+        topMoves.append(top3)
+
+        // Store 2nd-best line eval (for brilliant/great classification)
+        let secondEval = engine.analysisLines.first(where: { $0.id == 2 })?.evaluation
+        secondBestEvals.append(secondEval)
+
+        currentMoveIndex += 1
+
+        // Check if we have more positions to evaluate
+        if currentMoveIndex < positions.count {
+            return positions[currentMoveIndex]
+        }
+
+        // All positions evaluated — classify moves and compute accuracy
+        classifyMoves()
+        computeAccuracy()
+        applyAnnotations()
+        state = .completed
+        return nil
+    }
+
+    /// Cancel analysis
+    func cancel() {
+        guard state == .analyzing else { return }
+        state = .cancelled
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.state = .idle
+        }
+    }
+
+    /// Reset to idle state (e.g., when loading a new game)
+    func reset() {
+        state = .idle
+        currentMoveIndex = 0
+        totalMoves = 0
+        whiteAccuracy = 0
+        blackAccuracy = 0
+        evaluations = []
+        moveClassifications = []
+        positions = []
+        topMoves = []
+        secondBestEvals = []
+        mainLineNodes = []
+        uciMovesAtPosition = []
+    }
+
+    // MARK: - Classification
+
+    private func classifyMoves() {
+        moveClassifications = []
+
+        for i in 1..<evaluations.count {
+            let evalBefore = evaluations[i - 1]
+            let evalAfter = evaluations[i]
+            let isWhiteMove = mainLineNodes[i - 1].boardState.turn == .white
+
+            // cpLoss: how much eval shifted against the moving side
+            let cpLoss: Double
+            if isWhiteMove {
+                cpLoss = max(0, evalBefore - evalAfter)
+            } else {
+                cpLoss = max(0, evalAfter - evalBefore)
+            }
+
+            // WP loss (win probability change against the moving side)
+            let wpBefore = winProbability(cp: evalBefore)
+            let wpAfter = winProbability(cp: evalAfter)
+            let wpLoss: Double
+            if isWhiteMove {
+                wpLoss = max(0, (wpBefore - wpAfter) * 100)
+            } else {
+                wpLoss = max(0, (wpAfter - wpBefore) * 100)
+            }
+
+            // Gap between engine's 1st and 2nd best lines at the position BEFORE the move
+            let lineGap: Double
+            if let secondEval = secondBestEvals[i - 1] {
+                lineGap = abs(evaluations[i - 1] - secondEval)
+            } else {
+                lineGap = 0
+            }
+
+            // Second-best eval from the moving player's perspective
+            let secondBestPlayerEval: Double?
+            if let secondEval = secondBestEvals[i - 1] {
+                secondBestPlayerEval = isWhiteMove ? secondEval : -secondEval
+            } else {
+                secondBestPlayerEval = nil
+            }
+
+            // Get UCI of played move
+            let playedUCI: String?
+            if let move = mainLineNodes[i].move {
+                playedUCI = moveToUCI(move)
+            } else {
+                playedUCI = nil
+            }
+
+            // Which of engine's top moves did player choose? (0 = none, 1 = best, 2 = second, 3 = third)
+            let moveRank: Int
+            if let played = playedUCI, i - 1 < topMoves.count {
+                let top = topMoves[i - 1]
+                if let idx = top.firstIndex(of: played) {
+                    moveRank = idx + 1
+                } else {
+                    moveRank = 0
+                }
+            } else {
+                moveRank = 0
+            }
+
+            let isBestMove = moveRank == 1
+
+            // Is the move a material sacrifice (but NOT a recapture)?
+            let sacrifice = isSacrifice(moveIndex: i)
+            let recapture = isRecapture(moveIndex: i)
+
+            // Eval from the moving player's perspective (positive = good for them)
+            let playerEvalBefore = isWhiteMove ? evalBefore : -evalBefore
+            let playerEvalAfter = isWhiteMove ? evalAfter : -evalAfter
+
+            // Did the position flip from favorable/equal to losing?
+            let positionFlipped = playerEvalBefore >= -50 && playerEvalAfter <= -150
+
+            // Is this move in the opening book?
+            // Check if the exact move sequence (including this move) exists in the opening tree
+            let isBookMove: Bool
+            if i < uciMovesAtPosition.count, let played = playedUCI {
+                var movesIncludingThis = uciMovesAtPosition[i]
+                movesIncludingThis.append(played)
+                // Use findNode to check if this exact sequence exists in the opening tree
+                isBookMove = OpeningBook.shared.findNode(moves: movesIncludingThis) != nil
+            } else {
+                isBookMove = false
+            }
+
+            let quality = classifyMove(
+                cpLoss: cpLoss,
+                wpLoss: wpLoss,
+                lineGap: lineGap,
+                moveRank: moveRank,
+                isSacrifice: sacrifice,
+                isRecapture: recapture,
+                positionFlipped: positionFlipped,
+                playerEvalBefore: playerEvalBefore,
+                playerEvalAfter: playerEvalAfter,
+                secondBestPlayerEval: secondBestPlayerEval,
+                isBookMove: isBookMove
+            )
+
+            moveClassifications.append(MoveClassification(
+                moveIndex: i,
+                quality: quality,
+                cpLoss: cpLoss,
+                evalBefore: evalBefore,
+                evalAfter: evalAfter,
+                isWhiteMove: isWhiteMove
+            ))
+        }
+    }
+
+    private func classifyMove(
+        cpLoss: Double,
+        wpLoss: Double,
+        lineGap: Double,
+        moveRank: Int,
+        isSacrifice: Bool,
+        isRecapture: Bool,
+        positionFlipped: Bool,
+        playerEvalBefore: Double,
+        playerEvalAfter: Double,
+        secondBestPlayerEval: Double?,
+        isBookMove: Bool
+    ) -> MoveQuality {
+        let isBestMove = moveRank == 1
+
+        // Blunder: huge cp loss, position flip, or large WP swing
+        if cpLoss >= 200 {
+            return .blunder
+        }
+        if cpLoss >= 100 && positionFlipped {
+            return .blunder
+        }
+        if wpLoss >= 25 {
+            return .blunder
+        }
+
+        // Mistake
+        if cpLoss >= 100 {
+            return .mistake
+        }
+
+        // Inaccuracy
+        if cpLoss >= 50 {
+            return .inaccuracy
+        }
+
+        // Book move (takes priority for early game moves)
+        if isBookMove {
+            return .book
+        }
+
+        // --- Below here: cpLoss < 50 ---
+
+        // Brilliant requires ALL of:
+        //   - Best or near-best move
+        //   - Alternatives are much worse (line gap >= 150)
+        //   - True sacrifice (not a recapture)
+        //   - Position was competitive (not already winning hugely or already lost)
+        //   - After the move, player is NOT losing
+        let isCompetitive = playerEvalBefore > -200 && playerEvalBefore < 500
+        let notLosingAfter = playerEvalAfter >= -50
+
+        if cpLoss <= 5 && isBestMove && lineGap >= 150
+            && isSacrifice && !isRecapture
+            && isCompetitive && notLosingAfter
+        {
+            return .brilliant
+        }
+
+        // Great: the ONLY move to maintain the position
+        // Must be best or near-best (cpLoss <= 10), not a recapture, not losing after.
+        // Alternatives must be genuinely bad:
+        //   - 2nd best gives opponent >= +0.5 advantage (secondBestPlayerEval <= -50), OR
+        //   - Player keeps clear advantage but all alternatives lose it (secondBest <= 0)
+        if cpLoss <= 10 && !isRecapture && playerEvalAfter >= -50,
+           let secondBest = secondBestPlayerEval {
+            if secondBest <= -50 {
+                // Only move to keep balance — alternatives give opponent real advantage
+                return .great
+            }
+            if playerEvalAfter >= 100 && secondBest <= 0 {
+                // Only move to keep advantage — alternatives equalize or worse
+                return .great
+            }
+        }
+
+        // Best move (top engine choice, not already ! or !!)
+        if isBestMove && cpLoss <= 10 {
+            return .best
+        }
+
+        // Good move (second best engine choice)
+        if moveRank == 2 && cpLoss <= 20 {
+            return .good
+        }
+
+        // Okay move (third best engine choice)
+        if moveRank == 3 && cpLoss <= 30 {
+            return .okay
+        }
+
+        // Neutral - not bad but not special
+        return .neutral
+    }
+
+    /// Detect a recapture: current move captures on the same square the opponent just captured on
+    private func isRecapture(moveIndex i: Int) -> Bool {
+        guard i >= 2,
+              let currentMove = mainLineNodes[i].move,
+              let previousMove = mainLineNodes[i - 1].move,
+              currentMove.capturedPiece != nil,
+              previousMove.capturedPiece != nil,
+              currentMove.to == previousMove.to else {
+            return false
+        }
+        return true
+    }
+
+    /// Detect a material sacrifice: moving piece is worth more than captured piece
+    /// AND the piece is not immediately protected (would be recaptured for equal/winning trade)
+    private func isSacrifice(moveIndex i: Int) -> Bool {
+        guard i < mainLineNodes.count,
+              let move = mainLineNodes[i].move,
+              let captured = move.capturedPiece else { return false }
+
+        let movingPieceValue = pieceValue(move.piece.type)
+        let capturedPieceValue = pieceValue(captured.type)
+
+        // Must be capturing something worth less
+        guard movingPieceValue > capturedPieceValue + 1 else { return false }
+
+        // Check if opponent recaptures on the same square in the next move
+        if i + 1 < mainLineNodes.count,
+           let nextMove = mainLineNodes[i + 1].move,
+           nextMove.to == move.to,
+           nextMove.capturedPiece != nil {
+            // Opponent recaptured - check if it's a reasonable trade
+            // If we got back material close to what we "sacrificed", it's not a real sacrifice
+            let recapturedValue = pieceValue(nextMove.capturedPiece!.type)
+            let netLoss = movingPieceValue - capturedPieceValue - recapturedValue
+
+            // Only a sacrifice if we lose significant material (2+ pawns worth)
+            return netLoss >= 2
+        }
+
+        // No immediate recapture - it's a sacrifice
+        return true
+    }
+
+    private func pieceValue(_ type: PieceType) -> Int {
+        switch type {
+        case .pawn: return 1
+        case .knight: return 3
+        case .bishop: return 3
+        case .rook: return 5
+        case .queen: return 9
+        case .king: return 100
+        }
+    }
+
+    // MARK: - Accuracy
+
+    private func computeAccuracy() {
+        var whiteAccuracies: [Double] = []
+        var blackAccuracies: [Double] = []
+
+        for classification in moveClassifications {
+            let wpBefore = winProbability(cp: classification.evalBefore)
+            let wpAfter = winProbability(cp: classification.evalAfter)
+
+            let wpLoss: Double
+            if classification.isWhiteMove {
+                wpLoss = max(0, (wpBefore - wpAfter) * 100)
+            } else {
+                wpLoss = max(0, (wpAfter - wpBefore) * 100)
+            }
+
+            let moveAcc = max(0, min(100, 103.1668 * exp(-0.065 * wpLoss) - 3.1668))
+
+            if classification.isWhiteMove {
+                whiteAccuracies.append(moveAcc)
+            } else {
+                blackAccuracies.append(moveAcc)
+            }
+        }
+
+        whiteAccuracy = whiteAccuracies.isEmpty ? 100 : whiteAccuracies.reduce(0, +) / Double(whiteAccuracies.count)
+        blackAccuracy = blackAccuracies.isEmpty ? 100 : blackAccuracies.reduce(0, +) / Double(blackAccuracies.count)
+    }
+
+    private func winProbability(cp: Double) -> Double {
+        let normalizedCP: Double
+        if abs(cp) >= 10000 {
+            let mateIn = abs(cp) - 10000
+            normalizedCP = cp > 0 ? (10000 - mateIn) : -(10000 - mateIn)
+        } else {
+            normalizedCP = cp
+        }
+        return 1.0 / (1.0 + exp(-0.00368208 * normalizedCP))
+    }
+
+    // MARK: - Annotations
+
+    private func applyAnnotations() {
+        // Save evaluations to each node
+        for (index, eval) in evaluations.enumerated() where index < mainLineNodes.count {
+            mainLineNodes[index].evaluation = eval
+        }
+
+        // Save annotations to nodes
+        for classification in moveClassifications {
+            let annotation = classification.quality.rawValue
+            if !annotation.isEmpty, classification.moveIndex < mainLineNodes.count {
+                mainLineNodes[classification.moveIndex].setAnnotation(annotation)
+            }
+        }
+    }
+
+    // MARK: - Statistics
+
+    func classificationCounts() -> [MoveQuality: Int] {
+        var counts: [MoveQuality: Int] = [:]
+        for q in MoveQuality.allCases { counts[q] = 0 }
+        for c in moveClassifications { counts[c.quality, default: 0] += 1 }
+        return counts
+    }
+
+    func classificationCounts(forWhite: Bool) -> [MoveQuality: Int] {
+        var counts: [MoveQuality: Int] = [:]
+        for q in MoveQuality.allCases { counts[q] = 0 }
+        for c in moveClassifications where c.isWhiteMove == forWhite {
+            counts[c.quality, default: 0] += 1
+        }
+        return counts
+    }
+
+    // MARK: - Persistence
+
+    /// Export analysis data for storage
+    func exportAnalysisData() -> GameAnalysisData? {
+        guard isCompleted, !evaluations.isEmpty else { return nil }
+
+        // Collect annotations (one per move, starting from move 1)
+        let annotations = moveClassifications.map { $0.quality.rawValue }
+
+        return GameAnalysisData(
+            evaluations: evaluations,
+            annotations: annotations,
+            whiteAccuracy: whiteAccuracy,
+            blackAccuracy: blackAccuracy
+        )
+    }
+
+    /// Restore analysis from stored data
+    func restoreFromAnalysisData(_ data: GameAnalysisData, gameTree: GameTree) {
+        let nodes = gameTree.mainLine
+        guard nodes.count > 1, data.evaluations.count == nodes.count else { return }
+
+        mainLineNodes = nodes
+        totalMoves = nodes.count
+        evaluations = data.evaluations
+        whiteAccuracy = data.whiteAccuracy
+        blackAccuracy = data.blackAccuracy
+
+        // Restore evaluations to nodes
+        for (index, eval) in evaluations.enumerated() where index < nodes.count {
+            nodes[index].evaluation = eval
+        }
+
+        // Restore annotations to nodes and build classifications
+        moveClassifications = []
+        for i in 0..<data.annotations.count {
+            let moveIndex = i + 1  // annotations[0] is for move 1, not root
+            guard moveIndex < nodes.count else { break }
+
+            let annotation = data.annotations[i]
+            let quality = MoveQuality(rawValue: annotation) ?? .good
+
+            // Apply annotation to node
+            if !annotation.isEmpty {
+                nodes[moveIndex].setAnnotation(annotation)
+            }
+
+            let evalBefore = evaluations[moveIndex - 1]
+            let evalAfter = evaluations[moveIndex]
+            let isWhiteMove = nodes[moveIndex - 1].boardState.turn == .white
+
+            let cpLoss: Double
+            if isWhiteMove {
+                cpLoss = max(0, evalBefore - evalAfter)
+            } else {
+                cpLoss = max(0, evalAfter - evalBefore)
+            }
+
+            moveClassifications.append(MoveClassification(
+                moveIndex: moveIndex,
+                quality: quality,
+                cpLoss: cpLoss,
+                evalBefore: evalBefore,
+                evalAfter: evalAfter,
+                isWhiteMove: isWhiteMove
+            ))
+        }
+
+        state = .completed
+    }
+}
