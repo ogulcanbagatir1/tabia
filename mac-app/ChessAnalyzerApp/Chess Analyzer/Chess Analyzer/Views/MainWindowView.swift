@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct MainWindowView: View {
     @StateObject private var board = ChessBoard()
@@ -81,14 +82,22 @@ struct MainWindowView: View {
     private let iconRailWidth: CGFloat = DS.iconRailWidth
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Icon rail (always visible)
-            IconRailView(selected: $activeScreen)
+        VStack(spacing: 0) {
+            // Masthead — wordmark · centered nav tabs · contextual actions + settings gear.
+            // Hidden in Drill mode (focused mode) — handled inside RepertoireBrowserView's drill.
+            MastheadView(
+                active: $activeScreen,
+                onSelectTab: { activeScreen = $0 },
+                onSettings: openSettingsWindow,
+                rightActions: { mastheadActions }
+            )
 
             Group {
                 switch activeScreen {
                 case .analysis:
                     analysisLayout
+                case .explorer:
+                    ExplorerScreenView()
                 case .database:
                     DatabaseBrowserView(onGameSelected: { game in
                         loadGame(game)
@@ -97,25 +106,22 @@ struct MainWindowView: View {
                         loadGameFromPGN(pgn)
                         activeScreen = .analysis
                     })
-                    .background(GlassContentBackground())
                 case .repertoire:
                     RepertoireBrowserView()
-                        .background(GlassContentBackground())
                 case .chesscom:
                     ChessComBrowserView(onGameSelected: { game in
                         loadGame(game)
                         activeScreen = .analysis
                     })
-                    .background(GlassContentBackground())
                 case .engine:
                     EngineManagerView()
-                        .background(GlassEngineContentBackground())
                 case .settings:
                     SettingsScreenView()
-                        .background(GlassContentBackground())
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            AnnStatusBar(left: statusLeft, right: statusRight)
         }
         .background(GlassBackground(screen: activeScreen))
         .overlay { ReferenceActivityBadge() }
@@ -206,6 +212,40 @@ struct MainWindowView: View {
                 }
             )
         )
+    }
+
+    // MARK: - Masthead & status bar
+
+    @ViewBuilder private var mastheadActions: some View {
+        switch activeScreen {
+        case .analysis:
+            Button("Run Review") { startGameAnalysis() }
+                .buttonStyle(AnnButtonStyle(kind: multiEngine.anyEngineAvailable ? .primary : .disabled))
+                .disabled(!multiEngine.anyEngineAvailable || gameAnalyzer.isAnalyzing)
+        default:
+            EmptyView()
+        }
+    }
+
+    private var statusLeft: String {
+        switch activeScreen {
+        case .analysis:
+            let n = getMoveSequenceSAN().count
+            return n == 0 ? "STARTING POSITION" : "MOVE \(n)"
+        default:
+            return activeScreen.navLabel.uppercased()
+        }
+    }
+
+    private var statusRight: String {
+        multiEngine.anyEngineAvailable ? "ENGINE · READY" : "NO ENGINE"
+    }
+
+    /// Opens the standard Settings window (Settings scene). Also bound to ⌘, and the app menu.
+    private func openSettingsWindow() {
+        if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
     }
 
     // MARK: - Analysis Layout (3-column: explorer + board + right sidebar)
@@ -1018,45 +1058,6 @@ struct BoardStatusBar: View {
         }
         .buttonStyle(.plain)
         .help(help)
-    }
-}
-
-// MARK: - Content Switcher (isolated view — changing activeScreen only invalidates THIS body, not MainWindowView)
-
-struct ContentSwitcherView<Analysis: View>: View {
-    @Binding var activeScreen: AppScreen
-    let loadGame: (GameRecord) -> Void
-    @ViewBuilder let analysisContent: () -> Analysis
-
-    var body: some View {
-        Group {
-            switch activeScreen {
-            case .analysis:
-                analysisContent()
-            case .database:
-                DatabaseBrowserView(onGameSelected: { game in
-                    loadGame(game)
-                    activeScreen = .analysis
-                })
-                .background(GlassContentBackground())
-            case .repertoire:
-                RepertoireBrowserView()
-                    .background(GlassContentBackground())
-            case .chesscom:
-                ChessComBrowserView(onGameSelected: { game in
-                    loadGame(game)
-                    activeScreen = .analysis
-                })
-                .background(GlassContentBackground())
-            case .engine:
-                EngineManagerView()
-                    .background(GlassEngineContentBackground())
-            case .settings:
-                SettingsScreenView()
-                    .background(GlassContentBackground())
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

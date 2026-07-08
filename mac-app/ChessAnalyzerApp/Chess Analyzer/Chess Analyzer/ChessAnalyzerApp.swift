@@ -52,6 +52,8 @@ struct TabiaApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .commands {
+            EngineRoomCommands()
+
             // File menu
             CommandGroup(replacing: .newItem) {
                 Button("New Game") {
@@ -166,6 +168,35 @@ struct TabiaApp: App {
             PreferencesView()
         }
         .handlesExternalEvents(matching: Set(arrayLiteral: "*"))
+
+        // Engine Room — a separate management window (⌘E, the analysis engine-chip menu,
+        // Settings → Engines, and engine empty-state buttons all open this).
+        Window("Engine Room", id: WindowID.engineRoom) {
+            EngineManagerView()
+                .modelContainer(container)
+                .environmentObject(database)
+                .environmentObject(repertoireDatabase)
+                .environmentObject(referenceDatabase)
+                .frame(minWidth: 760, minHeight: 540)
+                .preferredColorScheme(settings.appAppearance == .light ? .light : settings.appAppearance == .dark ? .dark : nil)
+        }
+        .windowResizability(.contentMinSize)
+    }
+}
+
+/// Stable identifiers for auxiliary windows.
+enum WindowID {
+    static let engineRoom = "engineRoom"
+}
+
+/// ⌘E → Engine Room (composed into the app's command set).
+struct EngineRoomCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+    var body: some Commands {
+        CommandGroup(after: .toolbar) {
+            Button("Engine Room") { openWindow(id: WindowID.engineRoom) }
+                .keyboardShortcut("e", modifiers: .command)
+        }
     }
 }
 

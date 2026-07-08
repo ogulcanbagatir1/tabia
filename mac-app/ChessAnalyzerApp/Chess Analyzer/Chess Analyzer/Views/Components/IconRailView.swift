@@ -4,15 +4,20 @@ import SwiftUI
 
 enum AppScreen: String, CaseIterable {
     case analysis
-    case database
+    case explorer
     case repertoire
     case chesscom
+    case database
     case engine
     case settings
+
+    /// The five centered masthead nav tabs (Engines + Settings live in separate windows).
+    static let navTabs: [AppScreen] = [.analysis, .explorer, .repertoire, .chesscom, .database]
 
     var icon: String {
         switch self {
         case .analysis:   return "square.grid.2x2"
+        case .explorer:   return "book.closed"
         case .database:   return "cylinder"
         case .repertoire: return "books.vertical"
         case .chesscom:   return "globe"
@@ -21,16 +26,20 @@ enum AppScreen: String, CaseIterable {
         }
     }
 
-    var label: String {
+    /// Uppercase nav-tab label.
+    var navLabel: String {
         switch self {
         case .analysis:   return "Analysis"
+        case .explorer:   return "Explorer"
+        case .repertoire: return "Repertoire"
+        case .chesscom:   return "Games"
         case .database:   return "Database"
-        case .repertoire: return "Repertoires"
-        case .chesscom:   return "Online Games"
-        case .engine:     return "Engine"
+        case .engine:     return "Engines"
         case .settings:   return "Settings"
         }
     }
+
+    var label: String { navLabel }
 }
 
 // MARK: - Icon Rail View
