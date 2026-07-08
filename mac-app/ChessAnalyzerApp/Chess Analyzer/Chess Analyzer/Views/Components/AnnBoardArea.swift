@@ -21,7 +21,9 @@ struct AnnBoardArea: View {
             // Top player (black by default; white when flipped)
             playerRow(isWhite: isFlipped).frame(width: boardSize + 31)
 
-            HStack(spacing: 16) {
+            // Top-aligned so the eval bar's top/bottom line up exactly with the board
+            // (the mono value hangs below the bar, matching the design's align-items: stretch).
+            HStack(alignment: .top, spacing: 16) {
                 board_
                 evalBar
             }
