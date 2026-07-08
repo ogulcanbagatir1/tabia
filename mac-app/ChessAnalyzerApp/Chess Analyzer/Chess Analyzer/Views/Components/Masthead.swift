@@ -9,35 +9,39 @@ struct MastheadView<Right: View>: View {
     @ViewBuilder var rightActions: () -> Right
 
     var body: some View {
-        HStack(spacing: 20) {
-            // Reserve space for the native traffic lights (hidden titlebar overlays them here).
-            Color.clear.frame(width: 68, height: 1)
-
-            (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
-                .font(AnnFont.serif(20, .semibold))
-                .fixedSize()
-
-            // Centered nav tabs.
+        ZStack {
+            // Nav tabs — centered in the FULL window width, so they never shift when the
+            // per-screen right-actions change width (the side groups are overlaid, not in flow).
             HStack(spacing: 26) {
                 ForEach(AppScreen.navTabs, id: \.self) { tab in
                     NavTab(tab: tab, active: active == tab) { onSelectTab(tab) }
                 }
             }
-            .frame(maxWidth: .infinity)
 
-            HStack(spacing: 10) {
-                rightActions()
-                Button(action: onSettings) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(DS.ink60)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
+            HStack(spacing: 20) {
+                // Reserve space for the native traffic lights (hidden titlebar overlays them here).
+                Color.clear.frame(width: 68, height: 1)
+
+                (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
+                    .font(AnnFont.serif(20, .semibold))
+                    .fixedSize()
+
+                Spacer(minLength: 12)
+
+                HStack(spacing: 10) {
+                    rightActions()
+                    Button(action: onSettings) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(DS.ink60)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Settings (⌘,)")
                 }
-                .buttonStyle(.plain)
-                .help("Settings (⌘,)")
+                .fixedSize()
             }
-            .fixedSize()
         }
         .padding(.horizontal, 18)
         .frame(height: DS.titlebarHeight)
