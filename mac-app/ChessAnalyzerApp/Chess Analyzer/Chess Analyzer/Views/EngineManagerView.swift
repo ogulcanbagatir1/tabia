@@ -154,7 +154,7 @@ struct EngineManagerView: View {
         let isCloud = engine.source == .cloud
         let isAvailable = isCloud ? true : (engineStatuses[engine.id] ?? false)
         let statusColor: Color = isCloud ? DS.semOnline : (isAvailable ? DS.semOnline : DS.semWarning)
-        let iconColor: Color = isCloud ? .teal : (engine.name.lowercased().contains("leela") || engine.name.lowercased().contains("lc0") ? .purple : DS.accent)
+        let iconColor: Color = engine.isDefault ? DS.redAccent : DS.ink60
 
         return VStack(alignment: .leading, spacing: 14) {
             // Top row: icon + active badge

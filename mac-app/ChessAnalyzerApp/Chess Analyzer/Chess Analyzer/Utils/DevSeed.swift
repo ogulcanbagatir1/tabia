@@ -64,9 +64,12 @@ enum DevSeed {
         database.addGames(classicGames + studyGames)
         database.addGames(onlineGames, isChessComImport: true)
 
-        // Engines
-        settings.addEngine(EngineConfig(id: UUID(), name: "Stockfish 17.1", path: "/opt/homebrew/bin/stockfish", isDefault: true, source: .downloaded))
-        settings.addEngine(EngineConfig(id: UUID(), name: "Leela Chess Zero", path: "/opt/homebrew/bin/lc0", isDefault: false, source: .downloaded))
+        // Engines — guard separately: engine configs live in UserDefaults (persist across the
+        // in-memory seed launches), so only add them when none exist to avoid accumulation.
+        if settings.engines.isEmpty {
+            settings.addEngine(EngineConfig(id: UUID(), name: "Stockfish 17.1", path: "/opt/homebrew/bin/stockfish", isDefault: true, source: .downloaded))
+            settings.addEngine(EngineConfig(id: UUID(), name: "Leela Chess Zero", path: "/opt/homebrew/bin/lc0", isDefault: false, source: .downloaded))
+        }
 
         // Repertoires
         _ = repertoire.createRepertoire(name: "Najdorf as Black", side: .black, summary: "Sicilian Najdorf — main lines and sidelines.")
