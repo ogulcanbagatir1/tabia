@@ -18,6 +18,7 @@ struct BoardView: View {
     @ObservedObject var gameTree: GameTree
     var explorerArrow: BoardArrow? = nil  // Optional explorer arrow to show
     var isFlipped: Bool = false  // Board orientation (false = White at bottom)
+    var showLabels: Bool = true  // Rank/file coordinate labels (off for the framed Annotator board)
     @ObservedObject private var settings = AppSettings.shared
     @State private var selectedSquare: Position?
     @State private var legalMoves: [Move] = []
@@ -43,9 +44,9 @@ struct BoardView: View {
     let legalMoveColor = Color.black.opacity(0.12)
     let captureColor = Color(red: 0.80, green: 0.26, blue: 0.26)
 
-    // Coordinate label size
-    let labelWidth: CGFloat = 20
-    let labelHeight: CGFloat = 18
+    // Coordinate label size (collapses to 0 when labels are hidden)
+    var labelWidth: CGFloat { showLabels ? 20 : 0 }
+    var labelHeight: CGFloat { showLabels ? 18 : 0 }
 
     var body: some View {
         GeometryReader { geometry in
@@ -64,12 +65,14 @@ struct BoardView: View {
                     VStack(spacing: 0) {
                         HStack(spacing: 0) {
                             // Left rank numbers
-                            VStack(spacing: 0) {
-                                ForEach(displayRanks, id: \.self) { rank in
-                                    Text("\(rank + 1)")
-                                        .font(.system(size: max(10, squareSize * 0.15), weight: .medium, design: .monospaced))
-                                        .foregroundColor(DS.textSecondary)
-                                        .frame(width: labelWidth, height: squareSize)
+                            if showLabels {
+                                VStack(spacing: 0) {
+                                    ForEach(displayRanks, id: \.self) { rank in
+                                        Text("\(rank + 1)")
+                                            .font(AnnFont.mono(max(10, squareSize * 0.15)))
+                                            .foregroundColor(DS.ink40)
+                                            .frame(width: labelWidth, height: squareSize)
+                                    }
                                 }
                             }
 
@@ -223,13 +226,15 @@ struct BoardView: View {
                         }
 
                         // Bottom file letters
-                        HStack(spacing: 0) {
-                            Spacer().frame(width: labelWidth)
-                            ForEach(displayFiles, id: \.self) { file in
-                                Text(String("abcdefgh"[String.Index(utf16Offset: file, in: "abcdefgh")]))
-                                    .font(.system(size: max(10, squareSize * 0.15), weight: .medium, design: .monospaced))
-                                    .foregroundColor(DS.textSecondary)
-                                    .frame(width: squareSize, height: labelHeight)
+                        if showLabels {
+                            HStack(spacing: 0) {
+                                Spacer().frame(width: labelWidth)
+                                ForEach(displayFiles, id: \.self) { file in
+                                    Text(String("abcdefgh"[String.Index(utf16Offset: file, in: "abcdefgh")]))
+                                        .font(AnnFont.mono(max(10, squareSize * 0.15)))
+                                        .foregroundColor(DS.ink40)
+                                        .frame(width: squareSize, height: labelHeight)
+                                }
                             }
                         }
                     }

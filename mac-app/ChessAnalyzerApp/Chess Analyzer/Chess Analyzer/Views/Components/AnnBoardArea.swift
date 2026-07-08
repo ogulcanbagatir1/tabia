@@ -44,8 +44,9 @@ struct AnnBoardArea: View {
     }
 
     // Board with the Annotator double frame (1px edge · 4px mat · 1px ring · soft shadow).
+    // Labels off so the frame wraps just the 8×8 grid (the design has no coords inside the frame).
     private var board_: some View {
-        BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped)
+        BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped, showLabels: false)
             .frame(width: boardSize, height: boardSize)
             .overlay(Rectangle().strokeBorder(DS.windowBorder, lineWidth: 1))
             .padding(4)

@@ -294,7 +294,9 @@ struct MainWindowView: View {
             let maxBoardFromWidth = availableWidth - minSidebarsTotal - boardExtras
 
             // Board = min(width-constrained, height-constrained), clamped to minimum 300
-            let boardSize = max(min(maxBoardFromHeight, maxBoardFromWidth), 300)
+            // Cap the board near the design's 8×68px (544). It centers in the fluid column
+            // rather than ballooning to fill it, leaving room for the players + plate line.
+            let boardSize = max(min(min(maxBoardFromHeight, maxBoardFromWidth), 560), 300)
 
             // Board area = board + extras
             let boardAreaWidth = boardSize + boardExtras
@@ -404,16 +406,9 @@ struct MainWindowView: View {
                 .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
                 .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
 
-                // Right sidebar — sections separated by bottom borders, no card styling
+                // Right sidebar — engine source + PV + Game Review + move list (opening lives in
+                // the left explorer, per the design — no "Starting Position" panel here).
                 VStack(spacing: 0) {
-                    CurrentOpeningView(
-                        openingName: currentOpeningName,
-                        eco: currentOpeningECO
-                    )
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(DS.hairline).frame(height: 1)
-                    }
-
                     AnalysisPanelView(
                         multiEngine: multiEngine,
                         gameTree: gameTree,
