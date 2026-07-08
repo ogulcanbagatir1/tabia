@@ -11,6 +11,7 @@ struct MainWindowView: View {
     @StateObject private var lichessExplorer = LichessExplorerService()
     @StateObject private var libraryExplorer = LibraryExplorerService()
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.openWindow) private var openWindow
 
     @State private var autoAnalyze = true
     @State private var showingSidebar = true
@@ -305,82 +306,22 @@ struct MainWindowView: View {
             HStack(spacing: 0) {
                 // Explorer panel
                 VStack(spacing: 0) {
-                    // Header with source picker + search
-                    VStack(spacing: 10) {
-                        // Segmented control
-                        HStack(spacing: 2) {
-                            ForEach(ExplorerSource.allCases, id: \.self) { source in
-                                let isSelected = explorerSource == source
-                                Button(action: { explorerSource = source }) {
-                                    Text(source.rawValue)
-                                        .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                                        .foregroundColor(isSelected ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 28)
-                                        .contentShape(Rectangle())
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                                .fill(isSelected ? Color.white.opacity(0.125) : Color.clear)
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    // Annotator "OPENING EXPLORER" header: label · source segmented · search
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
+                            AnnLabel("Opening Explorer", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
+                            Spacer()
+                            Text(explorerSource == .lichess ? "MASTERS" : "YOUR GAMES")
+                                .font(AnnFont.mono(10)).foregroundColor(DS.ink40)
                         }
-                        .padding(3)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.07))
+                        AnnSegmented(
+                            options: ExplorerSource.allCases.map { ($0, $0.rawValue) },
+                            selection: $explorerSource
                         )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.25), Color.white.opacity(0.05)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-
-                        // Search bar
-                        HStack(spacing: 8) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
-                                .font(.system(size: 13))
-
-                            TextField("Search openings...", text: $explorerSearchText)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 11))
-
-                            if !explorerSearchText.isEmpty {
-                                Button(action: { explorerSearchText = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
-                                        .font(.system(size: 11))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .frame(height: 30)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.05))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
+                        AnnSearchField(text: $explorerSearchText, placeholder: "Search openings…")
                     }
-                    .padding(12)
+                    .padding(16)
+                    .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
 
                     if explorerSource == .lichess {
                         LichessExplorerView(
@@ -478,7 +419,7 @@ struct MainWindowView: View {
                         gameAnalyzer: gameAnalyzer,
                         onStartAnalysis: startGameAnalysis,
                         onCancelAnalysis: cancelGameAnalysis,
-                        onNavigateToEngines: { activeScreen = .engine }
+                        onNavigateToEngines: { openWindow(id: WindowID.engineRoom) }
                     )
                     .overlay(alignment: .bottom) {
                         Rectangle().fill(DS.hairline).frame(height: 1)

@@ -51,6 +51,7 @@ struct TabiaApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
+        .defaultSize(width: 1440, height: 900)
         .commands {
             EngineRoomCommands()
 
