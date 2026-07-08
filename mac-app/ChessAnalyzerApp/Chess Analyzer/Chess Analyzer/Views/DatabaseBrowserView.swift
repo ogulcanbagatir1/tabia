@@ -6,7 +6,7 @@ struct DatabaseBrowserView: View {
     var onGameSelected: (GameRecord) -> Void
     var onReferenceGameSelected: (String) -> Void = { _ in }
 
-    @State private var navigation: Navigation = .root
+    @State private var navigation: Navigation = .allGames
     @State private var selectedGameIds: Set<UUID> = []
     @State private var selectedGame: GameRecord?
     @State private var showingImportPicker = false
@@ -102,16 +102,23 @@ struct DatabaseBrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            switch navigation {
-            case .root:
-                rootView
-            case .allGames, .folder:
-                tableView
-            case .reference:
-                ReferenceBrowseView(
-                    onBack: { navigation = .root },
-                    onOpen: { onReferenceGameSelected($0) }
-                )
+            HStack(spacing: 0) {
+                librarySidebar
+                    .frame(width: 280)
+                    .background(DS.chrome)
+                    .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                Group {
+                    switch navigation {
+                    case .reference:
+                        ReferenceBrowseView(
+                            onBack: { navigation = .allGames },
+                            onOpen: { onReferenceGameSelected($0) }
+                        )
+                    default:
+                        tableView
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .fileImporter(
@@ -249,6 +256,84 @@ struct DatabaseBrowserView: View {
     }
 
     // MARK: - Root View (Database List)
+
+    // MARK: - Library sidebar (D1) — the old "Databases" grid folded into a sidebar
+
+    private var librarySidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    AnnLabel("Library", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
+                        .padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 8)
+
+                    sidebarRow(icon: "tray.full", name: "All Games", count: database.libraryGameCount,
+                               isSelected: navigation == .allGames) { navigation = .allGames }
+
+                    ForEach(database.folders.sorted { $0.name < $1.name }, id: \.id) { folder in
+                        sidebarRow(icon: "cylinder", name: folder.name, count: database.gamesInFolderCount(folder.id),
+                                   isSelected: navigation == .folder(folder.id)) { navigation = .folder(folder.id) }
+                    }
+
+                    if referenceDatabase.gameCount > 0 {
+                        sidebarRow(icon: "books.vertical.fill", name: referenceDatabase.displayName,
+                                   count: referenceDatabase.gameCount, subtitle: "read-only",
+                                   isSelected: navigation == .reference) { navigation = .reference }
+                    }
+
+                    Rectangle().fill(DS.hairline).frame(height: 1).padding(.vertical, 12).padding(.horizontal, 12)
+
+                    AnnLabel("Smart Sets", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
+                        .padding(.horizontal, 12).padding(.bottom, 8)
+                    smartRow("Reviewed games")
+                    smartRow("Losses out of book")
+                    smartRow("This month")
+                }
+                .padding(.horizontal, 8)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text("The reference database is read-only — a re-download replaces it.")
+                    .font(AnnFont.voice(11.5)).foregroundColor(DS.ink40)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("\(database.folders.count + 1) COLLECTIONS · \(formattedGameCount(database.libraryGameCount)) GAMES")
+                    .font(AnnFont.mono(9)).foregroundColor(DS.ink25)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
+        }
+    }
+
+    private func sidebarRow(icon: String, name: String, count: Int, subtitle: String? = nil,
+                            isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.system(size: 13))
+                    .foregroundColor(isSelected ? DS.redAccent : DS.ink40).frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name).font(AnnFont.serif(13.5, .medium)).foregroundColor(DS.ink).lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle.uppercased()).font(AnnFont.label(8)).tracking(0.8).foregroundColor(DS.ink40)
+                    }
+                }
+                Spacer(minLength: 6)
+                Text("\(count)").font(AnnFont.mono(10)).foregroundColor(DS.ink40)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(isSelected ? DS.selectedWash : Color.clear, in: RoundedRectangle(cornerRadius: DS.rControl))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func smartRow(_ name: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal.decrease.circle").font(.system(size: 12))
+                .foregroundColor(DS.ink40).frame(width: 18)
+            Text(name).font(AnnFont.serif(13, .regular)).foregroundColor(DS.ink60)
+            Spacer()
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+    }
 
     private var rootView: some View {
         VStack(spacing: 0) {
@@ -735,11 +820,11 @@ struct DatabaseBrowserView: View {
                         Text("Import PGN")
                             .font(.system(size: 12, weight: .semibold))
                     }
-                    .foregroundColor(Color(hex: 0x0A84FF))
+                    .foregroundColor(DS.ink)
                     .padding(.vertical, 6)
                     .padding(.horizontal, 14)
-                    .background(Color(hex: 0x0A84FF, opacity: 0.19), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .shadow(color: Color(hex: 0x0A84FF, opacity: 0.125), radius: 6, x: 0, y: 0)
+                    .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }
@@ -1289,7 +1374,7 @@ struct DatabaseBrowserView: View {
             if selectedGameIds.count > 1 {
                 Text("\(selectedGameIds.count) selected")
                     .font(.system(size: 10))
-                    .foregroundColor(Color(hex: 0x0A84FF))
+                    .foregroundColor(DS.redAccent)
             }
 
             Text("Sorted by date")

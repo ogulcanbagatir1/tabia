@@ -297,7 +297,7 @@ struct BoardThemePreview: View {
                         lineWidth: isSelected ? 2 : 1
                     )
             )
-            .shadow(color: isSelected ? Color(hex: 0x0A84FF, opacity: 0.15) : Color.black.opacity(0.15), radius: isSelected ? 6 : 4, x: 0, y: 2)
+            .shadow(color: isSelected ? DS.redAccent.opacity(0.2) : Color.black.opacity(0.15), radius: isSelected ? 6 : 4, x: 0, y: 2)
 
             Text(theme.name)
                 .font(.system(size: 10, weight: isSelected ? .medium : .regular))
@@ -344,7 +344,7 @@ struct PieceStylePreview: View {
                         lineWidth: isSelected ? 2 : 1
                     )
             )
-            .shadow(color: isSelected ? Color(hex: 0x0A84FF, opacity: 0.15) : Color.black.opacity(0.12), radius: isSelected ? 6 : 4, x: 0, y: 2)
+            .shadow(color: isSelected ? DS.redAccent.opacity(0.2) : Color.black.opacity(0.12), radius: isSelected ? 6 : 4, x: 0, y: 2)
 
             Text(style.name)
                 .font(.system(size: 10, weight: isSelected ? .medium : .regular))

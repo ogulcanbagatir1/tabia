@@ -215,7 +215,7 @@ struct EngineManagerView: View {
                 )
         )
         .shadow(
-            color: engine.isDefault ? Color(hex: 0x0A84FF, opacity: 0.125) : Color.black.opacity(0.19),
+            color: Color.black.opacity(0.19),
             radius: engine.isDefault ? 15 : 10,
             x: 0,
             y: 4

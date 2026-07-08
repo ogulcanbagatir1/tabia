@@ -17,9 +17,12 @@ struct TabiaApp: App {
         // The Annotator's three voices — register the bundled OFL fonts before any view renders.
         AnnFont.registerBundledFonts()
 
+        // Seed runs (TABIA_SEED) use an in-memory store so sample data never touches the real DB.
+        let ephemeral = ProcessInfo.processInfo.environment["TABIA_SEED"] != nil
         let container = try! ModelContainer(
             for: GameRecord.self, GameFolder.self, ChessComCachedStats.self, CachedName.self,
-                 Repertoire.self, RepertoireFolder.self, RepertoireNode.self, PositionSchedule.self
+                 Repertoire.self, RepertoireFolder.self, RepertoireNode.self, PositionSchedule.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: ephemeral)
         )
         self.container = container
         self.database = GameDatabase(modelContext: container.mainContext, container: container)
@@ -43,6 +46,7 @@ struct TabiaApp: App {
                 .task {
                     database.startBackgroundBackfills()
                     settings.recoverInstalledEngines()
+                    DevSeed.seedIfRequested(database: database, repertoire: repertoireDatabase, settings: settings)
                 }
                 .preferredColorScheme(settings.appAppearance == .light ? .light : settings.appAppearance == .dark ? .dark : nil)
                 .onOpenURL { url in
