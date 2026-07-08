@@ -19,9 +19,6 @@ struct MastheadView<Right: View>: View {
             }
 
             HStack(spacing: 20) {
-                // Reserve space for the native traffic lights (hidden titlebar overlays them here).
-                Color.clear.frame(width: 68, height: 1)
-
                 (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
                     .font(AnnFont.serif(20, .semibold))
                     .fixedSize()
