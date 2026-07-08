@@ -390,19 +390,6 @@ struct MainWindowView: View {
                     )
                     .padding(.vertical, 20)
                     Spacer(minLength: 0)
-
-                    // Slim bottom toolbar: new game · save · flip
-                    HStack(spacing: 6) {
-                        boardIconButton("arrow.counterclockwise", "New Game") { resetGame() }
-                        boardIconButton("square.and.arrow.down", "Save Game") { showingSaveSheet = true }
-                        Spacer()
-                        boardIconButton("arrow.up.arrow.down",
-                                        isBoardFlipped ? "View as White" : "View as Black",
-                                        active: isBoardFlipped) { isBoardFlipped.toggle() }
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(height: 42)
-                    .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
                 }
                 .frame(maxWidth: .infinity)
                 .background(GlassBoardAreaBackground())
