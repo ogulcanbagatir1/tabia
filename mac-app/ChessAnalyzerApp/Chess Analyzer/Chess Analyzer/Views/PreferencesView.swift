@@ -95,7 +95,7 @@ struct AppearanceSettingsView: View {
                             Button {
                                 withAnimation(DS.quickFade) { settings.appAppearance = mode }
                             } label: {
-                                Text(mode.rawValue)
+                                Text(mode.displayName)
                                     .font(AnnFont.label(11))
                                     .tracking(11 * 0.1)
                                     .foregroundColor(isSelected ? DS.ink : DS.ink40)
@@ -123,14 +123,17 @@ struct AppearanceSettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     glassSettingsLabel("BOARD THEME")
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56, maximum: 70), spacing: 10)], spacing: 10) {
-                        ForEach(BoardTheme.allThemes) { theme in
-                            BoardThemePreview(
-                                theme: theme,
-                                isSelected: settings.boardThemeId == theme.id
-                            )
-                            .onTapGesture {
-                                withAnimation(DS.quickFade) { settings.boardThemeId = theme.id }
+                    // Manual rows (adaptive LazyVGrid-in-ScrollView collapses on current macOS).
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(chunked(BoardTheme.allThemes, 7).enumerated()), id: \.offset) { _, row in
+                            HStack(spacing: 10) {
+                                ForEach(row) { theme in
+                                    BoardThemePreview(theme: theme, isSelected: settings.boardThemeId == theme.id)
+                                        .onTapGesture {
+                                            withAnimation(DS.quickFade) { settings.boardThemeId = theme.id }
+                                        }
+                                }
+                                Spacer(minLength: 0)
                             }
                         }
                     }
@@ -140,14 +143,16 @@ struct AppearanceSettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     glassSettingsLabel("PIECE STYLE")
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 60, maximum: 80), spacing: 12)], spacing: 12) {
-                        ForEach(PieceStyle.allStyles) { style in
-                            PieceStylePreview(
-                                style: style,
-                                isSelected: settings.pieceStyleId == style.id
-                            )
-                            .onTapGesture {
-                                withAnimation(DS.quickFade) { settings.pieceStyleId = style.id }
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(chunked(PieceStyle.allStyles, 6).enumerated()), id: \.offset) { _, row in
+                            HStack(spacing: 12) {
+                                ForEach(row) { style in
+                                    PieceStylePreview(style: style, isSelected: settings.pieceStyleId == style.id)
+                                        .onTapGesture {
+                                            withAnimation(DS.quickFade) { settings.pieceStyleId = style.id }
+                                        }
+                                }
+                                Spacer(minLength: 0)
                             }
                         }
                     }
@@ -203,6 +208,11 @@ private func glassSettingsLabel(_ text: String) -> some View {
         .font(AnnFont.label(10))
         .foregroundColor(DS.ink25)
         .kerning(0.8)
+}
+
+/// Split into rows of `n` for manual grid layout.
+private func chunked<T>(_ items: [T], _ n: Int) -> [[T]] {
+    stride(from: 0, to: items.count, by: n).map { Array(items[$0..<min($0 + n, items.count)]) }
 }
 
 private func settingsSectionLabel(_ text: String) -> some View {
