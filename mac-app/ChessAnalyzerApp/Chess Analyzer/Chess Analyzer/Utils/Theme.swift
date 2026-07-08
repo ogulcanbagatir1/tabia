@@ -30,6 +30,8 @@ extension DS {
     static let selectedMove = adaptive(light: 0xE7DDC0, dark: 0x3F3624)
     /// Empty bar/track fills — #E2D8BE / #2A2418
     static let trackBg      = adaptive(light: 0xE2D8BE, dark: 0x2A2418)
+    /// Black side of W/D/L + eval-bar well — #2E271C / #0F0C08
+    static let deepWell     = adaptive(light: 0x2E271C, dark: 0x0F0C08)
 
     // MARK: Lines & borders
     /// Every 1px rule — #D9CFB8 / #3A3222

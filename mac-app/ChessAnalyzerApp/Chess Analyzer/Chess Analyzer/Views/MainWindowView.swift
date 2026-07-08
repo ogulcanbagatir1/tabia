@@ -248,6 +248,21 @@ struct MainWindowView: View {
         }
     }
 
+    private func boardIconButton(_ icon: String, _ help: String, active: Bool = false,
+                                 _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundColor(active ? DS.redAccent : DS.ink60)
+                .frame(width: 28, height: 28)
+                .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
     // MARK: - Analysis Layout (3-column: explorer + board + right sidebar)
 
     private var analysisLayout: some View {
@@ -406,58 +421,45 @@ struct MainWindowView: View {
                 }
                 .frame(width: finalExplorerWidth)
                 .background(GlassPanelBackground())
-                .overlay(alignment: .trailing) {
-                    Rectangle().fill(
-                        LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom)
-                    ).frame(width: 1)
-                }
-                .overlay(alignment: .top) {
-                    Rectangle().fill(
-                        LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
-                    ).frame(height: 1)
-                }
-                .shadow(color: Color.black.opacity(0.31), radius: 25, x: 6, y: 0)
+                .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
 
-                // Board area — centers in remaining space
+                // Board area — Annotator board (players · double frame · eval bar · plate)
                 VStack(spacing: 0) {
-                    BoardStatusBar(
+                    // Slim toolbar: new game · save · flip
+                    HStack(spacing: 6) {
+                        boardIconButton("arrow.counterclockwise", "New Game") { resetGame() }
+                        boardIconButton("square.and.arrow.down", "Save Game") { showingSaveSheet = true }
+                        Spacer()
+                        boardIconButton("arrow.up.arrow.down",
+                                        isBoardFlipped ? "View as White" : "View as Black",
+                                        active: isBoardFlipped) { isBoardFlipped.toggle() }
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 42)
+                    .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+                    Spacer(minLength: 0)
+                    AnnBoardArea(
                         board: board,
+                        gameTree: gameTree,
                         engine: multiEngine.primaryEngine,
-                        isBoardFlipped: $isBoardFlipped,
+                        boardSize: boardSize,
                         whiteName: whiteName,
                         blackName: blackName,
                         whiteRating: whiteRating,
                         blackRating: blackRating,
-                        onNewGame: resetGame,
-                        onSave: { showingSaveSheet = true }
+                        openingName: currentOpeningName,
+                        plyCount: getMoveSequenceSAN().count,
+                        isFlipped: isBoardFlipped,
+                        explorerArrow: engineArrow
                     )
-
-                    HStack {
-                        Spacer(minLength: sidebarGap)
-                        VStack {
-                            Spacer()
-                            BoardWithEvalBar(
-                                board: board,
-                                gameTree: gameTree,
-                                engine: multiEngine.primaryEngine,
-                                fixedBoardSize: boardSize,
-                                explorerArrow: engineArrow,
-                                isFlipped: isBoardFlipped
-                            )
-                            Spacer()
-                        }
-                        .padding(.vertical, 20)
-                        Spacer(minLength: sidebarGap)
-                    }
+                    .padding(.vertical, 20)
+                    Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity)
                 .background(GlassBoardAreaBackground())
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(Color.white.opacity(0.19)).frame(width: 1)
-                }
-                .overlay(alignment: .trailing) {
-                    Rectangle().fill(Color.white.opacity(0.19)).frame(width: 1)
-                }
+                .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
 
                 // Right sidebar — sections separated by bottom borders, no card styling
                 VStack(spacing: 0) {
@@ -466,7 +468,7 @@ struct MainWindowView: View {
                         eco: currentOpeningECO
                     )
                     .overlay(alignment: .bottom) {
-                        Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                        Rectangle().fill(DS.hairline).frame(height: 1)
                     }
 
                     AnalysisPanelView(
@@ -479,7 +481,7 @@ struct MainWindowView: View {
                         onNavigateToEngines: { activeScreen = .engine }
                     )
                     .overlay(alignment: .bottom) {
-                        Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                        Rectangle().fill(DS.hairline).frame(height: 1)
                     }
 
                     if gameAnalyzer.isCompleted {
@@ -488,7 +490,7 @@ struct MainWindowView: View {
                             gameTree: gameTree
                         )
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                            Rectangle().fill(DS.hairline).frame(height: 1)
                         }
                     }
 
@@ -496,17 +498,7 @@ struct MainWindowView: View {
                 }
                 .frame(width: finalRightSidebarWidth)
                 .background(GlassPanelBackground())
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(
-                        LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom)
-                    ).frame(width: 1)
-                }
-                .overlay(alignment: .top) {
-                    Rectangle().fill(
-                        LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
-                    ).frame(height: 1)
-                }
-                .shadow(color: Color.black.opacity(0.31), radius: 25, x: -6, y: 0)
+                .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
             }
         }
     }
@@ -1040,7 +1032,7 @@ struct BoardStatusBar: View {
         .padding(.horizontal, 16)
         .frame(height: 42)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
