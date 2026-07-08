@@ -230,7 +230,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // Glass window styling
                 window.titlebarAppearsTransparent = true
                 window.backgroundColor = .clear
+
+                // Vertically center the native traffic lights within the 47pt masthead band
+                // (the masthead rises into the title-bar area, so the OS-default high position
+                // would sit above the wordmark's centerline).
+                self.centerTrafficLights(in: window)
+                NotificationCenter.default.addObserver(
+                    self, selector: #selector(self.windowDidResize(_:)),
+                    name: NSWindow.didResizeNotification, object: window)
             }
+        }
+    }
+
+    @objc func windowDidResize(_ note: Notification) {
+        if let window = note.object as? NSWindow { centerTrafficLights(in: window) }
+    }
+
+    /// Move the close/minimize/zoom buttons so their vertical centers sit at the middle of
+    /// the 47pt masthead band, on the same line as the wordmark and nav tabs.
+    func centerTrafficLights(in window: NSWindow) {
+        let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+            .compactMap { window.standardWindowButton($0) }
+        guard let container = buttons.first?.superview else { return }
+        let bar = DS.titlebarHeight
+        for button in buttons {
+            var origin = button.frame.origin
+            origin.y = container.bounds.height - bar / 2 - button.frame.height / 2
+            button.setFrameOrigin(origin)
         }
     }
 
