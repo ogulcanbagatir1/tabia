@@ -616,7 +616,9 @@ struct DatabaseBrowserView: View {
             }
 
             filterPanel
-                .offset(x: showingFilters ? 0 : 380)
+                .padding(.vertical, 14)
+                .padding(.trailing, 14)
+                .offset(x: showingFilters ? 0 : 400)
                 .animation(.easeInOut(duration: 0.25), value: showingFilters)
         }
     }
@@ -845,12 +847,8 @@ struct DatabaseBrowserView: View {
         VStack(spacing: 0) {
             // Header
             HStack(spacing: 8) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 16))
-                    .foregroundColor(DS.ink60)
-
                 Text("Filters")
-                    .font(AnnFont.serif(14, .semibold))
+                    .font(AnnFont.serif(18, .semibold))
                     .foregroundColor(DS.ink)
 
                 Spacer()
@@ -868,6 +866,7 @@ struct DatabaseBrowserView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
+            .background(DS.chrome)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
@@ -924,9 +923,9 @@ struct DatabaseBrowserView: View {
                     // Opening (last section, no bottom border)
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Opening")
-                            .font(AnnFont.label(11))
-                            .foregroundColor(DS.textSecondary)
-                            .kerning(0.4)
+                            .font(AnnFont.label(9.5))
+                            .foregroundColor(DS.ink40)
+                            .kerning(1.3)
 
                         filterSearchField(text: $filterOpening, placeholder: "Search openings...")
                         filterSelectableList(
@@ -943,14 +942,20 @@ struct DatabaseBrowserView: View {
             // Footer
             HStack(spacing: 12) {
                 Button(action: { withAnimation(.easeInOut(duration: 0.15)) { clearFilters() } }) {
-                    Text("Clear All")
+                    Text("CLEAR ALL")
+                        .font(AnnFont.label(10))
+                        .tracking(10 * 0.1)
+                        .foregroundColor(DS.ink60)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(GlassButtonStyle())
+                .buttonStyle(.plain)
 
                 Spacer()
 
                 Button(action: { applyFilters() }) {
-                    Text("Apply Filters")
+                    Text(activeFilterCount > 0
+                         ? "Apply — \(activeFilterCount) Filter\(activeFilterCount == 1 ? "" : "s")"
+                         : "Apply")
                 }
                 .buttonStyle(GlassPrimaryButtonStyle())
             }
@@ -961,15 +966,15 @@ struct DatabaseBrowserView: View {
             }
             .background(DS.chrome)
         }
-        .frame(width: 360)
-        .background(DS.paperRaised)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(DS.hairline).frame(width: 1)
-        }
-        .overlay(alignment: .top) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
-        }
-        .shadow(color: .black.opacity(0.37), radius: 15, x: -6, y: 0)
+        .frame(width: 340)
+        .background(DS.paper)
+        .clipShape(RoundedRectangle(cornerRadius: DS.rWindow, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.rWindow, style: .continuous)
+                .strokeBorder(DS.windowBorder, lineWidth: 1)
+        )
+        // Flat aesthetic: one soft, downward drop shadow — no horizontal "wall" offset, no glass.
+        .shadow(color: DS.glassShadowColor, radius: 22, x: 0, y: 10)
     }
 
     // MARK: - Filter Section
@@ -977,9 +982,9 @@ struct DatabaseBrowserView: View {
     private func filterSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(AnnFont.label(11))
-                .foregroundColor(DS.ink60)
-                .kerning(0.4)
+                .font(AnnFont.label(9.5))
+                .foregroundColor(DS.ink40)
+                .kerning(1.3)
 
             content()
         }
@@ -1000,7 +1005,7 @@ struct DatabaseBrowserView: View {
 
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
-                .font(AnnFont.serif(11))
+                .font(AnnFont.mono(10.5))
 
             if !text.wrappedValue.isEmpty {
                 Button(action: { text.wrappedValue = "" }) {
@@ -1011,15 +1016,15 @@ struct DatabaseBrowserView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 11)
         .frame(height: 30)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
                 .fill(DS.fieldBg)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(DS.hairline, lineWidth: 1)
+            RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                .strokeBorder(DS.borderChip, lineWidth: 1)
         )
     }
 
@@ -1046,27 +1051,17 @@ struct DatabaseBrowserView: View {
             // Title + range on same row (matches Pencil whiteEloHeader/blackEloHeader)
             HStack {
                 Text(label)
-                    .font(AnnFont.label(11))
-                    .foregroundColor(DS.textSecondary)
-                    .kerning(0.4)
+                    .font(AnnFont.label(9.5))
+                    .foregroundColor(DS.ink40)
+                    .kerning(1.3)
                 Spacer()
                 Text("\(lo) – \(hi)")
-                    .font(AnnFont.mono(11))
-                    .foregroundColor(isActive ? DS.accent : DS.textTertiary)
+                    .font(AnnFont.mono(10.5))
+                    .foregroundColor(isActive ? DS.accent : DS.ink60)
             }
 
             DualSlider(range: range, bounds: 0...3000, step: 50)
                 .frame(height: 20)
-
-            HStack {
-                Text("1000")
-                    .font(AnnFont.mono(10))
-                    .foregroundColor(DS.textMuted)
-                Spacer()
-                Text("3000")
-                    .font(AnnFont.mono(10))
-                    .foregroundColor(DS.textMuted)
-            }
         }
     }
 
@@ -1728,22 +1723,22 @@ private struct FilterListItem: View {
                 // Checkbox
                 if isSelected {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 3)
+                        RoundedRectangle(cornerRadius: DS.rBar)
                             .fill(DS.accent)
-                            .frame(width: 16, height: 16)
+                            .frame(width: 13, height: 13)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(DS.paper)
                     }
                 } else {
-                    RoundedRectangle(cornerRadius: 3)
-                        .strokeBorder(DS.textTertiary, lineWidth: 1)
-                        .frame(width: 16, height: 16)
+                    RoundedRectangle(cornerRadius: DS.rBar)
+                        .strokeBorder(DS.borderStrong, lineWidth: 1)
+                        .frame(width: 13, height: 13)
                 }
 
                 Text(name)
-                    .font(AnnFont.serif(12, isSelected ? .medium : .regular))
-                    .foregroundColor(DS.textPrimary)
+                    .font(AnnFont.serif(13.5, isSelected ? .medium : .regular))
+                    .foregroundColor(DS.ink)
                     .lineLimit(1)
 
                 Spacer()
@@ -1784,18 +1779,18 @@ struct DualSlider: View {
             ZStack(alignment: .leading) {
                 // Track background
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(DS.bgTertiary)
-                    .frame(height: 4)
+                    .fill(DS.trackBg)
+                    .frame(height: 3)
 
                 // Active range fill
                 RoundedRectangle(cornerRadius: 2)
                     .fill(DS.accent)
-                    .frame(width: max(0, CGFloat(hiFrac - loFrac) * width), height: 4)
+                    .frame(width: max(0, CGFloat(hiFrac - loFrac) * width), height: 3)
                     .offset(x: CGFloat(loFrac) * width)
 
                 // Low thumb
                 sliderThumb
-                    .offset(x: CGFloat(loFrac) * width - 8)
+                    .offset(x: CGFloat(loFrac) * width - 7.5)
                     .gesture(DragGesture(minimumDistance: 0).onChanged { v in
                         let raw = bounds.lowerBound + Double(v.location.x / width) * span
                         let snapped = (raw / step).rounded() * step
@@ -1805,7 +1800,7 @@ struct DualSlider: View {
 
                 // High thumb
                 sliderThumb
-                    .offset(x: CGFloat(hiFrac) * width - 8)
+                    .offset(x: CGFloat(hiFrac) * width - 7.5)
                     .gesture(DragGesture(minimumDistance: 0).onChanged { v in
                         let raw = bounds.lowerBound + Double(v.location.x / width) * span
                         let snapped = (raw / step).rounded() * step
@@ -1819,9 +1814,9 @@ struct DualSlider: View {
 
     private var sliderThumb: some View {
         Circle()
-            .fill(Color.white)
-            .frame(width: 16, height: 16)
-            .overlay(Circle().stroke(DS.accent, lineWidth: 2))
+            .fill(DS.fieldBg)
+            .frame(width: 15, height: 15)
+            .overlay(Circle().stroke(DS.accent, lineWidth: 1.5))
     }
 }
 
