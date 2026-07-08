@@ -12,6 +12,7 @@ struct MainWindowView: View {
     @StateObject private var libraryExplorer = LibraryExplorerService()
     @ObservedObject private var settings = AppSettings.shared
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettingsAction
 
     @State private var autoAnalyze = true
     @State private var showingSidebar = true
@@ -247,9 +248,7 @@ struct MainWindowView: View {
 
     /// Opens the standard Settings window (Settings scene). Also bound to ⌘, and the app menu.
     private func openSettingsWindow() {
-        if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
-            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-        }
+        openSettingsAction()
     }
 
     private func boardIconButton(_ icon: String, _ help: String, active: Bool = false,
