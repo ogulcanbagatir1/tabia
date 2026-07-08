@@ -43,16 +43,10 @@ struct AnnBoardArea: View {
         }
     }
 
-    // Board with the Annotator double frame (1px edge · 4px mat · 1px ring · soft shadow).
-    // Labels off so the frame wraps just the 8×8 grid (the design has no coords inside the frame).
+    // The board (BoardView already draws its own aligned border + shadow — no extra frame here).
     private var board_: some View {
         BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped, showLabels: false)
             .frame(width: boardSize, height: boardSize)
-            .overlay(Rectangle().strokeBorder(DS.windowBorder, lineWidth: 1))
-            .padding(4)
-            .background(DS.paperRaised)
-            .overlay(Rectangle().strokeBorder(DS.borderStrong, lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.35), radius: 26, x: 0, y: 14)
     }
 
     // Eval bar — deep well, paper fill from bottom sized to the white win-probability,
