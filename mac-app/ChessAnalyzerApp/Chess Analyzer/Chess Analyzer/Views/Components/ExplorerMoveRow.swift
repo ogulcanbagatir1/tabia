@@ -16,7 +16,7 @@ struct ExplorerMoveRow: View {
                 // Move name
                 HStack(spacing: 3) {
                     Text(san)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(AnnFont.mono(12, bold: true))
                         .foregroundColor(DS.textPrimary)
 
                     if isBookMove {
@@ -28,7 +28,7 @@ struct ExplorerMoveRow: View {
 
                 // Games count
                 Text(formatNumber(totalGames))
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
 

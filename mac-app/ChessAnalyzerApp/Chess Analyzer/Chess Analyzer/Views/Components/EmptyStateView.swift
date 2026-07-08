@@ -19,12 +19,12 @@ struct EmptyStateView: View {
 
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: titleSize, weight: .semibold))
+                    .font(AnnFont.serif(titleSize, .semibold))
                     .foregroundColor(DS.ink60)
 
                 if let description = description {
                     Text(description)
-                        .font(.system(size: descriptionSize))
+                        .font(AnnFont.serif(descriptionSize))
                         .foregroundColor(DS.ink40)
                         .lineSpacing(4)
                         .multilineTextAlignment(.center)

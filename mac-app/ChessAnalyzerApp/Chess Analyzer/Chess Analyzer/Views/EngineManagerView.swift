@@ -18,10 +18,10 @@ struct EngineManagerView: View {
                         // Header
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Engine Manager")
-                                .font(.system(size: 24, weight: .bold))
+                                .font(AnnFont.serif(24, .semibold))
                                 .foregroundColor(DS.ink)
                             Text("\(settings.engines.count) engine\(settings.engines.count == 1 ? "" : "s") configured")
-                                .font(.system(size: 13))
+                                .font(AnnFont.serif(13))
                                 .foregroundColor(DS.ink40)
                         }
 
@@ -61,11 +61,11 @@ struct EngineManagerView: View {
                 .foregroundColor(DS.ink25)
 
             Text("No Engines Configured")
-                .font(.system(size: 20, weight: .semibold))
+                .font(AnnFont.serif(20, .semibold))
                 .foregroundColor(DS.ink)
 
             Text("Add a chess engine to start analyzing positions.\nStockfish is recommended for the best experience.")
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13))
                 .foregroundColor(DS.ink40)
                 .lineSpacing(4)
                 .multilineTextAlignment(.center)
@@ -132,7 +132,8 @@ struct EngineManagerView: View {
                     .foregroundColor(DS.ink40)
 
                 Text("Add Engine")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AnnFont.label(12))
+                    .tracking(12 * 0.1)
                     .foregroundColor(DS.ink40)
             }
             .frame(maxHeight: .infinity)
@@ -172,7 +173,8 @@ struct EngineManagerView: View {
 
                 if engine.isDefault {
                     Text("Active")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(AnnFont.label(10))
+                        .tracking(10 * 0.1)
                         .foregroundColor(DS.redAccent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -183,7 +185,7 @@ struct EngineManagerView: View {
             // Engine info
             VStack(alignment: .leading, spacing: 4) {
                 Text(engine.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(AnnFont.serif(15, .semibold))
                     .foregroundColor(DS.ink)
                     .lineLimit(1)
 
@@ -192,7 +194,8 @@ struct EngineManagerView: View {
                         .fill(statusColor)
                         .frame(width: 6, height: 6)
                     Text(isCloud ? "Online" : (isAvailable ? "Available" : "Not Found"))
-                        .font(.system(size: 11))
+                        .font(AnnFont.label(11))
+                        .tracking(11 * 0.1)
                         .foregroundColor(isAvailable || isCloud ? DS.semOnline : DS.ink40)
                 }
             }
@@ -231,7 +234,7 @@ struct EngineManagerView: View {
             // Title row
             HStack(spacing: 10) {
                 Text("Settings — \(engine.name)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.serif(13, .semibold))
                     .foregroundColor(DS.ink)
                 Spacer()
             }
@@ -330,10 +333,10 @@ struct EngineManagerView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AnnFont.serif(13, .medium))
                     .foregroundColor(DS.ink)
                 Text(description)
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11))
                     .foregroundColor(DS.ink40)
             }
 
@@ -366,7 +369,7 @@ struct EngineManagerView: View {
             )
 
             Text("\(engine.settings.hashMB)")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(AnnFont.mono(12, bold: true))
                 .foregroundColor(DS.inkData)
                 .frame(width: 40, alignment: .trailing)
         }
@@ -393,7 +396,7 @@ struct EngineManagerView: View {
             .buttonStyle(.plain)
 
             Text("\(engine.settings.multiPV)")
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .font(AnnFont.mono(13, bold: true))
                 .foregroundColor(DS.inkData)
                 .frame(width: 36, height: 28)
                 .background(DS.fieldBg)
@@ -433,11 +436,11 @@ struct EngineManagerView: View {
         return VStack(spacing: 6) {
             HStack {
                 Text("Analysis Depth")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AnnFont.serif(12, .medium))
                     .foregroundColor(DS.textPrimary)
                 Spacer()
                 Text("\(engine.settings.depth)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AnnFont.mono(12, bold: true))
                     .foregroundColor(DS.accent)
             }
 
@@ -454,11 +457,13 @@ struct EngineManagerView: View {
 
             HStack {
                 Text("fast")
-                    .font(.system(size: 10))
+                    .font(AnnFont.label(10))
+                    .tracking(10 * 0.1)
                     .foregroundColor(DS.textMuted)
                 Spacer()
                 Text("deep")
-                    .font(.system(size: 10))
+                    .font(AnnFont.label(10))
+                    .tracking(10 * 0.1)
                     .foregroundColor(DS.textMuted)
             }
         }
@@ -469,7 +474,7 @@ struct EngineManagerView: View {
             if !label.isEmpty {
                 HStack {
                     Text(label)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.serif(12, .medium))
                         .foregroundColor(DS.ink60)
                     Spacer()
                 }
@@ -484,7 +489,7 @@ struct EngineManagerView: View {
                 )
 
                 Text("\(value)")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(AnnFont.mono(12, bold: true))
                     .foregroundColor(DS.inkData)
                     .frame(width: 32, alignment: .trailing)
             }
@@ -640,7 +645,7 @@ struct AddEngineSheet: View {
                         .font(.system(size: 20))
                         .foregroundColor(DS.redAccent)
                     Text("Add Engine")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(AnnFont.serif(16, .semibold))
                         .foregroundColor(DS.ink)
                 }
 
@@ -683,7 +688,7 @@ struct AddEngineSheet: View {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.mini)
                     Text(downloadService.statusText)
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.ink60)
                     Spacer()
                     ProgressView(value: downloadService.progress)
@@ -700,7 +705,7 @@ struct AddEngineSheet: View {
                         .foregroundColor(DS.semWarning)
                         .font(.system(size: 12))
                     Text(error)
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.ink60)
                     Spacer()
                 }
@@ -713,7 +718,8 @@ struct AddEngineSheet: View {
             HStack(spacing: 12) {
                 Rectangle().fill(DS.hairline).frame(height: 1)
                 Text("or")
-                    .font(.system(size: 11))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
                     .foregroundColor(DS.ink40)
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
@@ -781,11 +787,11 @@ struct AddEngineSheet: View {
     private var localSectionInline: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Add a local engine")
-                .font(.system(size: 13, weight: .medium))
+                .font(AnnFont.serif(13, .medium))
                 .foregroundColor(DS.ink)
 
             Text("Point to a UCI-compatible engine binary on your machine.")
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
                 .foregroundColor(DS.ink40)
 
             HStack(spacing: 8) {
@@ -796,11 +802,11 @@ struct AddEngineSheet: View {
 
                     if localEnginePath.isEmpty {
                         Text("/usr/local/bin/stockfish")
-                            .font(.system(size: 12))
+                            .font(AnnFont.mono(12))
                             .foregroundColor(DS.ink60)
                     } else {
                         Text(localEnginePath)
-                            .font(.system(size: 12))
+                            .font(AnnFont.mono(12))
                             .foregroundColor(DS.ink)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -834,7 +840,8 @@ struct AddEngineSheet: View {
                 Image(systemName: icon)
                     .font(.system(size: 14))
                 Text(label)
-                    .font(.system(size: 13, weight: activeTab == tab ? .medium : .regular))
+                    .font(AnnFont.label(13))
+                    .tracking(13 * 0.1)
             }
             .foregroundColor(activeTab == tab ? DS.redAccent : DS.ink40)
             .padding(.vertical, 12)
@@ -901,12 +908,13 @@ struct AddEngineSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         Text(engine.name)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(AnnFont.serif(13, .medium))
                             .foregroundColor(DS.ink)
 
                         if isInstalled {
                             Text("Installed")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(AnnFont.label(9))
+                                .tracking(9 * 0.1)
                                 .foregroundColor(DS.semOnline)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
@@ -914,7 +922,7 @@ struct AddEngineSheet: View {
                         }
                     }
                     Text(engine.description)
-                        .font(.system(size: 11))
+                        .font(AnnFont.serif(11))
                         .foregroundColor(DS.ink40)
                         .lineLimit(1)
                 }
@@ -927,7 +935,7 @@ struct AddEngineSheet: View {
                         .frame(width: 60)
                 } else {
                     Text(engine.versionLabel)
-                        .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(isSelected ? DS.ink60 : DS.ink40)
                 }
             }
@@ -948,11 +956,11 @@ struct AddEngineSheet: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Add a local engine")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AnnFont.serif(13, .medium))
                     .foregroundColor(DS.textPrimary)
 
                 Text("Point to a UCI-compatible engine binary on your machine.")
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11))
                     .foregroundColor(DS.textTertiary)
 
                 HStack(spacing: 8) {
@@ -963,11 +971,11 @@ struct AddEngineSheet: View {
 
                         if localEnginePath.isEmpty {
                             Text("/usr/local/bin/stockfish")
-                                .font(.system(size: 12))
+                                .font(AnnFont.mono(12))
                                 .foregroundColor(DS.textTertiary)
                         } else {
                             Text(localEnginePath)
-                                .font(.system(size: 12))
+                                .font(AnnFont.mono(12))
                                 .foregroundColor(DS.textPrimary)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
@@ -987,7 +995,8 @@ struct AddEngineSheet: View {
 
                     Button(action: browseForEngine) {
                         Text("Browse...")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(AnnFont.label(13))
+                            .tracking(13 * 0.1)
                             .foregroundColor(DS.textPrimary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
@@ -1109,9 +1118,9 @@ struct Lc0WeightsSheet: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Download Neural Network")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(AnnFont.serif(16, .semibold))
                     Text("Lc0 requires a neural network weights file to play")
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.textSecondary)
                 }
                 Spacer()
@@ -1137,7 +1146,7 @@ struct Lc0WeightsSheet: View {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.mini)
                     Text(downloadService.statusText)
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.textSecondary)
                     Spacer()
                     ProgressView(value: downloadService.progress)
@@ -1155,16 +1164,16 @@ struct Lc0WeightsSheet: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(option.name)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.serif(13, .semibold))
                 Text(option.description)
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11))
                     .foregroundColor(DS.textSecondary)
             }
 
             Spacer()
 
             Text(option.size)
-                .font(.system(size: 11, design: .monospaced))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.textSecondary)
 
             if downloadService.isDownloading && downloadingWeightsId == option.id {

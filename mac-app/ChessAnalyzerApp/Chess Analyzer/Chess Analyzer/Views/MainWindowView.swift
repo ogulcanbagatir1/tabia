@@ -945,11 +945,11 @@ struct BoardStatusBar: View {
                     .fill(Color(hex: 0xECECEC))
                     .frame(width: 10, height: 10)
                 Text("\(whiteDisplayName)\(!whiteRating.isEmpty ? " (\(whiteRating))" : "")")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AnnFont.serif(12, .medium))
                     .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
 
                 Text("vs")
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11, .regular))
                     .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
 
                 Circle()
@@ -957,7 +957,7 @@ struct BoardStatusBar: View {
                     .overlay(Circle().strokeBorder(Color(hex: 0xFFFFFF, opacity: 0.2), lineWidth: 1))
                     .frame(width: 10, height: 10)
                 Text("\(blackDisplayName)\(!blackRating.isEmpty ? " (\(blackRating))" : "")")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AnnFont.serif(12, .medium))
                     .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
 
                 RepertoireDeviationBadge(board: board)

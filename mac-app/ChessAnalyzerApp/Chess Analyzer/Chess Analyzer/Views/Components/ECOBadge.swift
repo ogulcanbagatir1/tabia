@@ -6,7 +6,7 @@ struct ECOBadge: View {
 
     var body: some View {
         Text(eco)
-            .font(.system(size: 10, weight: .semibold))
+            .font(AnnFont.mono(10, bold: true))
             .foregroundColor(.white)
             .padding(.horizontal, 6)
             .padding(.vertical, 1)

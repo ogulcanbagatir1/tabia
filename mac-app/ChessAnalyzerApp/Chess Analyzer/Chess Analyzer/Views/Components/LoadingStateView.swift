@@ -7,7 +7,7 @@ struct LoadingStateView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text(message)
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.textTertiary)
         }
         .padding(24)

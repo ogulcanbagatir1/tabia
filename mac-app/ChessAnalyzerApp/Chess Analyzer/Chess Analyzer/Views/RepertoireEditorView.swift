@@ -369,7 +369,7 @@ struct RepertoireEditorView: View {
                 .overlay(Circle().strokeBorder(DS.borderChip, lineWidth: 1))
 
             Text(repertoire.name)
-                .font(.system(size: 16, weight: .bold))
+                .font(AnnFont.serif(16, .semibold))
                 .foregroundColor(DS.ink)
 
             Spacer()
@@ -477,11 +477,11 @@ struct RepertoireEditorView: View {
             if let node = currentRepNode {
                 HStack(spacing: 8) {
                     Text(moveTitleText(for: node))
-                        .font(.system(size: 18, weight: .bold))
+                        .font(AnnFont.mono(18, bold: true))
                         .foregroundColor(DS.ink)
                     if !draftGlyph.isEmpty {
                         Text(draftGlyph)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(AnnFont.mono(16, bold: true))
                             .foregroundColor(glyphColor(draftGlyph))
                     }
                     Spacer()
@@ -490,7 +490,7 @@ struct RepertoireEditorView: View {
             } else {
                 HStack {
                     Text("Starting position")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(AnnFont.serif(16, .semibold))
                         .foregroundColor(DS.ink)
                     Spacer()
                 }
@@ -510,7 +510,8 @@ struct RepertoireEditorView: View {
 
     private func sideBadge(isUserMove: Bool) -> some View {
         Text(isUserMove ? "Your move" : "Opponent")
-            .font(.system(size: 10, weight: .semibold))
+            .font(AnnFont.label(10, bold: false))
+            .tracking(10 * 0.1)
             .foregroundColor(isUserMove ? DS.accent : DS.ink40)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -523,7 +524,7 @@ struct RepertoireEditorView: View {
     private var rootPrompt: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Play a move on the board to start building this repertoire. The tree saves automatically as you go.")
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
                 .foregroundColor(DS.ink40)
                 .lineSpacing(3)
         }
@@ -536,7 +537,7 @@ struct RepertoireEditorView: View {
     private var ownershipSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Ownership")
-                .font(.system(size: 11, weight: .semibold))
+                .font(AnnFont.label(11, bold: false))
                 .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
@@ -571,7 +572,7 @@ struct RepertoireEditorView: View {
                     .frame(width: 14, height: 14)
 
                 Text(ownership.displayName)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .font(AnnFont.serif(12, isSelected ? .semibold : .regular))
                     .foregroundColor(isSelected ? DS.textPrimary : DS.textSecondary)
 
                 Spacer()
@@ -599,7 +600,7 @@ struct RepertoireEditorView: View {
                 }
             )) {
                 Text("Drill as primary answer")
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                     .foregroundColor(DS.textSecondary)
             }
             .toggleStyle(.checkbox)
@@ -614,7 +615,7 @@ struct RepertoireEditorView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill").font(.system(size: 9)).foregroundColor(DS.accent)
                     Text("Important for me")
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.textSecondary)
                 }
             }
@@ -627,7 +628,7 @@ struct RepertoireEditorView: View {
     private var glyphSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Evaluation")
-                .font(.system(size: 11, weight: .semibold))
+                .font(AnnFont.label(11, bold: false))
                 .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
@@ -650,7 +651,7 @@ struct RepertoireEditorView: View {
             saveDraftGlyph()
         }) {
             Text(label)
-                .font(.system(size: 13, weight: .bold))
+                .font(AnnFont.mono(13, bold: true))
                 .foregroundColor(isSelected ? .white : (glyph.isEmpty ? DS.textTertiary : glyphColor(glyph)))
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
@@ -682,7 +683,7 @@ struct RepertoireEditorView: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Idea tags")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AnnFont.label(11, bold: false))
                     .foregroundColor(DS.ink60)
                     .kerning(0.4)
 
@@ -694,7 +695,7 @@ struct RepertoireEditorView: View {
                     }
                 ))
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
                 .padding(.horizontal, 10)
                 .frame(height: 30)
                 .background(
@@ -709,7 +710,7 @@ struct RepertoireEditorView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("ECO code")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AnnFont.label(11, bold: false))
                     .foregroundColor(DS.ink60)
                     .kerning(0.4)
 
@@ -721,7 +722,7 @@ struct RepertoireEditorView: View {
                     }
                 ))
                 .textFieldStyle(.plain)
-                .font(.system(size: 11, design: .monospaced))
+                .font(AnnFont.mono(11))
                 .padding(.horizontal, 10)
                 .frame(height: 30)
                 .background(
@@ -743,7 +744,7 @@ struct RepertoireEditorView: View {
     private var annotationSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Notes")
-                .font(.system(size: 11, weight: .semibold))
+                .font(AnnFont.label(11, bold: false))
                 .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
@@ -755,7 +756,7 @@ struct RepertoireEditorView: View {
                 }
             ))
             .scrollContentBackground(.hidden)
-            .font(.system(size: 12))
+            .font(AnnFont.serif(12))
             .frame(minHeight: 120, idealHeight: 140)
             .padding(8)
             .background(DS.bg)

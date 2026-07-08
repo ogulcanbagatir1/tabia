@@ -176,12 +176,12 @@ struct PGNImportView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Review Imported Games")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(DS.ink)
 
                 if !editableGames.isEmpty {
                     Text("\(fileURLs.first?.lastPathComponent ?? "PGN") · \(editableGames.count) games found")
-                        .font(.system(size: 11))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.ink40)
                 }
             }
@@ -234,7 +234,8 @@ struct PGNImportView: View {
                 .buttonStyle(.plain)
 
                 Text("Select All (\(editableGames.count))")
-                    .font(.system(size: 12))
+                    .font(AnnFont.label(12))
+                    .tracking(12 * 0.1)
                     .foregroundColor(DS.ink60)
             }
 
@@ -242,7 +243,7 @@ struct PGNImportView: View {
 
             let selectedCount = editableGames.filter { $0.isSelected }.count
             Text("\(selectedCount) selected")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink40)
         }
         .padding(.horizontal, 24)
@@ -264,10 +265,10 @@ struct PGNImportView: View {
                 .font(.system(size: 40))
                 .foregroundColor(DS.semWarning)
             Text("Error parsing PGN")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AnnFont.serif(14, .semibold))
                 .foregroundColor(DS.ink)
             Text(error)
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.ink60)
                 .multilineTextAlignment(.center)
         }
@@ -288,7 +289,7 @@ struct PGNImportView: View {
                 .foregroundColor(DS.redAccent)
 
             Text("Importing games...")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AnnFont.serif(14, .semibold))
                 .foregroundColor(DS.ink)
 
             if importTotal > 0 {
@@ -297,7 +298,7 @@ struct PGNImportView: View {
                     .frame(width: 300)
 
                 Text("\(importProgress) of \(importTotal) games")
-                    .font(.system(size: 12))
+                    .font(AnnFont.mono(12))
                     .foregroundColor(DS.ink60)
             }
 
@@ -350,26 +351,26 @@ struct PGNImportView: View {
             // Game info
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(game.white.isEmpty ? "Unknown" : game.white) vs \(game.black.isEmpty ? "Unknown" : game.black)")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AnnFont.serif(12, .medium))
                     .foregroundColor(DS.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     if !game.eco.isEmpty {
                         Text(game.eco)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(AnnFont.mono(10))
                     }
                     if !game.opening.isEmpty {
                         Text(game.opening)
-                            .font(.system(size: 10))
+                            .font(AnnFont.serif(10))
                     }
                     Text("·")
                     Text(game.result)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(AnnFont.mono(10))
                     if !game.event.isEmpty {
                         Text("·")
                         Text(game.event)
-                            .font(.system(size: 10))
+                            .font(AnnFont.serif(10))
                     }
                 }
                 .foregroundColor(DS.ink40)
@@ -422,22 +423,22 @@ struct PGNImportView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(game.white.isEmpty ? "Unknown" : game.white) vs \(game.black.isEmpty ? "Unknown" : game.black)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.serif(12, .medium))
                         .foregroundColor(DS.ink)
                         .lineLimit(1)
 
                     HStack(spacing: 6) {
                         if !game.opening.isEmpty {
                             Text(game.opening)
-                                .font(.system(size: 10))
+                                .font(AnnFont.serif(10))
                         }
                         Text("·")
                         Text(game.result)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(AnnFont.mono(10))
                         if !game.event.isEmpty {
                             Text("·")
                             Text(game.event)
-                                .font(.system(size: 10))
+                                .font(AnnFont.serif(10))
                         }
                     }
                     .foregroundColor(DS.ink40)
@@ -514,12 +515,13 @@ struct PGNImportView: View {
     private func importField(_ label: String, text: Binding<String>, width: CGFloat? = nil, isItalic: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .foregroundColor(DS.ink40)
 
             TextField("", text: text)
                 .textFieldStyle(.plain)
-                .font(isItalic ? .system(size: 11).italic() : .system(size: 11))
+                .font(isItalic ? AnnFont.serif(11, italic: true) : AnnFont.serif(11))
                 .foregroundColor(isItalic ? DS.ink60 : DS.ink)
                 .padding(.horizontal, 8)
                 .frame(height: 30)
@@ -537,7 +539,8 @@ struct PGNImportView: View {
     private func importPickerField(_ label: String, selection: Binding<String>, width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .foregroundColor(DS.ink40)
 
             Picker("", selection: selection) {
@@ -567,7 +570,8 @@ struct PGNImportView: View {
             if preselectedFolderId == nil && !editableGames.isEmpty {
                 HStack(spacing: DS.spacingSM) {
                     Text("Import to:")
-                        .font(.system(size: 12))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.ink60)
 
                     Picker("", selection: $selectedFolderId) {
@@ -594,7 +598,8 @@ struct PGNImportView: View {
 
                 Button(action: { onCancel() }) {
                     Text("Cancel")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.ink60)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -608,7 +613,8 @@ struct PGNImportView: View {
                 let selectedCount = editableGames.filter { $0.isSelected }.count
                 Button(action: { performImport() }) {
                     Text("Import \(selectedCount) Games")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.onRed)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)

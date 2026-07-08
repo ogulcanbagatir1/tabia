@@ -32,7 +32,7 @@ struct FolderImportSheet: View {
                     .foregroundColor(DS.accent)
 
                 Text("Import Games")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(DS.textPrimary)
 
                 Text(fileDescription)

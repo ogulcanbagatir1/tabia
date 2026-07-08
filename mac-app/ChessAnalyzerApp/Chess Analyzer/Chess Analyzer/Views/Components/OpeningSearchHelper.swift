@@ -54,7 +54,7 @@ struct OpeningSearchResultRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if let name = node.name {
                         Text(name)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(AnnFont.serif(11, .medium))
                             .foregroundColor(.primary)
                             .lineLimit(1)
                     }
@@ -69,7 +69,7 @@ struct OpeningSearchResultRow: View {
 
                 if let eco = node.eco {
                     Text(eco)
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .font(AnnFont.mono(9, bold: false))
                         .foregroundColor(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -98,7 +98,7 @@ struct OpeningSearchBar: View {
 
             TextField("Search openings...", text: $searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11, .regular))
 
             if !searchText.isEmpty {
                 Button(action: { searchText = "" }) {
@@ -171,25 +171,25 @@ struct CurrentOpeningView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("OPENING")
-                .font(.system(size: 10, weight: .semibold))
+                .font(AnnFont.label(10, bold: false))
                 .foregroundColor(DS.textTertiary)
                 .kerning(0.8)
 
             if let name = openingName {
                 Text(name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(AnnFont.serif(14, .semibold))
                     .foregroundColor(DS.textPrimary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let eco = eco {
                     Text(eco)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.mono(12, bold: false))
                         .foregroundColor(DS.accent)
                 }
             } else {
                 Text("Starting Position")
-                    .font(.system(size: 13))
+                    .font(AnnFont.serif(13, .regular))
                     .foregroundColor(DS.textSecondary)
             }
         }

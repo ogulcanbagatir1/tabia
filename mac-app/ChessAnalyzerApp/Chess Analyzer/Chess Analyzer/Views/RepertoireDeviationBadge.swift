@@ -24,7 +24,7 @@ struct RepertoireDeviationBadge: View {
                     .foregroundColor(DS.accent)
 
                 Text("In repertoire")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(AnnFont.label(10, bold: false))
                     .foregroundColor(DS.accent)
                     .kerning(0.4)
 
@@ -33,7 +33,7 @@ struct RepertoireDeviationBadge: View {
                     .foregroundColor(DS.ink40)
 
                 Text(matches.map { $0.0.name }.joined(separator: ", "))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.serif(11, .medium))
                     .foregroundColor(DS.ink)
                     .lineLimit(1)
             }

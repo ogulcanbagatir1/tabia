@@ -58,7 +58,7 @@ struct IndexingSheet: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "square.stack.3d.up").font(.system(size: 14)).foregroundColor(DS.accent)
-            Text("Build opening index").font(.system(size: 15, weight: .bold)).foregroundColor(DS.textPrimary)
+            Text("Build opening index").font(AnnFont.serif(15, .semibold)).foregroundColor(DS.textPrimary)
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark").font(.system(size: 12, weight: .semibold))
@@ -71,11 +71,11 @@ struct IndexingSheet: View {
     private var config: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("\(fmt(referenceDB.indexedGameCount)) of \(fmt(referenceDB.gameCount)) games are searchable in the explorer. Choose what to add:")
-                .font(.system(size: 12)).foregroundColor(DS.textSecondary).fixedSize(horizontal: false, vertical: true)
+                .font(AnnFont.serif(12, .regular)).foregroundColor(DS.textSecondary).fixedSize(horizontal: false, vertical: true)
 
             // Scope
             VStack(alignment: .leading, spacing: 8) {
-                Text("Which games").font(.system(size: 12, weight: .semibold)).foregroundColor(DS.textPrimary)
+                Text("Which games").font(AnnFont.label(12)).tracking(12 * 0.1).foregroundColor(DS.textPrimary)
                 Picker("", selection: $scope) {
                     ForEach(Scope.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented).labelsHidden()
@@ -84,13 +84,13 @@ struct IndexingSheet: View {
             // Depth
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Depth").font(.system(size: 12, weight: .semibold)).foregroundColor(DS.textPrimary)
+                    Text("Depth").font(AnnFont.label(12)).tracking(12 * 0.1).foregroundColor(DS.textPrimary)
                     Spacer()
-                    Text("\(movesDepth) moves").font(.system(size: 12, design: .monospaced)).foregroundColor(DS.accent)
+                    Text("\(movesDepth) moves").font(AnnFont.mono(12)).foregroundColor(DS.accent)
                 }
                 Slider(value: Binding(get: { Double(movesDepth) }, set: { movesDepth = Int($0) }), in: 6...30, step: 2)
                 Text("Opening explorer covers the first \(movesDepth) moves. Deeper = bigger + slower; most opening/prep is within ~12–15 moves.")
-                    .font(.system(size: 10)).foregroundColor(DS.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    .font(AnnFont.serif(10, .regular)).foregroundColor(DS.textTertiary).fixedSize(horizontal: false, vertical: true)
             }
 
             // Estimate
@@ -124,9 +124,9 @@ struct IndexingSheet: View {
             Spacer()
             KnightLoader(size: 48)
             Text("Indexing… \(fmt(referenceDB.indexProgress)) games")
-                .font(.system(size: 13, weight: .semibold)).foregroundColor(DS.textPrimary)
+                .font(AnnFont.serif(13, .semibold)).foregroundColor(DS.textPrimary)
             Text("You can close this — indexing continues in the background.")
-                .font(.system(size: 11)).foregroundColor(DS.textTertiary)
+                .font(AnnFont.serif(11, .regular)).foregroundColor(DS.textTertiary)
             Button("Close", action: onClose).buttonStyle(.bordered).padding(.top, 4)
             Spacer()
         }
@@ -135,8 +135,8 @@ struct IndexingSheet: View {
 
     private func estCell(_ value: String, _ label: String) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(DS.textPrimary)
-            Text(label).font(.system(size: 10)).foregroundColor(DS.textTertiary)
+            Text(value).font(AnnFont.mono(15, bold: true)).foregroundColor(DS.textPrimary)
+            Text(label).font(AnnFont.label(10)).tracking(10 * 0.1).foregroundColor(DS.textTertiary)
         }.frame(maxWidth: .infinity)
     }
 

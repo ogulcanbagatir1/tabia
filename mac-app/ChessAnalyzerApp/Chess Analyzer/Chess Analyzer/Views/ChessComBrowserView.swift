@@ -238,11 +238,11 @@ struct ChessComBrowserView: View {
                 .foregroundColor(DS.textTertiary)
 
             Text("Connect Your Accounts")
-                .font(.system(size: 20, weight: .semibold))
+                .font(AnnFont.serif(20, .semibold))
                 .foregroundColor(DS.textPrimary)
 
             Text("Import and analyze your online games from Chess.com and Lichess")
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13))
                 .foregroundColor(DS.textTertiary)
                 .lineSpacing(4)
                 .multilineTextAlignment(.center)
@@ -253,7 +253,7 @@ struct ChessComBrowserView: View {
                 HStack(spacing: 8) {
                     Circle().fill(chessComGreen).frame(width: 8, height: 8)
                     Text("Chess.com")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AnnFont.serif(13, .semibold))
                         .foregroundColor(DS.textPrimary)
                     Spacer()
                 }
@@ -266,7 +266,7 @@ struct ChessComBrowserView: View {
 
                         TextField("Chess.com username...", text: $connectUsername)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 13))
+                            .font(AnnFont.serif(13))
                             .onSubmit {
                                 if !connectUsername.isEmpty {
                                     savedUsername = connectUsername
@@ -301,7 +301,7 @@ struct ChessComBrowserView: View {
                     Circle().fill(Color.white).frame(width: 8, height: 8)
                         .overlay(Circle().strokeBorder(DS.hairline, lineWidth: 0.5))
                     Text("Lichess")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AnnFont.serif(13, .semibold))
                         .foregroundColor(DS.textPrimary)
                     Spacer()
                 }
@@ -314,7 +314,7 @@ struct ChessComBrowserView: View {
                                 .foregroundColor(DS.textTertiary)
                             TextField("Lichess username...", text: $connectLichessUsername)
                                 .textFieldStyle(.plain)
-                                .font(.system(size: 13))
+                                .font(AnnFont.serif(13))
                                 .onSubmit {
                                     if !connectLichessUsername.isEmpty {
                                         lichessUsername = connectLichessUsername
@@ -346,7 +346,8 @@ struct ChessComBrowserView: View {
                             Image(systemName: "person.badge.key")
                                 .font(.system(size: 12))
                             Text("Login for faster imports")
-                                .font(.system(size: 11))
+                                .font(AnnFont.label(11))
+                                .tracking(11 * 0.1)
                         }
                         .foregroundColor(DS.accent)
                     }
@@ -357,13 +358,14 @@ struct ChessComBrowserView: View {
                             .foregroundColor(.green)
                             .font(.system(size: 14))
                         Text("Logged in")
-                            .font(.system(size: 13))
+                            .font(AnnFont.serif(13))
                             .foregroundColor(DS.textSecondary)
                         Spacer()
                         Button("Fetch Games") {
                             fetchLichessProfile()
                         }
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .buttonStyle(GlassPrimaryButtonStyle())
                     }
                 }
@@ -432,16 +434,16 @@ struct ChessComBrowserView: View {
                                 )
                             )
                         Text(String(displayName.prefix(1)).uppercased())
-                            .font(.system(size: 18, weight: .bold))
+                            .font(AnnFont.serif(18, .semibold))
                             .foregroundColor(DS.ink)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(displayName)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(AnnFont.serif(16, .semibold))
                             .foregroundColor(DS.ink)
                         Text("Last synced \(lastSyncString)")
-                            .font(.system(size: 11))
+                            .font(AnnFont.mono(11))
                             .foregroundColor(DS.ink25)
                     }
                 }
@@ -458,7 +460,8 @@ struct ChessComBrowserView: View {
                             Image(systemName: "arrow.clockwise")
                                 .font(.system(size: 14))
                             Text("Sync Games")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(AnnFont.label(12))
+                                .tracking(12 * 0.1)
                         }
                         .foregroundColor(Color(hex: 0x30D158))
                         .padding(.vertical, 8)
@@ -640,7 +643,8 @@ struct ChessComBrowserView: View {
                             Image(systemName: "arrow.counterclockwise")
                                 .font(.system(size: 14))
                             Text("Reset")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(AnnFont.label(10))
+                                .tracking(10 * 0.1)
                         }
                         .foregroundColor(DS.textSecondary)
                         .frame(width: 50)
@@ -666,7 +670,8 @@ struct ChessComBrowserView: View {
                     .font(.system(size: 9))
                     .foregroundColor(DS.textSecondary)
                 Text(title)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(AnnFont.label(10))
+                    .tracking(10 * 0.1)
                     .foregroundColor(DS.textSecondary)
                     .textCase(.uppercase)
             }
@@ -707,7 +712,8 @@ struct ChessComBrowserView: View {
                         : nil
                     )
                 Text(option)
-                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
                     .foregroundColor(isSelected ? DS.textPrimary : DS.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -758,10 +764,11 @@ struct ChessComBrowserView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(category)
-                    .font(.system(size: 11))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
                     .foregroundColor(DS.ink40)
                 Text(verbatim: rating != nil ? String(rating!) : "-")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(AnnFont.mono(22, bold: true))
                     .foregroundColor(DS.ink)
             }
         }
@@ -793,7 +800,8 @@ struct ChessComBrowserView: View {
                         }
                     }) {
                         Text(option)
-                            .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                            .font(AnnFont.label(11))
+                            .tracking(11 * 0.1)
                             .foregroundColor(isActive ? DS.ink : DS.ink40)
                             .padding(.vertical, 5)
                             .padding(.horizontal, 12)
@@ -815,7 +823,8 @@ struct ChessComBrowserView: View {
             HStack(spacing: 2) {
                 Button(action: { withAnimation(.easeInOut(duration: 0.12)) { showStats = false } }) {
                     Text("Games")
-                        .font(.system(size: 11, weight: showStats ? .regular : .medium))
+                        .font(AnnFont.label(11))
+                        .tracking(11 * 0.1)
                         .foregroundColor(showStats ? DS.ink40 : DS.ink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -828,7 +837,8 @@ struct ChessComBrowserView: View {
 
                 Button(action: { withAnimation(.easeInOut(duration: 0.12)) { showStats = true } }) {
                     Text("Stats")
-                        .font(.system(size: 11, weight: showStats ? .medium : .regular))
+                        .font(AnnFont.label(11))
+                        .tracking(11 * 0.1)
                         .foregroundColor(showStats ? DS.ink : DS.ink40)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -916,7 +926,7 @@ struct ChessComBrowserView: View {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
                             Text("Loading more games...")
-                                .font(.system(size: 11))
+                                .font(AnnFont.serif(11))
                                 .foregroundColor(DS.textSecondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -977,7 +987,8 @@ struct ChessComBrowserView: View {
                 }
 
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
                     .foregroundColor(DS.ink25)
 
                 if alignment != .trailing, sortColumn == column {
@@ -997,35 +1008,36 @@ struct ChessComBrowserView: View {
             HStack(spacing: 0) {
                 // White
                 Text(game.white)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AnnFont.serif(13, .medium))
                     .foregroundColor(DS.textPrimary)
                     .lineLimit(1)
                     .frame(width: 200, alignment: .leading)
 
                 // Black
                 Text(game.black)
-                    .font(.system(size: 13))
+                    .font(AnnFont.serif(13))
                     .foregroundColor(DS.textSecondary)
                     .lineLimit(1)
                     .frame(width: 200, alignment: .leading)
 
                 // Result
                 Text(chessComResultDisplay(game.result))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AnnFont.mono(12, bold: true))
                     .foregroundColor(chessComResultColor(game))
                     .frame(width: 60, alignment: .center)
                     .padding(.trailing, 64)
 
                 // Opening
                 Text(game.opening ?? game.eco ?? "-")
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                     .foregroundColor(DS.textSecondary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Time control
                 Text(chessComTimeClassLabel(game.timeClass))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
                     .foregroundColor(DS.timeControlColor(for: game.timeClass ?? ""))
                     .lineLimit(1)
                     .frame(width: 60, alignment: .center)
@@ -1033,7 +1045,8 @@ struct ChessComBrowserView: View {
 
                 // Source
                 Text(game.sourcePlatform == "lichess" ? "Lichess" : "Chess.com")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(AnnFont.label(10))
+                    .tracking(10 * 0.1)
                     .foregroundColor(game.sourcePlatform == "lichess" ? DS.textSecondary : chessComGreen)
                     .lineLimit(1)
                     .frame(width: 70, alignment: .center)
@@ -1041,7 +1054,7 @@ struct ChessComBrowserView: View {
 
                 // Date
                 Text(game.date.isEmpty ? chessComFormatDate(game.dateAdded) : game.date)
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textTertiary)
                     .lineLimit(1)
                     .frame(width: 130, alignment: .leading)
@@ -1107,7 +1120,7 @@ struct ChessComBrowserView: View {
             if isLoadingGames {
                 ProgressView().controlSize(.regular)
                 Text("Loading games...")
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                     .foregroundColor(DS.textTertiary)
             } else {
                 Image(systemName: "doc.text")
@@ -1117,29 +1130,30 @@ struct ChessComBrowserView: View {
                 VStack(spacing: 6) {
                     if totalGameCount == 0 {
                         Text("No Games Yet")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(AnnFont.serif(14, .semibold))
                             .foregroundColor(DS.textSecondary)
 
                         Text("Sync your accounts to import games")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.textTertiary)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: 240)
 
                         Button(action: refreshGames) {
                             Text("Refresh")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(AnnFont.label(12))
+                                .tracking(12 * 0.1)
                                 .foregroundColor(chessComGreen)
                         }
                         .buttonStyle(.plain)
                         .padding(.top, 4)
                     } else {
                         Text("No Games Match Filters")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(AnnFont.serif(14, .semibold))
                             .foregroundColor(DS.textSecondary)
 
                         Text("Try adjusting your filter criteria")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.textTertiary)
                     }
                 }
@@ -1152,13 +1166,13 @@ struct ChessComBrowserView: View {
     private var statusBar: some View {
         HStack {
             Text("\(totalGameCount) games synced")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink60)
 
             Spacer()
 
             Text(hasAnyAccount ? "Chess.com connected" : "Not connected")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(hasAnyAccount ? DS.semOnline : DS.ink40)
         }
         .padding(.horizontal, 28)
@@ -1281,12 +1295,12 @@ struct ChessComBrowserView: View {
 
                     // Title
                     Text("Importing Games...")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(AnnFont.serif(22, .semibold))
                         .foregroundColor(DS.textPrimary)
 
                     // Description
                     Text("Fetching your game history. This may take a moment depending on how many games you have.")
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .foregroundColor(DS.textTertiary)
                         .lineSpacing(6)
                         .multilineTextAlignment(.center)
@@ -1309,7 +1323,8 @@ struct ChessComBrowserView: View {
                     // Cancel link
                     Button(action: cancelSync) {
                         Text("Cancel Import")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(AnnFont.label(13))
+                            .tracking(13 * 0.1)
                             .foregroundColor(DS.textTertiary)
                     }
                     .buttonStyle(.plain)
@@ -1329,11 +1344,11 @@ struct ChessComBrowserView: View {
         VStack(spacing: 12) {
             HStack {
                 Text("Importing games...")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AnnFont.serif(13, .medium))
                     .foregroundColor(DS.textPrimary)
                 Spacer()
                 Text(verbatim: "\(syncProgressPercent)%")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(AnnFont.mono(13, bold: true))
                     .foregroundColor(chessComGreen)
             }
 
@@ -1350,7 +1365,7 @@ struct ChessComBrowserView: View {
             .frame(height: 8)
 
             Text(verbatim: "\(importedCount) of \(totalGamesFound) games imported")
-                .font(.system(size: 12))
+                .font(AnnFont.mono(12))
                 .foregroundColor(DS.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -1380,10 +1395,11 @@ struct ChessComBrowserView: View {
     private func syncStatCard(category: String, count: Int) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(category)
-                .font(.system(size: 11, weight: .medium))
+                .font(AnnFont.label(11))
+                .tracking(11 * 0.1)
                 .foregroundColor(DS.textTertiary)
             Text(verbatim: String(count))
-                .font(.system(size: 20, weight: .bold))
+                .font(AnnFont.mono(20, bold: true))
                 .foregroundColor(DS.textPrimary)
         }
         .padding(16)
@@ -1400,11 +1416,11 @@ struct ChessComBrowserView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Recently Imported")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AnnFont.serif(12, .semibold))
                     .foregroundColor(DS.textSecondary)
                 Spacer()
                 Text("Showing latest")
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11))
                     .foregroundColor(DS.textTertiary)
             }
             .padding(.horizontal, 16)
@@ -1420,17 +1436,17 @@ struct ChessComBrowserView: View {
                             .font(.system(size: 12))
                             .foregroundColor(chessComGreen)
                         Text("\(game.white) vs \(game.black)")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.textPrimary)
                             .lineLimit(1)
                     }
                     Spacer()
                     Text(game.result)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.textSecondary)
                     if !game.date.isEmpty {
                         Text(game.date)
-                            .font(.system(size: 11))
+                            .font(AnnFont.mono(11))
                             .foregroundColor(DS.textTertiary)
                     }
                 }
@@ -1456,7 +1472,7 @@ struct ChessComBrowserView: View {
                 ProgressView()
                     .controlSize(.mini)
                 Text(verbatim: "Importing... \(importedCount) of \(totalGamesFound) games")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textSecondary)
             }
 
@@ -1464,12 +1480,12 @@ struct ChessComBrowserView: View {
 
             if !savedUsername.isEmpty && service.isLoading {
                 Text("Chess.com: \(savedUsername)")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(chessComGreen)
             }
             if !lichessUsername.isEmpty && lichessService.isLoading {
                 Text("Lichess: \(lichessUsername)")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textSecondary)
             }
         }

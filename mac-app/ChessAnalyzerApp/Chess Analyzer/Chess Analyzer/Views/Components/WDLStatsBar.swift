@@ -17,15 +17,15 @@ struct WDLStatsBar: View {
             if showLabels {
                 HStack {
                     Text("White \(Int(wPct))%")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.ink60)
                     Spacer()
                     Text("Draw \(Int(dPct))%")
-                        .font(.system(size: 10))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.ink40)
                     Spacer()
                     Text("Black \(Int(bPct))%")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.ink60)
                 }
             }

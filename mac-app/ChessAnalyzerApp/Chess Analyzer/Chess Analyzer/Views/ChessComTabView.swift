@@ -221,11 +221,11 @@ struct ChessComTabView: View {
 
             VStack(spacing: 8) {
                 Text("Connect Chess.com")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(DS.textPrimary)
                     .multilineTextAlignment(.center)
                 Text("Import and sync your games from Chess.com")
-                    .font(.system(size: 13))
+                    .font(AnnFont.serif(13))
                     .foregroundColor(DS.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -236,7 +236,8 @@ struct ChessComTabView: View {
                     Image(systemName: "link")
                         .font(.system(size: 14, weight: .medium))
                     Text("Connect Account")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 20)
@@ -349,18 +350,18 @@ struct ChessComTabView: View {
                     .fill(chessComGreen)
                     .frame(width: 48, height: 48)
                 Text(String(savedUsername.prefix(1)).uppercased())
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(.white)
             }
 
             // Info block (vertical, gap 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(savedUsername)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(AnnFont.serif(20, .semibold))
                     .foregroundColor(DS.textPrimary)
                 if lastSyncTimestamp > 0 {
                     Text("Synced \(formatLastSync())")
-                        .font(.system(size: 12))
+                        .font(AnnFont.mono(12))
                         .foregroundColor(DS.textTertiary)
                 }
             }
@@ -378,7 +379,8 @@ struct ChessComTabView: View {
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.white)
                         Text("Sync Games")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                             .foregroundColor(.white)
                     }
                     .padding(.vertical, 6)
@@ -451,7 +453,7 @@ struct ChessComTabView: View {
                     .foregroundColor(DS.textSecondary)
                 TextField("Search...", text: $searchText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
@@ -476,7 +478,7 @@ struct ChessComTabView: View {
 
                     if activeFilterCount > 0 {
                         Text("\(activeFilterCount)")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(AnnFont.mono(8, bold: true))
                             .foregroundColor(.white)
                             .frame(width: 14, height: 14)
                             .background(chessComGreen)
@@ -502,12 +504,13 @@ struct ChessComTabView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Filters")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(AnnFont.serif(15, .semibold))
                 Spacer()
                 if hasActiveFilters {
                     Button(action: clearFilters) {
                         Text("Reset")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
@@ -558,7 +561,7 @@ struct ChessComTabView: View {
                                     .foregroundColor(DS.textSecondary)
                                 TextField("Search opening or ECO...", text: $filterOpening)
                                     .textFieldStyle(.plain)
-                                    .font(.system(size: 12))
+                                    .font(AnnFont.serif(12))
                                 if !filterOpening.isEmpty {
                                     Button(action: { filterOpening = "" }) {
                                         Image(systemName: "xmark.circle.fill")
@@ -577,7 +580,8 @@ struct ChessComTabView: View {
                                 ForEach(commonOpenings, id: \.self) { opening in
                                     Button(action: { filterOpening = opening }) {
                                         Text(opening)
-                                            .font(.system(size: 11))
+                                            .font(AnnFont.label(11))
+                                            .tracking(11 * 0.1)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
                                             .background(filterOpening == opening ? chessComGreen : DS.bgSecondary)
@@ -594,7 +598,8 @@ struct ChessComTabView: View {
                         HStack(spacing: 16) {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("From")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(AnnFont.label(10))
+                                    .tracking(10 * 0.1)
                                     .foregroundColor(DS.textSecondary)
                                 HStack(spacing: 6) {
                                     DatePicker("", selection: Binding(
@@ -617,7 +622,8 @@ struct ChessComTabView: View {
 
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("To")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(AnnFont.label(10))
+                                    .tracking(10 * 0.1)
                                     .foregroundColor(DS.textSecondary)
                                 HStack(spacing: 6) {
                                     DatePicker("", selection: Binding(
@@ -650,13 +656,14 @@ struct ChessComTabView: View {
             HStack {
                 if hasActiveFilters {
                     Text("\(activeFilterCount) active")
-                        .font(.system(size: 11))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.textSecondary)
                 }
                 Spacer()
                 Button(action: { showingFiltersPopover = false }) {
                     Text("Done")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 8)
@@ -683,7 +690,8 @@ struct ChessComTabView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(chessComGreen)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AnnFont.label(12))
+                    .tracking(12 * 0.1)
                     .foregroundColor(DS.textPrimary)
             }
             content()
@@ -696,7 +704,8 @@ struct ChessComTabView: View {
             ForEach(options, id: \.self) { option in
                 Button(action: { onSelect(option) }) {
                     Text(option)
-                        .font(.system(size: 11, weight: selected == option ? .semibold : .regular))
+                        .font(AnnFont.label(11))
+                        .tracking(11 * 0.1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(selected == option ? chessComGreen : DS.bgSecondary)
@@ -779,7 +788,7 @@ struct ChessComTabView: View {
                         ProgressView()
                             .controlSize(.small)
                         Text("Loading more games...")
-                            .font(.system(size: 11))
+                            .font(AnnFont.serif(11))
                             .foregroundColor(DS.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -821,7 +830,7 @@ struct ChessComTabView: View {
                 ProgressView()
                     .controlSize(.regular)
                 Text("Loading games...")
-                    .font(.system(size: 13))
+                    .font(AnnFont.serif(13))
                     .foregroundColor(DS.textSecondary)
             } else {
                 Image(systemName: "doc.text")
@@ -829,17 +838,18 @@ struct ChessComTabView: View {
                     .foregroundColor(DS.textTertiary)
                 if cachedGames.isEmpty && totalGameCount == 0 {
                     Text("No games yet")
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .foregroundColor(DS.textSecondary)
                     Button(action: refreshGames) {
                         Text("Refresh")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                             .foregroundColor(chessComGreen)
                     }
                     .buttonStyle(.plain)
                 } else {
                     Text("No games match filters")
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .foregroundColor(DS.textSecondary)
                 }
             }
@@ -857,25 +867,26 @@ struct ChessComTabView: View {
 
             if hasActiveFilters {
                 Text("\(cachedGames.count)\(allDbGamesExhausted ? "" : "+")")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textPrimary)
                 +
                 Text(" of \(totalGameCount) games")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textSecondary)
 
                 Text("\u{2022}")
                     .foregroundColor(DS.textSecondary)
                 Text("filtered")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(AnnFont.label(10))
+                    .tracking(10 * 0.1)
                     .foregroundColor(chessComGreen)
             } else {
                 Text("\(totalGameCount)")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textPrimary)
                 +
                 Text(" games")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textSecondary)
             }
 
@@ -883,7 +894,7 @@ struct ChessComTabView: View {
 
             if !selectedGameIds.isEmpty {
                 Text("\(selectedGameIds.count) selected")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(chessComGreen)
 
                 Menu {
@@ -904,7 +915,8 @@ struct ChessComTabView: View {
                         Image(systemName: "folder.badge.plus")
                             .font(.system(size: 10))
                         Text("Move to...")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(AnnFont.label(10))
+                            .tracking(10 * 0.1)
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 8)
@@ -1109,17 +1121,17 @@ struct ChessComGameRowView: View {
                             .frame(width: 8, height: 8)
                             .overlay(Circle().strokeBorder(DS.border, lineWidth: 0.5))
                         Text(game.white)
-                            .font(.system(size: 12, weight: game.result == "1-0" ? .semibold : .regular))
+                            .font(AnnFont.serif(12, game.result == "1-0" ? .semibold : .regular))
                             .lineLimit(1)
                         if let rating = extractRating(for: "White") {
                             Text("(\(rating))")
-                                .font(.system(size: 10))
+                                .font(AnnFont.mono(10))
                                 .foregroundColor(DS.textSecondary)
                         }
                     }
 
                     Text("vs")
-                        .font(.system(size: 10))
+                        .font(AnnFont.serif(10))
                         .foregroundColor(DS.textSecondary)
 
                     HStack(spacing: 4) {
@@ -1127,11 +1139,11 @@ struct ChessComGameRowView: View {
                             .fill(Color.black)
                             .frame(width: 8, height: 8)
                         Text(game.black)
-                            .font(.system(size: 12, weight: game.result == "0-1" ? .semibold : .regular))
+                            .font(AnnFont.serif(12, game.result == "0-1" ? .semibold : .regular))
                             .lineLimit(1)
                         if let rating = extractRating(for: "Black") {
                             Text("(\(rating))")
-                                .font(.system(size: 10))
+                                .font(AnnFont.mono(10))
                                 .foregroundColor(DS.textSecondary)
                         }
                     }
@@ -1143,7 +1155,7 @@ struct ChessComGameRowView: View {
                 HStack(spacing: 6) {
                     if !eventSiteLabel.isEmpty {
                         Text(eventSiteLabel)
-                            .font(.system(size: 10))
+                            .font(AnnFont.serif(10))
                             .foregroundColor(DS.textSecondary)
                             .lineLimit(1)
                     }
@@ -1151,7 +1163,7 @@ struct ChessComGameRowView: View {
                     Spacer()
 
                     Text(game.date)
-                        .font(.system(size: 10))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.textSecondary)
                 }
             }
@@ -1166,7 +1178,7 @@ struct ChessComGameRowView: View {
                 }
 
                 Text(game.result)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(AnnFont.mono(10, bold: true))
                     .foregroundColor(DS.textSecondary)
             }
         }
@@ -1249,7 +1261,8 @@ struct ChessComConnectSheet: View {
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Chess.com Username")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.textSecondary)
 
                     TextField("Enter username", text: $username)
@@ -1277,21 +1290,21 @@ struct ChessComConnectSheet: View {
 
                         HStack {
                             Text("\(Int(progressPercentage * 100))%")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .font(AnnFont.mono(12, bold: true))
                                 .foregroundColor(chessComGreen)
 
                             Text("\u{2022}")
                                 .foregroundColor(DS.textSecondary)
 
                             Text("Archive \(service.currentArchive) of \(service.totalArchives)")
-                                .font(.system(size: 11))
+                                .font(AnnFont.mono(11))
                                 .foregroundColor(DS.textSecondary)
 
                             if service.gamesFoundSoFar > 0 {
                                 Text("\u{2022}")
                                     .foregroundColor(DS.textSecondary)
                                 Text("\(service.gamesFoundSoFar) games")
-                                    .font(.system(size: 11))
+                                    .font(AnnFont.mono(11))
                                     .foregroundColor(DS.textSecondary)
                             }
 

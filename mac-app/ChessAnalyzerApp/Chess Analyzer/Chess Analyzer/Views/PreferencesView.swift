@@ -12,7 +12,7 @@ struct PreferencesView: View {
             // Header + tabs
             VStack(alignment: .leading, spacing: 16) {
                 Text("Settings")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(AnnFont.serif(22, .semibold))
                     .foregroundColor(DS.textPrimary)
 
                 settingsTabBar
@@ -51,7 +51,8 @@ struct PreferencesView: View {
                     withAnimation(DS.quickFade) { selectedTab = index }
                 } label: {
                     Text(label)
-                        .font(.system(size: 13, weight: selectedTab == index ? .medium : .regular))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(selectedTab == index ? DS.textPrimary : DS.textTertiary)
                         .padding(.top, 8)
                         .padding(.horizontal, 16)
@@ -95,7 +96,8 @@ struct AppearanceSettingsView: View {
                                 withAnimation(DS.quickFade) { settings.appAppearance = mode }
                             } label: {
                                 Text(mode.rawValue)
-                                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                    .font(AnnFont.label(11))
+                                    .tracking(11 * 0.1)
                                     .foregroundColor(isSelected ? DS.ink : DS.ink40)
                                     .padding(.vertical, 6)
                                     .padding(.horizontal, 16)
@@ -198,7 +200,7 @@ struct AppearanceSettingsView: View {
 
 private func glassSettingsLabel(_ text: String) -> some View {
     Text(text)
-        .font(.system(size: 10, weight: .semibold))
+        .font(AnnFont.label(10))
         .foregroundColor(DS.ink25)
         .kerning(0.8)
 }
@@ -219,12 +221,12 @@ struct SettingsToggleRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AnnFont.serif(13, .medium))
                     .foregroundColor(DS.ink)
 
                 if !description.isEmpty {
                     Text(description)
-                        .font(.system(size: 11))
+                        .font(AnnFont.serif(11))
                         .foregroundColor(DS.ink40)
                 }
             }
@@ -300,7 +302,7 @@ struct BoardThemePreview: View {
             .shadow(color: isSelected ? DS.redAccent.opacity(0.2) : Color.black.opacity(0.15), radius: isSelected ? 6 : 4, x: 0, y: 2)
 
             Text(theme.name)
-                .font(.system(size: 10, weight: isSelected ? .medium : .regular))
+                .font(AnnFont.serif(10, isSelected ? .medium : .regular))
                 .foregroundColor(isSelected ? DS.ink : DS.ink40)
                 .lineLimit(1)
         }
@@ -347,7 +349,7 @@ struct PieceStylePreview: View {
             .shadow(color: isSelected ? DS.redAccent.opacity(0.2) : Color.black.opacity(0.12), radius: isSelected ? 6 : 4, x: 0, y: 2)
 
             Text(style.name)
-                .font(.system(size: 10, weight: isSelected ? .medium : .regular))
+                .font(AnnFont.serif(10, isSelected ? .medium : .regular))
                 .foregroundColor(isSelected ? DS.ink : DS.ink40)
         }
     }
@@ -380,17 +382,17 @@ struct EngineSettingsView: View {
                             case .checking:
                                 ProgressView().controlSize(.small)
                                 Text("Checking for Stockfish...")
-                                    .font(.system(size: 13))
+                                    .font(AnnFont.serif(13))
                                     .foregroundColor(DS.textSecondary)
                             case .found(let path):
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(.green)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Stockfish found")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(AnnFont.serif(13, .medium))
                                         .foregroundColor(DS.textPrimary)
                                     Text(path)
-                                        .font(.system(size: 11))
+                                        .font(AnnFont.mono(11))
                                         .foregroundColor(DS.textTertiary)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
@@ -399,7 +401,7 @@ struct EngineSettingsView: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundColor(.orange)
                                 Text("Stockfish not found")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(AnnFont.serif(13, .medium))
                                     .foregroundColor(DS.textPrimary)
                             }
                             Spacer()
@@ -413,13 +415,13 @@ struct EngineSettingsView: View {
                         // Custom path
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Custom Engine Path")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(AnnFont.serif(13, .medium))
                                 .foregroundColor(DS.textPrimary)
 
                             HStack(spacing: 8) {
                                 TextField("Path to stockfish binary", text: $settings.stockfishPath)
                                     .textFieldStyle(.plain)
-                                    .font(.system(size: 12))
+                                    .font(AnnFont.mono(12))
                                     .padding(.horizontal, 10)
                                     .frame(height: 32)
                                     .background(DS.bg)
@@ -434,7 +436,7 @@ struct EngineSettingsView: View {
                             }
 
                             Text("Leave empty to auto-detect from /usr/local/bin or /opt/homebrew/bin")
-                                .font(.system(size: 10))
+                                .font(AnnFont.serif(10))
                                 .foregroundColor(DS.textTertiary)
                         }
                         .padding(.vertical, 12)
@@ -447,16 +449,16 @@ struct EngineSettingsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Analysis Depth")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(AnnFont.serif(13, .medium))
                                     .foregroundColor(DS.textPrimary)
                                 Text("Higher depth = more accurate but slower")
-                                    .font(.system(size: 11))
+                                    .font(AnnFont.serif(11))
                                     .foregroundColor(DS.textTertiary)
                             }
                             Spacer()
                             Stepper(value: $settings.engineDepth, in: EngineSettings.depthRange) {
                                 Text("\(settings.engineDepth)")
-                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .font(AnnFont.mono(13, bold: true))
                                     .foregroundColor(DS.accent)
                             }
                         }
@@ -489,11 +491,11 @@ struct EngineSettingsView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("To install Stockfish via Homebrew:")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.textSecondary)
 
                         Text("brew install stockfish")
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(AnnFont.mono(12))
                             .foregroundColor(DS.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -503,7 +505,8 @@ struct EngineSettingsView: View {
                         Button("Open Stockfish Website") {
                             NSWorkspace.shared.open(URL(string: "https://stockfishchess.org/download/")!)
                         }
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.accent)
                         .buttonStyle(.plain)
                     }
@@ -595,24 +598,24 @@ struct AboutView: View {
                 .foregroundColor(DS.accent)
 
             Text("Tabia")
-                .font(.system(size: 22, weight: .bold))
+                .font(AnnFont.serif(22, .semibold))
                 .foregroundColor(DS.textPrimary)
 
             Text("Version 1.0.0")
-                .font(.system(size: 12))
+                .font(AnnFont.mono(12))
                 .foregroundColor(DS.textTertiary)
 
             Rectangle().fill(DS.hairline).frame(height: 1)
                 .padding(.horizontal, 40)
 
             Text("A powerful chess analysis tool for macOS")
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13))
                 .multilineTextAlignment(.center)
                 .foregroundColor(DS.textSecondary)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Features:")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.serif(13, .semibold))
                     .foregroundColor(DS.textPrimary)
                 Text("Interactive chess board with drag-and-drop")
                 Text("Stockfish engine with multi-line analysis")
@@ -621,13 +624,13 @@ struct AboutView: View {
                 Text("Variation analysis")
                 Text("Position evaluation")
             }
-            .font(.system(size: 12))
+            .font(AnnFont.serif(12))
             .foregroundColor(DS.textSecondary)
 
             Spacer()
 
             Text("Built with SwiftUI")
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
                 .foregroundColor(DS.textTertiary)
         }
         .padding(.horizontal, 40)
@@ -648,7 +651,7 @@ struct SettingsScreenView: View {
             // Header
             VStack(alignment: .leading, spacing: 16) {
                 Text("Settings")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(AnnFont.serif(24, .semibold))
                     .foregroundColor(DS.ink)
 
                 // Tab bar
@@ -658,7 +661,8 @@ struct SettingsScreenView: View {
                             withAnimation(DS.quickFade) { selectedTab = index }
                         } label: {
                             Text(label)
-                                .font(.system(size: 13, weight: selectedTab == index ? .semibold : .regular))
+                                .font(AnnFont.label(13))
+                                .tracking(13 * 0.1)
                                 .foregroundColor(selectedTab == index ? DS.ink : DS.ink40)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 16)

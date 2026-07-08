@@ -246,7 +246,7 @@ struct DatabaseBrowserView: View {
                                 .font(.system(size: 32))
                                 .foregroundColor(DS.accent)
                             Text("Drop to import")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(AnnFont.serif(13, .medium))
                                 .foregroundColor(DS.accent)
                         }
                     )
@@ -348,7 +348,7 @@ struct DatabaseBrowserView: View {
                         .font(.system(size: 18))
                         .foregroundColor(DS.ink60)
                     Text("Databases")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(AnnFont.serif(16, .semibold))
                         .foregroundColor(DS.ink)
                 }
 
@@ -362,7 +362,7 @@ struct DatabaseBrowserView: View {
                             .foregroundColor(DS.ink25)
                         TextField("Search databases...", text: $rootSearchText)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                         if !rootSearchText.isEmpty {
                             Button(action: { rootSearchText = "" }) {
                                 Image(systemName: "xmark.circle.fill")
@@ -497,12 +497,12 @@ struct DatabaseBrowserView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(AnnFont.serif(14, .semibold))
                             .foregroundColor(DS.ink)
                             .lineLimit(1)
                         if let subtitle = subtitle, !subtitle.isEmpty {
                             Text(subtitle)
-                                .font(.system(size: 11))
+                                .font(AnnFont.serif(11))
                                 .foregroundColor(DS.ink40)
                                 .lineLimit(1)
                         }
@@ -520,21 +520,21 @@ struct DatabaseBrowserView: View {
                 VStack(spacing: 12) {
                     HStack {
                         Text("Games")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.ink40)
                         Spacer()
                         Text(formattedGameCount(gameCount))
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(AnnFont.mono(13, bold: true))
                             .foregroundColor(DS.ink)
                     }
 
                     HStack {
                         Text("Last modified")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.ink40)
                         Spacer()
                         Text(lastModified != nil ? relativeTimeString(lastModified!) : "-")
-                            .font(.system(size: 12))
+                            .font(AnnFont.mono(12))
                             .foregroundColor(DS.ink60)
                     }
                 }
@@ -558,7 +558,7 @@ struct DatabaseBrowserView: View {
     private var rootStatusBar: some View {
         HStack {
             Text("\(database.folders.count + 1) databases · \(formattedGameCount(database.libraryGameCount)) games")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink25)
 
             Spacer()
@@ -566,7 +566,7 @@ struct DatabaseBrowserView: View {
             let formatter = DateFormatter()
             let _ = formatter.dateFormat = "MMM d, yyyy"
             Text("Last synced: \(formatter.string(from: Date()))")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink25)
         }
         .padding(.horizontal, 28)
@@ -788,7 +788,7 @@ struct DatabaseBrowserView: View {
             .buttonStyle(.plain)
 
             Text(currentFolderName)
-                .font(.system(size: 16, weight: .bold))
+                .font(AnnFont.serif(16, .semibold))
                 .foregroundColor(DS.ink)
 
             Spacer()
@@ -800,7 +800,8 @@ struct DatabaseBrowserView: View {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 14))
                         Text("Filters")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                     }
                     .foregroundColor(DS.ink60)
                     .padding(.vertical, 6)
@@ -818,7 +819,8 @@ struct DatabaseBrowserView: View {
                         Image(systemName: "arrow.down.circle")
                             .font(.system(size: 14))
                         Text("Import PGN")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                     }
                     .foregroundColor(DS.ink)
                     .padding(.vertical, 6)
@@ -848,7 +850,7 @@ struct DatabaseBrowserView: View {
                     .foregroundColor(DS.ink60)
 
                 Text("Filters")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(AnnFont.serif(14, .semibold))
                     .foregroundColor(DS.ink)
 
                 Spacer()
@@ -922,7 +924,7 @@ struct DatabaseBrowserView: View {
                     // Opening (last section, no bottom border)
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Opening")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(AnnFont.label(11))
                             .foregroundColor(DS.textSecondary)
                             .kerning(0.4)
 
@@ -975,7 +977,7 @@ struct DatabaseBrowserView: View {
     private func filterSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(AnnFont.label(11))
                 .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
@@ -998,7 +1000,7 @@ struct DatabaseBrowserView: View {
 
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
 
             if !text.wrappedValue.isEmpty {
                 Button(action: { text.wrappedValue = "" }) {
@@ -1044,12 +1046,12 @@ struct DatabaseBrowserView: View {
             // Title + range on same row (matches Pencil whiteEloHeader/blackEloHeader)
             HStack {
                 Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AnnFont.label(11))
                     .foregroundColor(DS.textSecondary)
                     .kerning(0.4)
                 Spacer()
                 Text("\(lo) – \(hi)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(isActive ? DS.accent : DS.textTertiary)
             }
 
@@ -1058,11 +1060,11 @@ struct DatabaseBrowserView: View {
 
             HStack {
                 Text("1000")
-                    .font(.system(size: 10))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.textMuted)
                 Spacer()
                 Text("3000")
-                    .font(.system(size: 10))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.textMuted)
             }
         }
@@ -1194,32 +1196,32 @@ struct DatabaseBrowserView: View {
 
     private var tableHeader: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 4) { Text("White").font(.system(size: 11, weight: .semibold)).foregroundColor(DS.textSecondary); sortArrow(.white) }
+            HStack(spacing: 4) { Text("White").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.white) }
                 .padding(.horizontal, 8)
                 .frame(width: 180, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.white) }
 
-            HStack(spacing: 4) { Text("Black").font(.system(size: 11, weight: .semibold)).foregroundColor(DS.textSecondary); sortArrow(.black) }
+            HStack(spacing: 4) { Text("Black").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.black) }
                 .padding(.horizontal, 8)
                 .frame(width: 180, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.black) }
 
-            HStack(spacing: 4) { Text("Result").font(.system(size: 11, weight: .semibold)).foregroundColor(DS.textSecondary); sortArrow(.result) }
+            HStack(spacing: 4) { Text("Result").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.result) }
                 .padding(.horizontal, 8)
                 .frame(width: 80, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.result) }
 
-            HStack(spacing: 4) { Text("Opening").font(.system(size: 11, weight: .semibold)).foregroundColor(DS.textSecondary); sortArrow(.opening) }
+            HStack(spacing: 4) { Text("Opening").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.opening) }
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.opening) }
 
-            HStack(spacing: 4) { Text("Event").font(.system(size: 11, weight: .semibold)).foregroundColor(DS.textSecondary); sortArrow(.event) }
+            HStack(spacing: 4) { Text("Event").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.event) }
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.event) }
 
-            HStack(spacing: 4) { Text("Date").font(.system(size: 11, weight: .semibold)).foregroundColor(DS.textSecondary); sortArrow(.date) }
+            HStack(spacing: 4) { Text("Date").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.date) }
                 .padding(.horizontal, 8)
                 .frame(width: 100, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.date) }
@@ -1236,7 +1238,7 @@ struct DatabaseBrowserView: View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 Circle().fill(Color(hex: 0xECECEC)).frame(width: 8, height: 8)
-                Text(game.white).font(.system(size: 12)).foregroundColor(DS.textPrimary).lineLimit(1)
+                Text(game.white).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
             }
             .padding(.horizontal, 8)
             .frame(width: 180, alignment: .leading)
@@ -1244,29 +1246,29 @@ struct DatabaseBrowserView: View {
             HStack(spacing: 6) {
                 Circle().fill(Color(hex: 0x262626)).frame(width: 8, height: 8)
                     .overlay(Circle().strokeBorder(DS.textTertiary, lineWidth: 1))
-                Text(game.black).font(.system(size: 12)).foregroundColor(DS.textPrimary).lineLimit(1)
+                Text(game.black).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
             }
             .padding(.horizontal, 8)
             .frame(width: 180, alignment: .leading)
 
             Text(resultDisplay(game.result))
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.mono(12, bold: true))
                 .foregroundColor(resultColor(game.result))
                 .padding(.horizontal, 8)
                 .frame(width: 80, alignment: .leading)
 
             Text(game.opening ?? game.eco ?? "-")
-                .font(.system(size: 12)).foregroundColor(DS.textSecondary).lineLimit(1)
+                .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(cleanField(game.event))
-                .font(.system(size: 12)).foregroundColor(DS.textSecondary).lineLimit(1)
+                .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(game.date.isEmpty ? formatDate(game.dateAdded) : game.date)
-                .font(.system(size: 11)).foregroundColor(DS.textTertiary).lineLimit(1)
+                .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(width: 100, alignment: .leading)
         }
@@ -1306,11 +1308,11 @@ struct DatabaseBrowserView: View {
 
                 VStack(spacing: 8) {
                     Text("No Games in Library")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(AnnFont.serif(20, .semibold))
                         .foregroundColor(DS.textPrimary)
 
                     Text("Import PGN files or create a new database to start organizing your chess games")
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .foregroundColor(DS.textTertiary)
                         .lineSpacing(4)
                         .multilineTextAlignment(.center)
@@ -1319,7 +1321,8 @@ struct DatabaseBrowserView: View {
 
                 Button(action: { showingNewDatabaseSheet = true }) {
                     Text("Create Database")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -1333,11 +1336,12 @@ struct DatabaseBrowserView: View {
                     .foregroundColor(DS.textTertiary)
 
                 Text("No games match your filters")
-                    .font(.system(size: 13))
+                    .font(AnnFont.serif(13))
                     .foregroundColor(DS.textSecondary)
 
                 Button("Clear Filters") { clearFilters() }
-                    .font(.system(size: 12))
+                    .font(AnnFont.label(12))
+                    .tracking(12 * 0.1)
                     .buttonStyle(GlassButtonStyle())
                     .controlSize(.small)
             }
@@ -1353,7 +1357,7 @@ struct DatabaseBrowserView: View {
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 Text("\(cachedGames.count)\(allExhausted ? "" : "+") games")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.ink60)
 
                 if isLoadingGames {
@@ -1362,7 +1366,8 @@ struct DatabaseBrowserView: View {
                 }
 
                 Text("Synced")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(AnnFont.label(10))
+                    .tracking(10 * 0.1)
                     .foregroundColor(DS.semOnline)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
@@ -1373,12 +1378,12 @@ struct DatabaseBrowserView: View {
 
             if selectedGameIds.count > 1 {
                 Text("\(selectedGameIds.count) selected")
-                    .font(.system(size: 10))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.redAccent)
             }
 
             Text("Sorted by date")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink25)
         }
         .padding(.horizontal, 28)
@@ -1574,7 +1579,7 @@ private struct PickerPopoverContent: View {
         VStack(spacing: 0) {
             // Title
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.serif(12, .semibold))
                 .foregroundColor(DS.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
@@ -1588,7 +1593,7 @@ private struct PickerPopoverContent: View {
                     .foregroundColor(DS.textSecondary)
                 TextField("Search...", text: $searchText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
@@ -1614,7 +1619,7 @@ private struct PickerPopoverContent: View {
                     ForEach(items, id: \.self) { name in
                         Button(action: { onSelect(name) }) {
                             Text(name)
-                                .font(.system(size: 12))
+                                .font(AnnFont.serif(12))
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 12)
@@ -1631,7 +1636,7 @@ private struct PickerPopoverContent: View {
             .overlay {
                 if items.isEmpty {
                     Text("No results")
-                        .font(.system(size: 11))
+                        .font(AnnFont.serif(11))
                         .foregroundColor(DS.textSecondary)
                 }
             }
@@ -1737,7 +1742,7 @@ private struct FilterListItem: View {
                 }
 
                 Text(name)
-                    .font(.system(size: 12, weight: isSelected ? .medium : .regular))
+                    .font(AnnFont.serif(12, isSelected ? .medium : .regular))
                     .foregroundColor(DS.textPrimary)
                     .lineLimit(1)
 
@@ -1745,7 +1750,7 @@ private struct FilterListItem: View {
 
                 if let count = count {
                     Text("\(count)")
-                        .font(.system(size: 11))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.textTertiary)
                 }
             }
@@ -1845,7 +1850,7 @@ struct NewDatabaseSheet: View {
             // Header
             HStack {
                 Text("Create New Database")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(DS.textPrimary)
 
                 Spacer()
@@ -1883,10 +1888,10 @@ struct NewDatabaseSheet: View {
                                 .foregroundColor(DS.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Download reference database")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(AnnFont.serif(13, .semibold))
                                     .foregroundColor(DS.textPrimary)
                                 Text("9.6M master over-the-board games · ~2 GB")
-                                    .font(.system(size: 11))
+                                    .font(AnnFont.serif(11))
                                     .foregroundColor(DS.textSecondary)
                             }
                             Spacer()
@@ -1909,7 +1914,7 @@ struct NewDatabaseSheet: View {
                     HStack(spacing: 10) {
                         Rectangle().fill(DS.border).frame(height: 1)
                         Text("or create your own")
-                            .font(.system(size: 10))
+                            .font(AnnFont.serif(10))
                             .foregroundColor(DS.textTertiary)
                             .fixedSize()
                         Rectangle().fill(DS.border).frame(height: 1)
@@ -1919,12 +1924,12 @@ struct NewDatabaseSheet: View {
                 // Name field
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Database Name")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.serif(13, .medium))
                         .foregroundColor(DS.textPrimary)
 
                     TextField("My Tournament Games", text: $name)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .padding(.horizontal, 12)
                         .frame(height: 36)
                         .background(DS.bg)
@@ -1938,7 +1943,7 @@ struct NewDatabaseSheet: View {
                 // Import PGN section
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Import PGN")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.serif(13, .medium))
                         .foregroundColor(DS.textPrimary)
 
                     if pgnURLs.isEmpty {
@@ -1949,12 +1954,12 @@ struct NewDatabaseSheet: View {
                                 .foregroundColor(isDropTargeted ? DS.accent : DS.textTertiary)
 
                             Text("Drop PGN file here or click to browse")
-                                .font(.system(size: 12))
+                                .font(AnnFont.serif(12))
                                 .foregroundColor(DS.textSecondary)
                                 .multilineTextAlignment(.center)
 
                             Text(".pgn files supported")
-                                .font(.system(size: 10))
+                                .font(AnnFont.serif(10))
                                 .foregroundColor(DS.textTertiary)
                         }
                         .frame(maxWidth: .infinity)
@@ -1984,7 +1989,7 @@ struct NewDatabaseSheet: View {
                                         .font(.system(size: 12))
                                         .foregroundColor(DS.accent)
                                     Text(url.lastPathComponent)
-                                        .font(.system(size: 12))
+                                        .font(AnnFont.serif(12))
                                         .foregroundColor(DS.textPrimary)
                                         .lineLimit(1)
                                     Spacer()
@@ -2024,7 +2029,8 @@ struct NewDatabaseSheet: View {
 
                 Button(action: { onCancel() }) {
                     Text("Cancel")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.textSecondary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -2039,7 +2045,8 @@ struct NewDatabaseSheet: View {
                     onCreate(finalName, pgnURLs)
                 }) {
                     Text(pgnURLs.isEmpty ? "Create" : "Create & Import")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -2086,8 +2093,8 @@ struct NewDatabaseSheet: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 34)).foregroundColor(DS.moveBlunder)
                 Text("Download failed")
-                    .font(.system(size: 15, weight: .semibold)).foregroundColor(DS.textPrimary)
-                Text(err).font(.system(size: 11)).foregroundColor(DS.textTertiary)
+                    .font(AnnFont.serif(15, .semibold)).foregroundColor(DS.textPrimary)
+                Text(err).font(AnnFont.serif(11)).foregroundColor(DS.textTertiary)
                     .multilineTextAlignment(.center).frame(maxWidth: 360).lineLimit(4)
                 HStack(spacing: 10) {
                     Button("Close") { onCancel() }.buttonStyle(.bordered)
@@ -2097,26 +2104,26 @@ struct NewDatabaseSheet: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 34)).foregroundColor(DS.accent)
                 Text("\(formatted(referenceDatabase.gameCount)) games ready")
-                    .font(.system(size: 15, weight: .semibold)).foregroundColor(DS.textPrimary)
+                    .font(AnnFont.serif(15, .semibold)).foregroundColor(DS.textPrimary)
                 Text("Open the Reference tab and tap “Build opening index” to make positions searchable — you choose scope and depth.")
-                    .font(.system(size: 11)).foregroundColor(DS.textTertiary)
+                    .font(AnnFont.serif(11)).foregroundColor(DS.textTertiary)
                     .multilineTextAlignment(.center).frame(maxWidth: 360)
                 Button("Done") { onCancel() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
             } else {
                 KnightLoader(size: 52)
                 Text(referenceDatabase.downloadPhase.isEmpty ? "Starting…" : referenceDatabase.downloadPhase)
-                    .font(.system(size: 14, weight: .semibold)).foregroundColor(DS.textPrimary)
+                    .font(AnnFont.serif(14, .semibold)).foregroundColor(DS.textPrimary)
                     .padding(.top, 4)
                 if referenceDatabase.downloadPhase == "Downloading…" {
                     ProgressView(value: referenceDatabase.downloadProgress).frame(maxWidth: 320)
                     Text("\(Int(referenceDatabase.downloadProgress * 100))%  ·  ~2 GB")
-                        .font(.system(size: 11, design: .monospaced)).foregroundColor(DS.textTertiary)
+                        .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary)
                 } else if referenceDatabase.importProgress > 0 {
                     Text("\(formatted(referenceDatabase.importProgress)) games loaded")
-                        .font(.system(size: 11, design: .monospaced)).foregroundColor(DS.textTertiary)
+                        .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary)
                 }
                 Text("You can keep using the app — this continues in the background.")
-                    .font(.system(size: 10)).foregroundColor(DS.textTertiary)
+                    .font(AnnFont.serif(10)).foregroundColor(DS.textTertiary)
                 HStack(spacing: 10) {
                     Button("Continue in background") { onCancel() }
                         .buttonStyle(.bordered)

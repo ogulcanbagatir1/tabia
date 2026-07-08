@@ -22,7 +22,7 @@ struct ChessComStatsView: View {
                     ProgressView()
                         .controlSize(.regular)
                     Text("Computing stats...")
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.textTertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -39,10 +39,10 @@ struct ChessComStatsView: View {
                 .font(.system(size: 36))
                 .foregroundColor(DS.textTertiary)
             Text("No games to analyze")
-                .font(.system(size: 14, weight: .medium))
+                .font(AnnFont.serif(14, .medium))
                 .foregroundColor(DS.textSecondary)
             Text("Import some Chess.com games first")
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.textTertiary)
             Spacer()
         }
@@ -78,7 +78,7 @@ struct ChessComStatsView: View {
         VStack(spacing: 12) {
             HStack {
                 Text("Rating History")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(AnnFont.serif(14, .semibold))
                     .foregroundColor(DS.textPrimary)
                 Spacer()
                 // Legend
@@ -110,7 +110,8 @@ struct ChessComStatsView: View {
                 .fill(color)
                 .frame(width: 8, height: 8)
             Text(label)
-                .font(.system(size: 10))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .foregroundColor(DS.textSecondary)
         }
     }
@@ -127,7 +128,7 @@ struct ChessComStatsView: View {
     private func resultsBreakdown(_ stats: ChessComStats) -> some View {
         VStack(spacing: 12) {
             Text("Results Breakdown")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AnnFont.serif(14, .semibold))
                 .foregroundColor(DS.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -187,10 +188,11 @@ struct ChessComStatsView: View {
                 .fill(dot)
                 .frame(width: 8, height: 8)
             Text(text)
-                .font(.system(size: 12))
+                .font(AnnFont.label(12))
+                .tracking(12 * 0.1)
                 .foregroundColor(DS.textSecondary)
             Text(verbatim: "\(count)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.mono(12, bold: true))
                 .foregroundColor(DS.textPrimary)
         }
     }
@@ -200,7 +202,7 @@ struct ChessComStatsView: View {
 
         return VStack(spacing: 12) {
             Text("Performance")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AnnFont.serif(14, .semibold))
                 .foregroundColor(DS.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -227,10 +229,11 @@ struct ChessComStatsView: View {
     private func perfCell(label: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .font(AnnFont.label(11))
+                .tracking(11 * 0.1)
                 .foregroundColor(DS.textTertiary)
             Text(verbatim: value)
-                .font(.system(size: 18, weight: .bold))
+                .font(AnnFont.mono(18, bold: true))
                 .foregroundColor(color)
         }
         .padding(.horizontal, 14)
@@ -246,14 +249,14 @@ struct ChessComStatsView: View {
         VStack(spacing: 12) {
             HStack {
                 Text("Most Played Openings")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(AnnFont.serif(14, .semibold))
                     .foregroundColor(DS.textPrimary)
                 Spacer()
             }
 
             if stats.openingStats.isEmpty {
                 Text("No opening data available")
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                     .foregroundColor(DS.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
@@ -270,7 +273,8 @@ struct ChessComStatsView: View {
                         Text("Win Rate")
                             .frame(width: 80, alignment: .trailing)
                     }
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
                     .foregroundColor(DS.textTertiary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 4)
@@ -300,7 +304,7 @@ struct ChessComStatsView: View {
             HStack(spacing: 6) {
                 if let eco = opening.eco {
                     Text(eco)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(AnnFont.mono(9, bold: true))
                         .foregroundColor(chessComGreen)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -308,7 +312,7 @@ struct ChessComStatsView: View {
                         .cornerRadius(3)
                 }
                 Text(opening.name)
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                     .foregroundColor(DS.textPrimary)
                     .lineLimit(1)
             }
@@ -316,7 +320,7 @@ struct ChessComStatsView: View {
 
             // Games count
             Text(verbatim: "\(opening.games)")
-                .font(.system(size: 12))
+                .font(AnnFont.mono(12))
                 .foregroundColor(DS.textSecondary)
                 .frame(width: 80, alignment: .leading)
 
@@ -328,7 +332,7 @@ struct ChessComStatsView: View {
 
             // Win rate
             Text(verbatim: String(format: "%.1f%%", opening.winRate))
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.mono(12, bold: true))
                 .foregroundColor(opening.winRate >= 50 ? chessComGreen : DS.accentRed)
                 .frame(width: 80, alignment: .trailing)
         }
@@ -392,7 +396,7 @@ private struct RatingChartView: View {
 
         if filtered.isEmpty {
             Text("No rating data")
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
                 .foregroundColor(DS.textTertiary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -437,7 +441,7 @@ private struct RatingChartView: View {
                 let rating = Int(Double(maxRating) - Double(maxRating - minRating) * frac)
                 let rounded = (rating / 25) * 25
                 Text(verbatim: "\(rounded)")
-                    .font(.system(size: 8, weight: .medium, design: .rounded))
+                    .font(AnnFont.mono(8))
                     .foregroundColor(DS.textTertiary)
                     .position(x: yAxisWidth / 2, y: h * frac)
             }
@@ -457,7 +461,7 @@ private struct RatingChartView: View {
                 let frac = CGFloat(i) / CGFloat(labelCount - 1)
                 let date = Date(timeIntervalSince1970: minDate.timeIntervalSince1970 + frac * maxDate.timeIntervalSince(minDate))
                 Text(formatter.string(from: date))
-                    .font(.system(size: 8, design: .rounded))
+                    .font(AnnFont.mono(8))
                     .foregroundColor(DS.textTertiary)
                     .position(x: inset + usable * frac, y: 10)
             }
@@ -620,15 +624,16 @@ private struct RatingChartView: View {
                     .fill(ChessComStatsView.colorForTimeClass(info.timeClass))
                     .frame(width: 6, height: 6)
                 Text(info.timeClass.capitalized)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(AnnFont.label(9))
+                    .tracking(9 * 0.1)
                     .foregroundColor(DS.textSecondary)
                     .lineLimit(1)
             }
             Text(verbatim: "\(info.rating)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .font(AnnFont.mono(14, bold: true))
                 .foregroundColor(DS.textPrimary)
             Text(formatter.string(from: info.date))
-                .font(.system(size: 9))
+                .font(AnnFont.mono(9))
                 .foregroundColor(DS.textSecondary)
                 .lineLimit(1)
         }

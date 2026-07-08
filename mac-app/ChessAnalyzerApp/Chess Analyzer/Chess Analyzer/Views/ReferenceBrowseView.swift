@@ -40,7 +40,7 @@ struct ReferenceBrowseView: View {
             Button(action: onBack) {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                    Text("Databases").font(.system(size: 12))
+                    Text("Databases").font(AnnFont.label(12)).tracking(12 * 0.1)
                 }
             }
             .buttonStyle(.plain)
@@ -51,9 +51,9 @@ struct ReferenceBrowseView: View {
             HStack(spacing: 6) {
                 Image(systemName: "books.vertical.fill").font(.system(size: 11)).foregroundColor(DS.accent)
                 Text(referenceDatabase.displayName)
-                    .font(.system(size: 13, weight: .semibold)).foregroundColor(DS.textPrimary)
+                    .font(AnnFont.serif(13, .semibold)).foregroundColor(DS.textPrimary)
                 Text("· \(formatted(referenceDatabase.gameCount)) games · read-only")
-                    .font(.system(size: 11)).foregroundColor(DS.textTertiary)
+                    .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary)
             }
 
             Spacer()
@@ -103,7 +103,8 @@ struct ReferenceBrowseView: View {
 
     private func headerCell(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
+            .font(AnnFont.label(11, bold: false))
+            .tracking(11 * 0.1)
             .foregroundColor(DS.textSecondary)
             .padding(.horizontal, 8)
     }
@@ -112,7 +113,7 @@ struct ReferenceBrowseView: View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 Circle().fill(Color(hex: 0xECECEC)).frame(width: 8, height: 8)
-                Text(g.white).font(.system(size: 12)).foregroundColor(DS.textPrimary).lineLimit(1)
+                Text(g.white).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
             }
             .padding(.horizontal, 8)
             .frame(width: 180, alignment: .leading)
@@ -120,29 +121,29 @@ struct ReferenceBrowseView: View {
             HStack(spacing: 6) {
                 Circle().fill(Color(hex: 0x262626)).frame(width: 8, height: 8)
                     .overlay(Circle().strokeBorder(DS.textTertiary, lineWidth: 1))
-                Text(g.black).font(.system(size: 12)).foregroundColor(DS.textPrimary).lineLimit(1)
+                Text(g.black).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
             }
             .padding(.horizontal, 8)
             .frame(width: 180, alignment: .leading)
 
             Text(resultText(g.result))
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.mono(12, bold: true))
                 .foregroundColor(resultColor(g.result))
                 .padding(.horizontal, 8)
                 .frame(width: 80, alignment: .leading)
 
             Text(openingName(g.eco))
-                .font(.system(size: 12)).foregroundColor(DS.textSecondary).lineLimit(1)
+                .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(eloText(g))
-                .font(.system(size: 12, design: .monospaced)).foregroundColor(DS.textSecondary).lineLimit(1)
+                .font(AnnFont.mono(12)).foregroundColor(DS.textSecondary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(dateText(g.date))
-                .font(.system(size: 11)).foregroundColor(DS.textTertiary).lineLimit(1)
+                .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(width: 100, alignment: .leading)
         }

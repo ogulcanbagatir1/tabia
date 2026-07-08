@@ -22,7 +22,7 @@ struct SaveGameView: View {
             // Header
             HStack {
                 Text("Save Game")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                 Spacer()
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark.circle.fill")

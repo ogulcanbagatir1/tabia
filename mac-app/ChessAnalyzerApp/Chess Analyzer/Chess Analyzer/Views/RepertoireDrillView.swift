@@ -66,10 +66,10 @@ struct RepertoireDrillView: View {
                 .foregroundColor(DS.accent)
 
             Text("Drilling")
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13))
                 .foregroundColor(DS.ink60)
             Text(session.repertoire.name)
-                .font(.system(size: 14, weight: .bold))
+                .font(AnnFont.serif(14, .semibold))
                 .foregroundColor(DS.ink)
 
             Spacer()
@@ -109,7 +109,8 @@ struct RepertoireDrillView: View {
                 Image(systemName: "dial.medium")
                     .font(.system(size: 11))
                 Text(session.replyMode.label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.label(11))
+                    .tracking(11 * 0.1)
             }
             .foregroundColor(DS.ink60)
             .padding(.horizontal, 10)
@@ -124,15 +125,15 @@ struct RepertoireDrillView: View {
     private var progressBadge: some View {
         HStack(spacing: 8) {
             Label("\(session.successCount)", systemImage: "checkmark.circle.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(AnnFont.mono(11, bold: true))
                 .foregroundColor(DS.moveBest)
 
             Label("\(session.failCount)", systemImage: "xmark.circle.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(AnnFont.mono(11, bold: true))
                 .foregroundColor(DS.moveBlunder)
 
             Text("\(session.masteredCount) / \(session.total)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink60)
         }
         .padding(.horizontal, 10)
@@ -239,7 +240,7 @@ struct RepertoireDrillView: View {
                         .font(.system(size: 12))
                         .foregroundColor(DS.accent)
                     Text("\(ref.san) — \(Int(ref.userScorePercent.rounded()))% for you over \(ref.games.formatted()) games")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(AnnFont.serif(11, .medium))
                         .foregroundColor(DS.ink60)
                 }
                 .padding(.horizontal, 14)
@@ -255,7 +256,7 @@ struct RepertoireDrillView: View {
                !node.annotation.isEmpty {
                 ScrollView {
                     Text(node.annotation)
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.ink60)
                         .lineSpacing(3)
                         .frame(maxWidth: 520, alignment: .leading)
@@ -276,10 +277,10 @@ struct RepertoireDrillView: View {
                 .font(.system(size: 56, weight: .light))
                 .foregroundColor(DS.accent)
             Text("All caught up!")
-                .font(.system(size: 18, weight: .semibold))
+                .font(AnnFont.serif(18, .semibold))
                 .foregroundColor(DS.textPrimary)
             Text("No moves are due for drill in this repertoire right now.")
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13))
                 .foregroundColor(DS.textTertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
@@ -297,7 +298,7 @@ struct RepertoireDrillView: View {
                 .font(.system(size: 56))
                 .foregroundColor(DS.accent)
             Text("Drill complete")
-                .font(.system(size: 18, weight: .semibold))
+                .font(AnnFont.serif(18, .semibold))
                 .foregroundColor(DS.textPrimary)
 
             HStack(spacing: 24) {
@@ -321,10 +322,11 @@ struct RepertoireDrillView: View {
     private func statBlock(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(AnnFont.mono(28, bold: true))
                 .foregroundColor(color)
             Text(label)
-                .font(.system(size: 11))
+                .font(AnnFont.label(11))
+                .tracking(11 * 0.1)
                 .foregroundColor(DS.textTertiary)
         }
         .frame(minWidth: 80)
@@ -351,10 +353,10 @@ struct RepertoireDrillView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(tint)
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(AnnFont.serif(13, .semibold))
                 .foregroundColor(DS.ink)
             Text(detail)
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.ink60)
         }
         .padding(.horizontal, 16)

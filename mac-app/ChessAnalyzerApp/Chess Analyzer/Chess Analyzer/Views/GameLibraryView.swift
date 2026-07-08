@@ -427,7 +427,7 @@ struct GameLibraryView: View {
                 Image(systemName: currentFolderIcon)
                     .font(.system(size: 11, weight: .medium))
                 Text(currentFolderName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AnnFont.serif(12, .medium))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
@@ -505,7 +505,8 @@ struct GameLibraryView: View {
             Image(systemName: icon)
                 .font(.system(size: 9))
             Text(label)
-                .font(.system(size: 10))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .lineLimit(1)
             Button(action: onRemove) {
                 Image(systemName: "xmark")
@@ -540,12 +541,13 @@ struct GameLibraryView: View {
             // Header
             HStack {
                 Text("Filters")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(AnnFont.serif(15, .semibold))
                 Spacer()
                 if hasActiveFilters {
                     Button(action: clearFilters) {
                         Text("Reset")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
@@ -602,7 +604,7 @@ struct GameLibraryView: View {
                                     .foregroundColor(DS.textSecondary)
                                 TextField("Search openings...", text: $openingSearchText)
                                     .textFieldStyle(.plain)
-                                    .font(.system(size: 12))
+                                    .font(AnnFont.serif(12))
                                 if !openingSearchText.isEmpty {
                                     Button(action: { openingSearchText = "" }) {
                                         Image(systemName: "xmark.circle.fill")
@@ -620,7 +622,7 @@ struct GameLibraryView: View {
                             if !filterOpening.isEmpty {
                                 HStack(spacing: 4) {
                                     Text(filterOpening)
-                                        .font(.system(size: 11, weight: .medium))
+                                        .font(AnnFont.serif(11, .medium))
                                         .foregroundColor(DS.accent)
                                     Button(action: { filterOpening = "" }) {
                                         Image(systemName: "xmark.circle.fill")
@@ -644,7 +646,7 @@ struct GameLibraryView: View {
                                             openingSearchText = ""
                                         }) {
                                             Text(opening)
-                                                .font(.system(size: 11))
+                                                .font(AnnFont.serif(11))
                                                 .padding(.horizontal, 10)
                                                 .padding(.vertical, 5)
                                                 .background(filterOpening == opening ? DS.accent : DS.bgSecondary)
@@ -664,7 +666,8 @@ struct GameLibraryView: View {
                         HStack(spacing: 16) {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("From")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(AnnFont.label(10))
+                                    .tracking(10 * 0.1)
                                     .foregroundColor(DS.textSecondary)
                                 HStack(spacing: 6) {
                                     DatePicker("", selection: Binding(
@@ -687,7 +690,8 @@ struct GameLibraryView: View {
 
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("To")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(AnnFont.label(10))
+                                    .tracking(10 * 0.1)
                                     .foregroundColor(DS.textSecondary)
                                 HStack(spacing: 6) {
                                     DatePicker("", selection: Binding(
@@ -721,7 +725,7 @@ struct GameLibraryView: View {
             HStack {
                 if hasActiveFilters {
                     Text("\(activeFilterCount) active")
-                        .font(.system(size: 11))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.textSecondary)
                 }
                 Spacer()
@@ -745,7 +749,8 @@ struct GameLibraryView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(DS.accent)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AnnFont.label(12))
+                    .tracking(12 * 0.1)
                     .foregroundColor(DS.textPrimary)
             }
             content()
@@ -758,7 +763,8 @@ struct GameLibraryView: View {
             ForEach(options, id: \.self) { option in
                 Button(action: { onSelect(option) }) {
                     Text(option)
-                        .font(.system(size: 11, weight: selected == option ? .semibold : .regular))
+                        .font(AnnFont.label(11))
+                        .tracking(11 * 0.1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(selected == option ? DS.accent : DS.bgSecondary)
@@ -847,7 +853,7 @@ struct FlowLayout: Layout {
                 .font(.system(size: 12, weight: .medium))
             TextField("Search games...", text: $searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
             if !searchText.isEmpty {
                 Button(action: { searchText = "" }) {
                     Image(systemName: "xmark.circle.fill")
@@ -876,7 +882,7 @@ struct FlowLayout: Layout {
 
                     if activeFilterCount > 0 {
                         Text("\(activeFilterCount)")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(AnnFont.mono(8, bold: true))
                             .foregroundColor(.white)
                             .frame(width: 14, height: 14)
                             .background(DS.accent)
@@ -989,11 +995,11 @@ struct FlowLayout: Layout {
 
                     VStack(spacing: 8) {
                         Text("No Games Yet")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(AnnFont.serif(16, .semibold))
                             .foregroundColor(DS.textPrimary)
                             .multilineTextAlignment(.center)
                         Text("Import PGN files to get started")
-                            .font(.system(size: 13))
+                            .font(AnnFont.serif(13))
                             .foregroundColor(DS.textSecondary)
                             .multilineTextAlignment(.center)
                     }
@@ -1004,7 +1010,8 @@ struct FlowLayout: Layout {
                             Image(systemName: "square.and.arrow.down")
                                 .font(.system(size: 14, weight: .medium))
                             Text("Import")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(AnnFont.label(13))
+                                .tracking(13 * 0.1)
                         }
                         .foregroundColor(.white)
                         .padding(.horizontal, 20)
@@ -1030,16 +1037,17 @@ struct FlowLayout: Layout {
 
                     VStack(spacing: 6) {
                         Text("No Matching Games")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(AnnFont.serif(15, .semibold))
                             .foregroundColor(DS.textPrimary)
                         Text("Try adjusting your filters")
-                            .font(.system(size: 12))
+                            .font(AnnFont.serif(12))
                             .foregroundColor(DS.textSecondary)
                     }
 
                     Button(action: clearFilters) {
                         Text("Clear Filters")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(AnnFont.label(12))
+                            .tracking(12 * 0.1)
                             .foregroundColor(DS.accent)
                     }
                     .buttonStyle(.plain)
@@ -1053,7 +1061,7 @@ struct FlowLayout: Layout {
                         .font(.system(size: 36))
                         .foregroundColor(DS.textSecondary.opacity(0.5))
                     Text(emptyStateMessage)
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .foregroundColor(DS.textSecondary)
                 }
                 .padding(.horizontal, 40)
@@ -1188,7 +1196,7 @@ struct FlowLayout: Layout {
                         .font(.system(size: 32))
                         .foregroundColor(DS.accent)
                     Text("Drop to import")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.serif(13, .medium))
                         .foregroundColor(DS.accent)
                 }
             )
@@ -1204,11 +1212,11 @@ struct FlowLayout: Layout {
                 .foregroundColor(DS.textSecondary)
 
             Text("\(displayedGames.count)\(allExhausted ? "" : "+")")
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.textPrimary)
             +
             Text(" games")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.textSecondary)
 
             if isLoadingGames {
@@ -1220,7 +1228,7 @@ struct FlowLayout: Layout {
                 Text("•")
                     .foregroundColor(DS.textSecondary)
                 Text("filtered")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.accent)
             }
 
@@ -1228,7 +1236,7 @@ struct FlowLayout: Layout {
 
             if selectedGameIds.count > 1 {
                 Text("\(selectedGameIds.count) selected")
-                    .font(.system(size: 10))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.accent)
             }
         }
@@ -1342,17 +1350,17 @@ struct GameRowView: View {
                             .frame(width: 8, height: 8)
                             .overlay(Circle().strokeBorder(DS.border, lineWidth: 0.5))
                         Text(game.white)
-                            .font(.system(size: 12, weight: game.result == "1-0" ? .semibold : .regular))
+                            .font(AnnFont.serif(12, game.result == "1-0" ? .semibold : .regular))
                             .lineLimit(1)
                         if let rating = extractRating(for: "White") {
                             Text("(\(rating))")
-                                .font(.system(size: 10))
+                                .font(AnnFont.mono(10))
                                 .foregroundColor(DS.textSecondary)
                         }
                     }
 
                     Text("vs")
-                        .font(.system(size: 10))
+                        .font(AnnFont.serif(10))
                         .foregroundColor(DS.textSecondary)
 
                     // Black player
@@ -1361,11 +1369,11 @@ struct GameRowView: View {
                             .fill(Color.black)
                             .frame(width: 8, height: 8)
                         Text(game.black)
-                            .font(.system(size: 12, weight: game.result == "0-1" ? .semibold : .regular))
+                            .font(AnnFont.serif(12, game.result == "0-1" ? .semibold : .regular))
                             .lineLimit(1)
                         if let rating = extractRating(for: "Black") {
                             Text("(\(rating))")
-                                .font(.system(size: 10))
+                                .font(AnnFont.mono(10))
                                 .foregroundColor(DS.textSecondary)
                         }
                     }
@@ -1377,7 +1385,7 @@ struct GameRowView: View {
                 HStack(spacing: 6) {
                     if !eventSiteLabel.isEmpty {
                         Text(eventSiteLabel)
-                            .font(.system(size: 10))
+                            .font(AnnFont.serif(10))
                             .foregroundColor(DS.textSecondary)
                             .lineLimit(1)
                     }
@@ -1387,7 +1395,7 @@ struct GameRowView: View {
                     // Date
                     if !game.date.isEmpty {
                         Text(game.date)
-                            .font(.system(size: 10))
+                            .font(AnnFont.mono(10))
                             .foregroundColor(DS.textSecondary)
                     }
                 }
@@ -1398,7 +1406,8 @@ struct GameRowView: View {
                 // Time class badge
                 if let timeClass = game.timeClass {
                     Text(timeClass.capitalized)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(AnnFont.label(9))
+                        .tracking(9 * 0.1)
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -1408,7 +1417,7 @@ struct GameRowView: View {
 
                 // Result badge
                 Text(resultText)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(AnnFont.mono(10, bold: true))
                     .foregroundColor(resultTextColor)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)

@@ -75,7 +75,7 @@ struct RepertoireBrowserView: View {
                     .font(.system(size: 18))
                     .foregroundColor(DS.ink60)
                 Text("Repertoires")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(DS.ink)
             }
 
@@ -89,7 +89,7 @@ struct RepertoireBrowserView: View {
                         .foregroundColor(DS.ink25)
                     TextField("Search repertoires...", text: $searchText)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
                             Image(systemName: "xmark.circle.fill")
@@ -182,11 +182,11 @@ struct RepertoireBrowserView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(rep.name)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(AnnFont.serif(14, .semibold))
                         .foregroundColor(DS.ink)
                         .lineLimit(1)
                     Text("\(rep.side.displayName)\(rep.ecoRangeDisplay.map { " · \($0)" } ?? "")")
-                        .font(.system(size: 11))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.ink40)
                         .lineLimit(1)
                 }
@@ -203,31 +203,34 @@ struct RepertoireBrowserView: View {
             VStack(spacing: 12) {
                 HStack {
                     Text("Positions")
-                        .font(.system(size: 12))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.ink40)
                     Spacer()
                     Text("\(rep.nodeCount)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AnnFont.mono(13, bold: true))
                         .foregroundColor(DS.ink)
                 }
 
                 HStack {
                     Text("Your moves")
-                        .font(.system(size: 12))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.ink40)
                     Spacer()
                     Text("\(rep.userMoveCount)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AnnFont.mono(13, bold: true))
                         .foregroundColor(DS.ink)
                 }
 
                 HStack {
                     Text("Last modified")
-                        .font(.system(size: 12))
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.1)
                         .foregroundColor(DS.ink40)
                     Spacer()
                     Text(relativeTimeString(rep.dateModified))
-                        .font(.system(size: 12))
+                        .font(AnnFont.mono(12))
                         .foregroundColor(DS.ink60)
                 }
             }
@@ -258,11 +261,11 @@ struct RepertoireBrowserView: View {
 
             VStack(spacing: 8) {
                 Text("No Repertoires Yet")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(AnnFont.serif(20, .semibold))
                     .foregroundColor(DS.textPrimary)
 
                 Text("Create a repertoire to start building your opening preparation, line by line.")
-                    .font(.system(size: 13))
+                    .font(AnnFont.serif(13))
                     .foregroundColor(DS.textTertiary)
                     .lineSpacing(4)
                     .multilineTextAlignment(.center)
@@ -271,7 +274,8 @@ struct RepertoireBrowserView: View {
 
             Button(action: { showingNewRepertoireSheet = true }) {
                 Text("Create Repertoire")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.label(13))
+                    .tracking(13 * 0.1)
                     .foregroundColor(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -291,7 +295,7 @@ struct RepertoireBrowserView: View {
     private var statusBar: some View {
         HStack {
             Text("\(repertoireDB.repertoireCount) repertoires")
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(DS.ink25)
 
             Spacer()
@@ -326,7 +330,7 @@ struct NewRepertoireSheet: View {
             // Header
             HStack {
                 Text("Create New Repertoire")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(AnnFont.serif(16, .semibold))
                     .foregroundColor(DS.textPrimary)
 
                 Spacer()
@@ -351,12 +355,13 @@ struct NewRepertoireSheet: View {
                 // Name
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Name")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(DS.textPrimary)
 
                     TextField("Najdorf Sicilian", text: $name)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .padding(.horizontal, 12)
                         .frame(height: 36)
                         .background(DS.bg)
@@ -370,7 +375,8 @@ struct NewRepertoireSheet: View {
                 // Side picker
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Side")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(DS.textPrimary)
 
                     HStack(spacing: 8) {
@@ -382,12 +388,13 @@ struct NewRepertoireSheet: View {
                 // Summary
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Summary")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(DS.textPrimary)
 
                     TextField("Optional — short description", text: $summary)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13))
+                        .font(AnnFont.serif(13))
                         .padding(.horizontal, 12)
                         .frame(height: 36)
                         .background(DS.bg)
@@ -437,7 +444,7 @@ struct NewRepertoireSheet: View {
                     .frame(width: 14, height: 14)
                     .overlay(Circle().strokeBorder(DS.textTertiary, lineWidth: 1))
                 Text(s.displayName)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(AnnFont.serif(13, isSelected ? .semibold : .regular))
                     .foregroundColor(isSelected ? DS.textPrimary : DS.textSecondary)
             }
             .padding(.horizontal, 14)

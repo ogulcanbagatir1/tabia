@@ -38,15 +38,15 @@ struct CoverageGapView: View {
                 .font(.system(size: 14))
                 .foregroundColor(DS.accent)
             Text("Coverage audit")
-                .font(.system(size: 15, weight: .bold))
+                .font(AnnFont.serif(15, .semibold))
                 .foregroundColor(DS.textPrimary)
             Text(repertoire.name)
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13, .regular))
                 .foregroundColor(DS.textTertiary)
             Spacer()
             if !isAuditing && !gaps.isEmpty {
                 Text("\(gaps.count) holes")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(AnnFont.mono(11, bold: true))
                     .foregroundColor(DS.moveBlunder)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(DS.moveBlunder.opacity(0.12), in: Capsule())
@@ -69,7 +69,7 @@ struct CoverageGapView: View {
             Spacer()
             ProgressView()
             Text("Scanning your lines against \(referenceDB.gameCount.formatted()) games…")
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12, .regular))
                 .foregroundColor(DS.textTertiary)
             Spacer()
         }
@@ -91,21 +91,22 @@ struct CoverageGapView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(gap.missingSAN)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .font(AnnFont.mono(14, bold: true))
                     .foregroundColor(DS.textPrimary)
                 Text("unanswered")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(AnnFont.label(10, bold: false))
+                    .tracking(10 * 0.1)
                     .foregroundColor(DS.moveBlunder)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(DS.moveBlunder.opacity(0.12), in: Capsule())
                 Spacer()
                 Text("\(Int(gap.sharePercent.rounded()))%")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(AnnFont.mono(13, bold: true))
                     .foregroundColor(DS.accent)
             }
 
             Text(lineText(gap))
-                .font(.system(size: 11, design: .monospaced))
+                .font(AnnFont.mono(11, bold: false))
                 .foregroundColor(DS.textSecondary)
                 .lineLimit(2)
 
@@ -126,7 +127,7 @@ struct CoverageGapView: View {
     private func statLabel(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 9))
-            Text(text).font(.system(size: 10, weight: .medium))
+            Text(text).font(AnnFont.mono(10, bold: false))
         }
         .foregroundColor(DS.textTertiary)
     }
@@ -143,10 +144,10 @@ struct CoverageGapView: View {
                 .font(.system(size: 44, weight: .light))
                 .foregroundColor(DS.accent)
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(AnnFont.serif(15, .semibold))
                 .foregroundColor(DS.textPrimary)
             Text(detail)
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12, .regular))
                 .foregroundColor(DS.textTertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)

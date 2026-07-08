@@ -34,10 +34,10 @@ struct RepertoireStatsView: View {
                 .font(.system(size: 14))
                 .foregroundColor(DS.accent)
             Text("Knowledge")
-                .font(.system(size: 15, weight: .bold))
+                .font(AnnFont.serif(15, .semibold))
                 .foregroundColor(DS.textPrimary)
             Text(repertoire.name)
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13, .regular))
                 .foregroundColor(DS.textTertiary)
             Spacer()
             Button(action: onClose) {
@@ -70,12 +70,13 @@ struct RepertoireStatsView: View {
                     .stroke(tint, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(value.rounded()))%")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(AnnFont.mono(22, bold: true))
                     .foregroundColor(DS.textPrimary)
             }
             .frame(width: 96, height: 96)
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(AnnFont.label(12))
+                .tracking(12 * 0.1)
                 .foregroundColor(DS.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -96,10 +97,11 @@ struct RepertoireStatsView: View {
     private func countCell(value: Int, label: String, tint: Color) -> some View {
         VStack(spacing: 4) {
             Text("\(value)")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(AnnFont.mono(20, bold: true))
                 .foregroundColor(tint)
             Text(label)
-                .font(.system(size: 10))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .foregroundColor(DS.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -114,11 +116,11 @@ struct RepertoireStatsView: View {
                     .font(.system(size: 11))
                     .foregroundColor(DS.moveBlunder)
                 Text("Weak spots")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.serif(13, .semibold))
                     .foregroundColor(DS.textPrimary)
                 if !knowledge.leeches.isEmpty {
                     Text("\(knowledge.leeches.count)")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(AnnFont.mono(10, bold: true))
                         .foregroundColor(DS.moveBlunder)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(DS.moveBlunder.opacity(0.12), in: Capsule())
@@ -126,10 +128,10 @@ struct RepertoireStatsView: View {
             }
 
             if !loaded {
-                Text("…").foregroundColor(DS.textTertiary).font(.system(size: 12))
+                Text("…").foregroundColor(DS.textTertiary).font(AnnFont.serif(12, .regular))
             } else if knowledge.leeches.isEmpty {
                 Text("No leeches — nothing is being repeatedly missed.")
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12, .regular))
                     .foregroundColor(DS.textTertiary)
                     .padding(.vertical, 8)
             } else {
@@ -148,16 +150,16 @@ struct RepertoireStatsView: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(leechLine(leech))
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(AnnFont.mono(12, bold: true))
                     .foregroundColor(DS.textPrimary)
                     .lineLimit(1)
                 Text("\(leech.wrongCount) misses · \(leech.correctCount) correct")
-                    .font(.system(size: 10))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.textTertiary)
             }
             Spacer()
             Text("\(leech.wrongCount)×")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(AnnFont.mono(13, bold: true))
                 .foregroundColor(DS.moveBlunder)
         }
         .padding(10)

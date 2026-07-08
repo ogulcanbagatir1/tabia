@@ -8,7 +8,7 @@ struct MoveListView: View {
             // Header with section label and navigation
             HStack {
                 Text("MOVES")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(AnnFont.label(10))
                     .foregroundColor(DS.ink25)
                     .kerning(0.8)
 
@@ -282,7 +282,7 @@ struct MoveRow: View {
             HStack(alignment: .center, spacing: 0) {
                 // Move number column
                 Text("\(row.moveNumber).")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(AnnFont.mono(11, bold: true))
                     .foregroundColor(DS.ink25)
                     .frame(width: 24, alignment: .trailing)
 
@@ -302,7 +302,7 @@ struct MoveRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text("...")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(AnnFont.mono(12))
                         .foregroundColor(DS.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -386,11 +386,11 @@ struct VariationView: View {
 
                 if isWhiteMove {
                     Text("\(moveNumber).")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.textTertiary)
                 } else {
                     Text("\(moveNumber)...")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.textTertiary)
                 }
 
@@ -407,7 +407,7 @@ struct VariationView: View {
 
                 if !isExpanded {
                     Text("...")
-                        .font(.system(size: 10))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.textTertiary)
                 }
             }
@@ -454,10 +454,7 @@ struct MoveButton: View {
             HStack(spacing: 2) {
                 Button(action: onTap) {
                     Text(displayText)
-                        .font(.system(
-                            size: isMainLine ? 12 : 11,
-                            weight: isCurrent ? .semibold : .medium
-                        ))
+                        .font(AnnFont.mono(isMainLine ? 12 : 11, bold: isCurrent))
                         .foregroundColor(isCurrent ? DS.ink : DS.ink)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -509,9 +506,8 @@ struct MoveButton: View {
                         .font(.system(size: 10))
                         .foregroundColor(DS.accentTeal)
                     Text(node.comment)
-                        .font(.system(size: 10, weight: .regular))
+                        .font(AnnFont.serif(10, .regular, italic: true))
                         .foregroundColor(DS.accentTeal)
-                        .italic()
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.leading, 4)
@@ -611,11 +607,11 @@ struct EmptyMoveListView: View {
 
             VStack(spacing: 6) {
                 Text("No Moves Yet")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.serif(13, .semibold))
                     .foregroundColor(DS.textSecondary)
 
                 Text("Play moves on the board or import a PGN to get started")
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11, .regular))
                     .foregroundColor(DS.textTertiary)
                     .lineSpacing(4)
                     .multilineTextAlignment(.center)
@@ -648,13 +644,13 @@ struct InlineNoteEditorView: View {
                     .foregroundColor(DS.accentTeal)
 
                 Text(noteText.isEmpty ? "Add note after \(moveLabel)" : "Edit note for \(moveLabel)")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.serif(11, .medium))
                     .foregroundColor(DS.accentTeal)
             }
 
             // Text input field
             TextEditor(text: $noteText)
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11))
                 .lineSpacing(4)
                 .scrollContentBackground(.hidden)
                 .padding(.horizontal, 10)
@@ -673,7 +669,7 @@ struct InlineNoteEditorView: View {
             // Actions row
             HStack(spacing: 8) {
                 Text("Esc to cancel")
-                    .font(.system(size: 10))
+                    .font(AnnFont.mono(10))
                     .foregroundColor(DS.textTertiary)
 
                 Spacer()
@@ -724,7 +720,7 @@ struct NoteEditorView: View {
             }
 
             TextEditor(text: $noteText)
-                .font(.system(size: 13))
+                .font(AnnFont.serif(13))
                 .frame(minHeight: 80, maxHeight: 150)
                 .scrollContentBackground(.hidden)
                 .padding(8)
@@ -796,7 +792,7 @@ struct MoveContextMenuView: View {
             // Section label
             HStack {
                 Text("ANNOTATE MOVE")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(AnnFont.label(10))
                     .foregroundColor(DS.ink40)
                     .kerning(0.6)
                 Spacer()
@@ -815,11 +811,12 @@ struct MoveContextMenuView: View {
                         onDismiss()
                     } content: {
                         Text(item.symbol)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(AnnFont.mono(14, bold: true))
                             .foregroundColor(item.color)
                             .frame(width: 24, alignment: .center)
                         Text(item.label)
-                            .font(.system(size: 13))
+                            .font(AnnFont.label(13))
+                            .tracking(13 * 0.1)
                             .foregroundColor(DS.ink)
                     }
                 }
@@ -838,7 +835,8 @@ struct MoveContextMenuView: View {
                         .foregroundColor(DS.ink60)
                         .frame(width: 24, alignment: .center)
                     Text("Promote to Main Line")
-                        .font(.system(size: 13))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(DS.ink)
                 }
             }
@@ -853,7 +851,8 @@ struct MoveContextMenuView: View {
                         .foregroundColor(DS.ink60)
                         .frame(width: 24, alignment: .center)
                     Text("Make Subline")
-                        .font(.system(size: 13))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(DS.ink)
                 }
             }
@@ -871,7 +870,8 @@ struct MoveContextMenuView: View {
                     .foregroundColor(DS.ink60)
                     .frame(width: 24, alignment: .center)
                 Text(node.comment.isEmpty ? "Add Comment" : "Edit Comment")
-                    .font(.system(size: 13))
+                    .font(AnnFont.label(13))
+                    .tracking(13 * 0.1)
                     .foregroundColor(DS.ink)
             }
 
@@ -889,7 +889,8 @@ struct MoveContextMenuView: View {
                     .foregroundColor(DS.ink60)
                     .frame(width: 24, alignment: .center)
                 Text("Copy PGN")
-                    .font(.system(size: 13))
+                    .font(AnnFont.label(13))
+                    .tracking(13 * 0.1)
                     .foregroundColor(DS.ink)
             }
 
@@ -904,7 +905,8 @@ struct MoveContextMenuView: View {
                         .foregroundColor(DS.redAccent)
                         .frame(width: 24, alignment: .center)
                     Text("Delete from Here")
-                        .font(.system(size: 13))
+                        .font(AnnFont.label(13))
+                        .tracking(13 * 0.1)
                         .foregroundColor(DS.redAccent)
                 }
             }

@@ -153,12 +153,12 @@ struct GameAnalysisResultsView: View {
                             .font(.system(size: 16))
                             .foregroundColor(DS.redAccent)
                         Text("Game Review")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(AnnFont.serif(14, .semibold))
                             .foregroundColor(DS.ink)
                     }
                     Spacer()
                     Text(resultText)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.ink)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -173,7 +173,7 @@ struct GameAnalysisResultsView: View {
                 // Eval graph
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evaluation")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(AnnFont.serif(11, .medium))
                         .foregroundColor(DS.ink60)
 
                     EvaluationGraphView(
@@ -212,22 +212,25 @@ struct GameAnalysisResultsView: View {
                 // Move Classification
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Move Classification")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(AnnFont.serif(11, .medium))
                         .foregroundColor(DS.ink60)
 
                     // Column headers
                     HStack(spacing: 8) {
                         Color.clear.frame(width: 8)
                         Text("Type")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(AnnFont.label(10))
+                            .tracking(10 * 0.1)
                             .foregroundColor(DS.ink40)
                         Spacer()
                         Text("White")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(AnnFont.label(10))
+                            .tracking(10 * 0.1)
                             .foregroundColor(DS.ink40)
                             .frame(width: 40, alignment: .trailing)
                         Text("Black")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(AnnFont.label(10))
+                            .tracking(10 * 0.1)
                             .foregroundColor(DS.ink40)
                             .frame(width: 40, alignment: .trailing)
                     }
@@ -271,12 +274,13 @@ struct PlayerAccuracyCard: View {
 
             // Side label
             Text(side == .white ? "White" : "Black")
-                .font(.system(size: 10))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .foregroundColor(DS.ink40)
 
             // Accuracy score
             Text(String(format: "%.1f", accuracy))
-                .font(.system(size: 22, weight: .bold))
+                .font(AnnFont.mono(22, bold: true))
                 .foregroundColor(DS.ink)
         }
         .frame(maxWidth: .infinity)
@@ -303,18 +307,18 @@ struct ClassificationRow: View {
                 .frame(width: 8, height: 8)
 
             Text(quality.label)
-                .font(.system(size: 12, weight: .medium))
+                .font(AnnFont.serif(12, .medium))
                 .foregroundColor(DS.ink)
 
             Spacer()
 
             Text("\(whiteCount)")
-                .font(.system(size: 12))
+                .font(AnnFont.mono(12))
                 .foregroundColor(DS.ink60)
                 .frame(width: 40, alignment: .trailing)
 
             Text("\(blackCount)")
-                .font(.system(size: 12))
+                .font(AnnFont.mono(12))
                 .foregroundColor(DS.ink60)
                 .frame(width: 40, alignment: .trailing)
         }

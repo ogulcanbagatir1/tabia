@@ -108,7 +108,8 @@ struct LibraryExplorerView: View {
                     Image(systemName: "folder")
                         .font(.system(size: 11))
                     Text(folderPickerLabel)
-                        .font(.system(size: 11))
+                        .font(AnnFont.label(11))
+                        .tracking(11 * 0.1)
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 8)
@@ -165,7 +166,7 @@ struct LibraryExplorerView: View {
     private var folderPickerPopover: some View {
         VStack(alignment: .leading, spacing: DS.spacingXS) {
             Text("Select Databases")
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.serif(12, .semibold))
                 .padding(.bottom, DS.spacingXS)
 
             // Select All / None
@@ -234,7 +235,7 @@ struct LibraryExplorerView: View {
                     .foregroundColor(selectedFolderIds.contains(id) ? DS.accent : DS.textSecondary)
 
                 Text(label)
-                    .font(.system(size: 12))
+                    .font(AnnFont.serif(12))
                     .foregroundColor(DS.textPrimary)
 
                 Spacer()
@@ -255,13 +256,13 @@ struct LibraryExplorerView: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(referenceDatabase.displayName)
-                        .font(.system(size: 12))
+                        .font(AnnFont.serif(12))
                         .foregroundColor(DS.textPrimary)
                         .lineLimit(1)
                     Text(referenceDatabase.indexedGameCount == 0
                          ? "Reference · not indexed"
                          : "Reference · \(formatNumber(referenceDatabase.indexedGameCount)) indexed")
-                        .font(.system(size: 9))
+                        .font(AnnFont.mono(9))
                         .foregroundColor(DS.textTertiary)
                 }
 
@@ -445,7 +446,7 @@ struct LibraryExplorerView: View {
         VStack(alignment: .leading, spacing: 14) {
             if let opening = resolvedOpening {
                 Text(opening.name)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.serif(13, .semibold))
                     .foregroundColor(DS.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -454,12 +455,12 @@ struct LibraryExplorerView: View {
                     ECOBadge(eco: opening.eco)
 
                     Text(formatGameCount(totalGames))
-                        .font(.system(size: 11))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.textSecondary)
                 }
             } else {
                 Text(formatGameCount(totalGames))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.mono(13, bold: true))
                     .foregroundColor(DS.textPrimary)
             }
 
@@ -482,7 +483,8 @@ struct LibraryExplorerView: View {
             Text("W / D / L")
                 .frame(width: 90, alignment: .center)
         }
-        .font(.system(size: 10, weight: .semibold))
+        .font(AnnFont.label(10))
+        .tracking(10 * 0.1)
         .foregroundColor(DS.textTertiary)
         .padding(.horizontal, 12)
         .frame(height: 24)
@@ -585,7 +587,7 @@ struct LibraryExplorerView: View {
                 .font(.system(size: 12))
                 .foregroundColor(DS.accent)
             Text("\(referenceDatabase.displayName) isn't indexed — build the opening index to include it.")
-                .font(.system(size: 10))
+                .font(AnnFont.serif(10))
                 .foregroundColor(DS.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 6)
@@ -608,10 +610,10 @@ struct LibraryExplorerView: View {
                 .font(.system(size: 40, weight: .light))
                 .foregroundColor(DS.accent)
             Text("Reference DB Not Indexed")
-                .font(.system(size: 15, weight: .semibold))
+                .font(AnnFont.serif(15, .semibold))
                 .foregroundColor(DS.textPrimary)
             Text("Build the opening index to include \(referenceDatabase.displayName) in your library explorer.")
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.textTertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)

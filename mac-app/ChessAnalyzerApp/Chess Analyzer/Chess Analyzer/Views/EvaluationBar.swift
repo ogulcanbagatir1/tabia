@@ -38,7 +38,7 @@ struct EvaluationBar: View {
                     if !isPositiveEval {
                         // Black side - show at top
                         Text(evaluationText)
-                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .font(AnnFont.mono(8, bold: true))
                             .foregroundColor(.white)
                             .padding(.horizontal, 2)
                             .padding(.top, 8)
@@ -47,7 +47,7 @@ struct EvaluationBar: View {
                         // White side - show at bottom
                         Spacer()
                         Text(evaluationText)
-                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .font(AnnFont.mono(8, bold: true))
                             .foregroundColor(.black)
                             .padding(.horizontal, 2)
                             .padding(.bottom, 8)

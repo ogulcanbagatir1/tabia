@@ -81,12 +81,12 @@ struct AnalysisPanelView: View {
         HStack(spacing: 6) {
             // Engine name + depth
             Text(multiEngine.selectedConfig?.name ?? "Engine")
-                .font(.system(size: 12, weight: .semibold))
+                .font(AnnFont.serif(12, .semibold))
                 .foregroundColor(DS.textPrimary)
 
             if !gameAnalyzer.isAnalyzing && selectedEngine.depth > 0 {
                 Text("d\(selectedEngine.depth)")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .font(AnnFont.mono(9, bold: true))
                     .foregroundColor(DS.textTertiary)
             }
 
@@ -101,7 +101,7 @@ struct AnalysisPanelView: View {
             // Eval badge
             if !gameAnalyzer.isAnalyzing {
                 Text(headerEvalText)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(AnnFont.mono(11, bold: true))
                     .foregroundColor(headerEvalTextColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -191,11 +191,11 @@ struct AnalysisPanelView: View {
         VStack(spacing: 8) {
             HStack {
                 Text("Analyzing game...")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AnnFont.serif(11, .medium))
                     .foregroundColor(DS.textPrimary)
                 Spacer()
                 Text("\(analysisPercentage)%")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(AnnFont.mono(11, bold: true))
                     .foregroundColor(DS.accent)
             }
 
@@ -309,14 +309,14 @@ struct EngineEvalRow: View {
                 .foregroundColor(DS.textTertiary)
 
             Text(slot.config.name)
-                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                .font(AnnFont.serif(11, isSelected ? .semibold : .regular))
                 .foregroundColor(isSelected ? DS.textPrimary : DS.textSecondary)
                 .lineLimit(1)
 
             // Depth badge
             if engine.depth > 0 {
                 Text("d\(engine.depth)")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(AnnFont.mono(8, bold: true))
                     .foregroundColor(DS.textTertiary)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
@@ -334,7 +334,7 @@ struct EngineEvalRow: View {
 
             // Eval badge
             Text(evalText)
-                .font(.system(size: 10, weight: .bold))
+                .font(AnnFont.mono(10, bold: true))
                 .foregroundColor(evalTextColor)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -399,19 +399,19 @@ struct AnalysisLineRow: View {
         HStack(alignment: .center, spacing: 8) {
             // Eval text
             Text(line.evaluationText)
-                .font(.system(size: 11, weight: .bold))
+                .font(AnnFont.mono(11, bold: true))
                 .foregroundColor(DS.ink)
 
             // PV text
             if !line.isGameOver {
                 Text(formattedPV)
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.inkPV)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(line.isPositive ? "White wins by checkmate" : "Black wins by checkmate")
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11, .regular))
                     .foregroundColor(DS.ink60)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -433,12 +433,12 @@ struct AnalysisLinePlaceholder: View {
 
             if isLoading {
                 Text("...")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textTertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(" ")
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }

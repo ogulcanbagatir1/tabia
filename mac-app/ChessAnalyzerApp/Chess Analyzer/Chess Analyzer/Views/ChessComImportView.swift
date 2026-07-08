@@ -78,21 +78,21 @@ struct ChessComImportView: View {
                     // Progress details
                     HStack {
                         Text("\(Int(progressPercentage * 100))%")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .font(AnnFont.mono(12, bold: true))
                             .foregroundColor(DS.accent)
 
                         Text("•")
                             .foregroundColor(.secondary)
 
                         Text("Archive \(service.currentArchive) of \(service.totalArchives)")
-                            .font(.system(size: 11))
+                            .font(AnnFont.mono(11))
                             .foregroundColor(.secondary)
 
                         if service.gamesFoundSoFar > 0 {
                             Text("•")
                                 .foregroundColor(.secondary)
                             Text("\(service.gamesFoundSoFar) games found")
-                                .font(.system(size: 11))
+                                .font(AnnFont.mono(11))
                                 .foregroundColor(.secondary)
                         }
 
@@ -100,7 +100,7 @@ struct ChessComImportView: View {
 
                         if service.estimatedTimeRemaining > 0 {
                             Text(formatTimeRemaining(service.estimatedTimeRemaining))
-                                .font(.system(size: 11))
+                                .font(AnnFont.mono(11))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -113,7 +113,7 @@ struct ChessComImportView: View {
                         .foregroundColor(DS.chessComGreen)
                         .font(.system(size: 12))
                     Text(service.progress)
-                        .font(.system(size: 12))
+                        .font(AnnFont.mono(12))
                         .foregroundColor(.secondary)
                     Spacer()
                 }
@@ -331,7 +331,8 @@ struct ChessComGameRow: View {
 
             // Time class badge
             Text(game.timeClassDisplay)
-                .font(.system(size: 10, weight: .medium))
+                .font(AnnFont.label(10))
+                .tracking(10 * 0.1)
                 .foregroundColor(.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -346,9 +347,9 @@ struct ChessComGameRow: View {
                         .frame(width: 8, height: 8)
                         .overlay(Circle().strokeBorder(Color.gray.opacity(0.3), lineWidth: 0.5))
                     Text(game.white.username)
-                        .font(.system(size: 12, weight: game.white.result == "win" ? .bold : .regular))
+                        .font(AnnFont.serif(12, game.white.result == "win" ? .semibold : .regular))
                     Text("(\(game.white.rating))")
-                        .font(.system(size: 10))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(.secondary)
                 }
 
@@ -357,9 +358,9 @@ struct ChessComGameRow: View {
                         .fill(Color.black)
                         .frame(width: 8, height: 8)
                     Text(game.black.username)
-                        .font(.system(size: 12, weight: game.black.result == "win" ? .bold : .regular))
+                        .font(AnnFont.serif(12, game.black.result == "win" ? .semibold : .regular))
                     Text("(\(game.black.rating))")
-                        .font(.system(size: 10))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(.secondary)
                 }
             }
@@ -368,12 +369,12 @@ struct ChessComGameRow: View {
 
             // Result
             Text(game.result)
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(AnnFont.mono(12, bold: true))
                 .foregroundColor(.primary)
 
             // Date
             Text(game.formattedDate)
-                .font(.system(size: 11))
+                .font(AnnFont.mono(11))
                 .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)

@@ -107,17 +107,17 @@ struct LichessExplorerView: View {
             // Opening name — bold, prominent
             if let opening = resolvedOpening {
                 Text(opening.name)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(AnnFont.serif(14, .semibold))
                     .foregroundColor(DS.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(formatGameCount(totalGames))
-                    .font(.system(size: 11))
+                    .font(AnnFont.mono(11))
                     .foregroundColor(DS.textTertiary)
             } else {
                 Text(formatGameCount(totalGames))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AnnFont.mono(13, bold: true))
                     .foregroundColor(DS.textPrimary)
             }
 
@@ -142,7 +142,7 @@ struct LichessExplorerView: View {
             Text("W / D / L")
                 .frame(width: 80, alignment: .center)
         }
-        .font(.system(size: 10, weight: .semibold))
+        .font(AnnFont.label(10, bold: false))
         .foregroundColor(DS.textTertiary)
         .kerning(0.5)
         .textCase(.uppercase)
@@ -250,18 +250,18 @@ struct LichessExplorerView: View {
                 .foregroundColor(DS.accentOrange)
 
             Text("Authentication Required")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AnnFont.serif(14, .semibold))
                 .foregroundColor(DS.textPrimary)
 
             Text("Lichess now requires you to log in to access the Masters database.")
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
             if let authError = authError {
                 Text(authError)
-                    .font(.system(size: 11))
+                    .font(AnnFont.serif(11))
                     .foregroundColor(DS.semLoss)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -293,7 +293,7 @@ struct LichessExplorerView: View {
             .disabled(authService.isAuthenticating)
 
             Text("Opens lichess.org in your browser")
-                .font(.system(size: 10))
+                .font(AnnFont.serif(10))
                 .foregroundColor(DS.textTertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -306,7 +306,7 @@ struct LichessExplorerView: View {
                 .foregroundColor(DS.accentOrange)
 
             Text(error)
-                .font(.system(size: 12))
+                .font(AnnFont.serif(12))
                 .foregroundColor(DS.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)

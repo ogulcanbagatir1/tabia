@@ -44,7 +44,7 @@ struct RepertoireMoveTreeView: View {
     private var header: some View {
         HStack {
             Text("LINES")
-                .font(.system(size: 10, weight: .semibold))
+                .font(AnnFont.label(10, bold: false))
                 .foregroundColor(DS.ink25)
                 .kerning(0.8)
 
@@ -74,10 +74,10 @@ struct RepertoireMoveTreeView: View {
                 .font(.system(size: 28))
                 .foregroundColor(DS.ink25)
             Text("No moves yet")
-                .font(.system(size: 11))
+                .font(AnnFont.serif(11, .regular))
                 .foregroundColor(DS.ink40)
             Text("Play on the board to build the tree")
-                .font(.system(size: 10))
+                .font(AnnFont.serif(10, .regular))
                 .foregroundColor(DS.ink25)
         }
         .frame(maxWidth: .infinity)
@@ -145,12 +145,12 @@ struct RepertoireMoveTreeView: View {
                 .id(node.id)
         case .open(let depth):
             Text("(")
-                .font(.system(size: 12, weight: .medium))
+                .font(AnnFont.mono(12, bold: false))
                 .foregroundColor(parenColor(depth: depth))
                 .padding(.leading, 2)
         case .close(let depth):
             Text(")")
-                .font(.system(size: 12, weight: .medium))
+                .font(AnnFont.mono(12, bold: false))
                 .foregroundColor(parenColor(depth: depth))
                 .padding(.trailing, 2)
         }
@@ -191,15 +191,15 @@ struct RepertoireMoveTreeView: View {
             HStack(spacing: 1) {
                 if !prefix.isEmpty {
                     Text(prefix)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(AnnFont.mono(11))
                         .foregroundColor(DS.ink.opacity(finalOpacity * 0.5))
                 }
                 Text(san)
-                    .font(.system(size: 12, weight: weight))
+                    .font(AnnFont.mono(12, bold: weight == .semibold))
                     .foregroundColor(DS.ink.opacity(finalOpacity))
                 if !glyph.isEmpty {
                     Text(glyph)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(AnnFont.mono(11, bold: true))
                         .foregroundColor(glyphColor(glyph))
                 }
             }

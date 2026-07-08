@@ -19,11 +19,11 @@ struct ReferenceActivityBadge: View {
                         .frame(width: 20, height: 24)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(s.title)
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(AnnFont.serif(11, .semibold))
                             .foregroundColor(DS.textPrimary)
                         if !s.detail.isEmpty {
                             Text(s.detail)
-                                .font(.system(size: 10, design: .monospaced))
+                                .font(AnnFont.mono(10))
                                 .foregroundColor(DS.textTertiary)
                         }
                     }

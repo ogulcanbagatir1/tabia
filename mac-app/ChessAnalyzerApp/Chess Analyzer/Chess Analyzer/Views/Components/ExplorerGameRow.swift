@@ -19,7 +19,7 @@ struct ExplorerGameRow: View {
                 // Players line: "Name (rating) vs Name (rating)"
                 HStack(spacing: 0) {
                     Text(playerString)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(AnnFont.serif(11, .medium))
                         .foregroundColor(DS.ink)
                         .lineLimit(1)
 
@@ -35,7 +35,7 @@ struct ExplorerGameRow: View {
                 // Result + date
                 HStack(spacing: 0) {
                     Text(resultDateString)
-                        .font(.system(size: 10))
+                        .font(AnnFont.mono(10))
                         .foregroundColor(DS.ink60)
 
                     Spacer()
