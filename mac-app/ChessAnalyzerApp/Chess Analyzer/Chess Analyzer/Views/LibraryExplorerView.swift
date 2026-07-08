@@ -1,8 +1,22 @@
 import SwiftUI
 
+/// The explorer's display model: the user's own library stats optionally blended with the
+/// reference DB's. Both sources produce the same per-move W/D/L shape, so they sum by move.
+private struct MergedExplorer {
+    var white = 0
+    var draw = 0
+    var black = 0
+    var moves: [LibraryMoveStats] = []
+    var sampleGames: [GameRecordSnapshot] = []
+
+    var total: Int { white + draw + black }
+    var hasData: Bool { total > 0 || !moves.isEmpty }
+}
+
 struct LibraryExplorerView: View {
     @ObservedObject var explorerService: LibraryExplorerService
     @EnvironmentObject var database: GameDatabase
+    @EnvironmentObject var referenceDatabase: ReferenceDatabase
     @ObservedObject var openingBook: OpeningBook
     @ObservedObject var board: ChessBoard
     let currentMoves: [String]  // UCI move sequence from root to current node
@@ -16,32 +30,58 @@ struct LibraryExplorerView: View {
     @State private var isInitialized = false
     @State private var showingFolderPicker = false
 
-    var body: some View {
-        VStack(spacing: 0) {
-            // Toolbar: folder picker + loading indicator
-            HStack(spacing: DS.spacingSM) {
-                Button(action: { showingFolderPicker.toggle() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "folder")
-                            .font(.system(size: 11))
-                        Text(folderPickerLabel)
-                            .font(.system(size: 11))
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(DS.bgSecondary)
-                    .cornerRadius(DS.radiusSM)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showingFolderPicker) {
-                    folderPickerPopover
-                }
+    // Reference DB is just another database in the library: opt in via the picker and its
+    // per-position stats (Zobrist, transposition-aware) blend into the same W/D/L table.
+    @State private var includeReference = false
+    @State private var referenceResult = ReferenceExplorerResult()
+    @State private var showingIndexing = false
 
-                Spacer()
+    // The modifier chain is split across `body`/`baseView` so each `some View` expression stays
+    // small enough for the SwiftUI type-checker (a long single chain trips its timeout).
+    var body: some View {
+        baseView
+            .onChange(of: includeReference) { _, _ in
+                queryReference()
             }
-            .padding(.horizontal, DS.spacingMD)
-            .padding(.vertical, DS.spacingSM)
+            .onChange(of: referenceDatabase.indexedGameCount) { _, _ in
+                queryReference()
+            }
+            .sheet(isPresented: $showingIndexing) {
+                IndexingSheet(referenceDB: referenceDatabase) { showingIndexing = false }
+            }
+    }
+
+    private var baseView: some View {
+        content
+            .background(DS.bgSecondary)
+            .onAppear {
+                if !isInitialized {
+                    // Select all folders + unfiled by default
+                    var ids: Set<UUID?> = [nil]  // unfiled
+                    for folder in database.folders {
+                        ids.insert(folder.id)
+                    }
+                    selectedFolderIds = ids
+                    isInitialized = true
+                    prepareAndAnalyze()
+                } else {
+                    analyzeCurrentPosition()
+                }
+                queryReference()
+            }
+            .onChange(of: currentSANs) { _, _ in
+                analyzeCurrentPosition()
+                queryReference()
+            }
+            .onChange(of: selectedFolderIds) { _, _ in
+                prepareAndAnalyze()
+            }
+    }
+
+    // Split out so the lifecycle-modifier chain on `body` type-checks quickly.
+    private var content: some View {
+        VStack(spacing: 0) {
+            toolbar
 
             Rectangle()
                 .fill(DS.glassSeparator)
@@ -54,51 +94,71 @@ struct LibraryExplorerView: View {
                     onOpeningSelected: onOpeningSelected,
                     searchBinding: $searchText
                 )
-            } else if let response = explorerService.response {
-                if response.totalGames == 0 && response.moves.isEmpty {
-                    emptyResultsView
-                } else {
-                    explorerContent(response)
-                }
-            } else if explorerService.isLoading {
-                loadingView
             } else {
-                emptyView
+                libraryBody
             }
         }
-        .background(DS.bgSecondary)
-        .onAppear {
-            if !isInitialized {
-                // Select all folders + unfiled by default
-                var ids: Set<UUID?> = [nil]  // unfiled
-                for folder in database.folders {
-                    ids.insert(folder.id)
+    }
+
+    // Toolbar: the databases picker (folders + unfiled + reference DB).
+    private var toolbar: some View {
+        HStack(spacing: DS.spacingSM) {
+            Button(action: { showingFolderPicker.toggle() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 11))
+                    Text(folderPickerLabel)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
                 }
-                selectedFolderIds = ids
-                isInitialized = true
-                prepareAndAnalyze()
-            } else {
-                analyzeCurrentPosition()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(DS.bgSecondary)
+                .cornerRadius(DS.radiusSM)
             }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showingFolderPicker) {
+                folderPickerPopover
+            }
+
+            Spacer()
         }
-        .onChange(of: currentSANs) { _, _ in
-            analyzeCurrentPosition()
-        }
-        .onChange(of: selectedFolderIds) { _, _ in
-            prepareAndAnalyze()
+        .padding(.horizontal, DS.spacingMD)
+        .padding(.vertical, DS.spacingSM)
+    }
+
+    /// The non-search body: merged library + reference results, or the appropriate empty/loading state.
+    @ViewBuilder
+    private var libraryBody: some View {
+        let data = mergedData()   // compute once per render
+        if data.hasData {
+            explorerContent(data)
+        } else if explorerService.isLoading {
+            loadingView
+        } else if referenceCheckedButUnindexed {
+            referenceUnindexedState
+        } else if explorerService.response != nil {
+            emptyResultsView
+        } else {
+            emptyView
         }
     }
 
     // MARK: - Folder Picker
 
+    /// The reference DB is only offered as a database once it has been downloaded.
+    private var referenceAvailable: Bool { referenceDatabase.gameCount > 0 }
+
     private var folderPickerLabel: String {
-        let totalFolders = database.folders.count + 1 // +1 for unfiled
-        if selectedFolderIds.count == totalFolders {
+        // Databases = folders + unfiled + (reference, if downloaded).
+        let totalDatabases = database.folders.count + 1 + (referenceAvailable ? 1 : 0)
+        let selected = selectedFolderIds.count + (includeReference ? 1 : 0)
+        if selected == totalDatabases {
             return "All"
-        } else if selectedFolderIds.isEmpty {
+        } else if selected == 0 {
             return "None"
         } else {
-            return "\(selectedFolderIds.count) selected"
+            return "\(selected) selected"
         }
     }
 
@@ -116,12 +176,14 @@ struct LibraryExplorerView: View {
                         ids.insert(folder.id)
                     }
                     selectedFolderIds = ids
+                    includeReference = referenceAvailable
                 }
                 .buttonStyle(GlassButtonStyle())
                 .controlSize(.small)
 
                 Button("None") {
                     selectedFolderIds = []
+                    includeReference = false
                 }
                 .buttonStyle(GlassButtonStyle())
                 .controlSize(.small)
@@ -141,9 +203,18 @@ struct LibraryExplorerView: View {
                     ForEach(database.folders, id: \.id) { folder in
                         folderCheckbox(label: folder.name, id: folder.id)
                     }
+
+                    // Reference DB — a read-only database that lives alongside your own.
+                    if referenceAvailable {
+                        Rectangle()
+                            .fill(DS.glassSeparator)
+                            .frame(height: 1)
+                            .padding(.vertical, 3)
+                        referenceCheckbox
+                    }
                 }
             }
-            .frame(maxHeight: 200)
+            .frame(maxHeight: 220)
         }
         .padding(DS.spacingMD)
         .frame(width: 220)
@@ -165,6 +236,34 @@ struct LibraryExplorerView: View {
                 Text(label)
                     .font(.system(size: 12))
                     .foregroundColor(DS.textPrimary)
+
+                Spacer()
+            }
+            .padding(.vertical, 3)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var referenceCheckbox: some View {
+        Button(action: { includeReference.toggle() }) {
+            HStack(spacing: DS.spacingSM) {
+                Image(systemName: includeReference ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 13))
+                    .foregroundColor(includeReference ? DS.accent : DS.textSecondary)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(referenceDatabase.displayName)
+                        .font(.system(size: 12))
+                        .foregroundColor(DS.textPrimary)
+                        .lineLimit(1)
+                    Text(referenceDatabase.indexedGameCount == 0
+                         ? "Reference · not indexed"
+                         : "Reference · \(formatNumber(referenceDatabase.indexedGameCount)) indexed")
+                        .font(.system(size: 9))
+                        .foregroundColor(DS.textTertiary)
+                }
 
                 Spacer()
             }
@@ -209,6 +308,94 @@ struct LibraryExplorerView: View {
         return games
     }
 
+    // MARK: - Reference DB merge
+
+    /// Re-query the reference DB for the current position (transposition-aware, Zobrist).
+    private func queryReference() {
+        guard includeReference, referenceDatabase.isAvailable, referenceDatabase.gameCount > 0 else {
+            if referenceResult.total != 0 || !referenceResult.moves.isEmpty {
+                referenceResult = ReferenceExplorerResult()
+            }
+            return
+        }
+        referenceResult = referenceDatabase.explorer(board: board)
+    }
+
+    /// Reference DB is selected but nothing is searchable (indexed) yet.
+    private var referenceCheckedButUnindexed: Bool {
+        includeReference && referenceAvailable && referenceDatabase.indexedGameCount == 0
+    }
+
+    /// Library response + (optionally) the reference result, merged by move into one view.
+    private func mergedData() -> MergedExplorer {
+        var m = MergedExplorer()
+
+        // While the reference is folded in AND the library is re-aggregating in the background,
+        // `explorerService.response` still holds the PREVIOUS position/folder set. Summing that
+        // stale library count with the fresh reference result would show wrong cross-position
+        // totals, so drop the library side until it catches up (reference-only, always current).
+        // The library-only path keeps its original behaviour (brief stale data while loading).
+        let libraryValid = !(includeReference && explorerService.isLoading)
+        if libraryValid, let r = explorerService.response {
+            m.white = r.whiteWins
+            m.draw = r.draws
+            m.black = r.blackWins
+            m.moves = r.moves
+            m.sampleGames = r.sampleGames
+        }
+        guard includeReference, referenceResult.total > 0 else { return m }
+
+        // NOTE: the two sides count games slightly differently — the reference index only stores
+        // a row *before* each move, so a game that ENDS exactly at this position isn't in the
+        // reference totals, whereas the library counts it. The gap is games terminating on the
+        // current position (≈0 for openings), so the merged header can marginally undercount the
+        // reference side. Reconciling would require re-indexing the reference DB, so we accept it.
+        m.white += referenceResult.white
+        m.draw += referenceResult.draw
+        m.black += referenceResult.black
+
+        // Sum reference per-move counts into the library moves, then append reference-only moves.
+        // Match by UCI first; fall back to normalized SAN because the library stores a raw SAN as
+        // the "uci" when NotationEngine can't parse it (e.g. nonstandard castling) — that bogus key
+        // would never equal the reference's real UCI, splitting one move across two rows.
+        var indexByUci: [String: Int] = [:]
+        var indexBySan: [String: Int] = [:]
+        for (i, mv) in m.moves.enumerated() {
+            indexByUci[mv.uci] = i
+            indexBySan[Self.normalizedSAN(mv.san)] = i
+        }
+        for e in referenceResult.moves {
+            if let i = indexByUci[e.uci] ?? indexBySan[Self.normalizedSAN(e.san)] {
+                m.moves[i].whiteWins += e.white
+                m.moves[i].draws += e.draw
+                m.moves[i].blackWins += e.black
+            } else {
+                var nm = LibraryMoveStats(san: e.san, uci: e.uci)
+                nm.whiteWins = e.white
+                nm.draws = e.draw
+                nm.blackWins = e.black
+                let idx = m.moves.count
+                indexByUci[e.uci] = idx
+                indexBySan[Self.normalizedSAN(e.san)] = idx
+                m.moves.append(nm)
+            }
+        }
+        m.moves.sort { $0.totalGames > $1.totalGames }
+        return m
+    }
+
+    /// Canonicalize a SAN for cross-source matching: drop check/mate marks and unify castling
+    /// spellings (O-O / 0-0 / OO all collapse to "O-O") so library and reference rows align.
+    private static func normalizedSAN(_ san: String) -> String {
+        let stripped = san.replacingOccurrences(of: "+", with: "")
+            .replacingOccurrences(of: "#", with: "")
+        switch stripped.uppercased() {
+        case "O-O", "0-0", "OO":       return "O-O"
+        case "O-O-O", "0-0-0", "OOO":  return "O-O-O"
+        default:                       return stripped
+        }
+    }
+
     /// Resolve opening: prefer response data, fallback to opening book
     private var resolvedOpening: (name: String, eco: String)? {
         if let name = explorerService.response?.openingName,
@@ -221,27 +408,32 @@ struct LibraryExplorerView: View {
     // MARK: - Explorer Content
 
     @ViewBuilder
-    private func explorerContent(_ response: LibraryExplorerResponse) -> some View {
+    private func explorerContent(_ data: MergedExplorer) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                // Reference selected but not searchable yet — surface the index builder inline.
+                if referenceCheckedButUnindexed {
+                    referenceIndexBanner
+                }
+
                 // Opening info — always show opening name + ECO when available
                 openingInfoSection(
-                    totalGames: response.totalGames,
-                    stats: (response.whiteWins, response.draws, response.blackWins)
+                    totalGames: data.total,
+                    stats: (data.white, data.draw, data.black)
                 )
 
                 // Moves table
-                if !response.moves.isEmpty {
+                if !data.moves.isEmpty {
                     movesTableHeader
 
-                    ForEach(Array(response.moves.enumerated()), id: \.element.id) { index, move in
+                    ForEach(Array(data.moves.enumerated()), id: \.element.id) { index, move in
                         moveRow(move, isAlternate: index % 2 == 0)
                     }
                 }
 
                 // Sample games
-                if !response.sampleGames.isEmpty {
-                    sampleGamesSection(response.sampleGames)
+                if !data.sampleGames.isEmpty {
+                    sampleGamesSection(data.sampleGames)
                 }
             }
         }
@@ -383,5 +575,55 @@ struct LibraryExplorerView: View {
             description: "No games found in this position from the selected databases",
             iconSize: 40
         )
+    }
+
+    /// Slim inline banner shown above library results when the reference DB is selected but
+    /// not indexed yet (so the user understands why it isn't contributing, with a way to fix it).
+    private var referenceIndexBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "square.stack.3d.up")
+                .font(.system(size: 12))
+                .foregroundColor(DS.accent)
+            Text("\(referenceDatabase.displayName) isn't indexed — build the opening index to include it.")
+                .font(.system(size: 10))
+                .foregroundColor(DS.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 6)
+            Button("Build") { showingIndexing = true }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+        }
+    }
+
+    /// Full empty state when the reference DB is the only selected source and it isn't indexed.
+    private var referenceUnindexedState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "square.stack.3d.up")
+                .font(.system(size: 40, weight: .light))
+                .foregroundColor(DS.accent)
+            Text("Reference DB Not Indexed")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(DS.textPrimary)
+            Text("Build the opening index to include \(referenceDatabase.displayName) in your library explorer.")
+                .font(.system(size: 12))
+                .foregroundColor(DS.textTertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+            Button(action: { showingIndexing = true }) {
+                Label("Build opening index", systemImage: "square.stack.3d.up")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.top, 4)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 }

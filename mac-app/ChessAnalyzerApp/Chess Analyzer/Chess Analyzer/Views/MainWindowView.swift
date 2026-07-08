@@ -41,10 +41,11 @@ struct MainWindowView: View {
     @State private var explorerSource: ExplorerSource = .lichess
     @State private var explorerSearchText = ""
 
+    // The reference DB is no longer a top-level source: it's selectable as a database
+    // inside "My Library" (see LibraryExplorerView's database picker).
     enum ExplorerSource: String, CaseIterable {
         case lichess = "Lichess Masters"
         case library = "My Library"
-        case reference = "Reference DB"
     }
 
     // Computed arrow from engine's best move suggestion
@@ -344,7 +345,7 @@ struct MainWindowView: View {
                                 applyOpeningMoves(moves)
                             }
                         )
-                    } else if explorerSource == .library {
+                    } else {
                         LibraryExplorerView(
                             explorerService: libraryExplorer,
                             openingBook: openingBook,
@@ -360,14 +361,6 @@ struct MainWindowView: View {
                             },
                             onOpeningSelected: { moves in
                                 applyOpeningMoves(moves)
-                            }
-                        )
-                    } else {
-                        ReferenceExplorerView(
-                            board: board,
-                            currentSANs: getMoveSequenceSAN(),
-                            onMovePlayed: { uciMove in
-                                _ = applySingleUCIMove(uciMove)
                             }
                         )
                     }
@@ -1071,5 +1064,6 @@ struct ContentSwitcherView<Analysis: View>: View {
 #Preview {
     MainWindowView()
         .environmentObject(GameDatabase.preview())
+        .environmentObject(ReferenceDatabase())
         .frame(width: 1300, height: 850)
 }
