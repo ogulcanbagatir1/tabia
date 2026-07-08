@@ -60,14 +60,9 @@ struct ExplorerScreenView: View {
                 }
             }
 
-            // Board
-            BoardView(board: board, gameTree: gameTree, isFlipped: false)
+            // Board (BoardView already draws its own aligned rounded border + shadow — no extra frame here).
+            BoardView(board: board, gameTree: gameTree, isFlipped: false, showLabels: false)
                 .frame(width: 384, height: 384)
-                .overlay(Rectangle().strokeBorder(DS.windowBorder, lineWidth: 1))
-                .padding(4)
-                .background(DS.paperRaised)
-                .overlay(Rectangle().strokeBorder(DS.borderStrong, lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.28), radius: 20, x: 0, y: 10)
 
             // Nav row + reset
             HStack(spacing: 8) {
