@@ -26,6 +26,15 @@ struct BoardTheme: Identifiable, Equatable {
     static let allThemes: [BoardTheme] = {
         // Color-based themes
         let colorThemes: [BoardTheme] = [
+            // The Annotator — sepia paper. The board keeps these colors in BOTH app modes.
+            BoardTheme(
+                id: "annotator",
+                name: "Annotator",
+                lightSquare: Color(hex: 0xF0E6CF),
+                darkSquare: Color(hex: 0xA98F6C),
+                selectedColor: Color(hex: 0xC3A566),
+                lastMoveColor: Color(hex: 0xE7CF8E)
+            ),
             BoardTheme(
                 id: "classic",
                 name: "Classic",
@@ -253,8 +262,17 @@ struct PieceStyle: Identifiable, Equatable {
 
 enum AppAppearance: String, CaseIterable {
     case system = "System"
-    case light = "Light"
-    case dark = "Dark"
+    case light = "Light"   // Reading Room
+    case dark = "Dark"     // Night Study
+
+    /// Annotator display names for the appearance segmented control.
+    var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light:  return "Reading Room"
+        case .dark:   return "Night Study"
+        }
+    }
 }
 
 // MARK: - App Settings Manager
@@ -271,7 +289,7 @@ class AppSettings: ObservableObject {
         set { appAppearanceRaw = newValue.rawValue }
     }
 
-    @AppStorage("boardThemeId") var boardThemeId: String = "classic" {
+    @AppStorage("boardThemeId") var boardThemeId: String = "annotator" {
         didSet { objectWillChange.send() }
     }
     

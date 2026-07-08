@@ -14,6 +14,9 @@ struct TabiaApp: App {
     let referenceDatabase: ReferenceDatabase
 
     init() {
+        // The Annotator's three voices — register the bundled OFL fonts before any view renders.
+        AnnFont.registerBundledFonts()
+
         let container = try! ModelContainer(
             for: GameRecord.self, GameFolder.self, ChessComCachedStats.self, CachedName.self,
                  Repertoire.self, RepertoireFolder.self, RepertoireNode.self, PositionSchedule.self

@@ -119,7 +119,6 @@ struct MainWindowView: View {
         }
         .background(GlassBackground(screen: activeScreen))
         .overlay { ReferenceActivityBadge() }
-        .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSaveSheet) {
             SaveGameView(gameTree: gameTree, database: database)
         }

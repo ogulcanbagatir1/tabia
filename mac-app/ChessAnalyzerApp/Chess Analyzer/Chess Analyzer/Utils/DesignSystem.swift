@@ -37,36 +37,36 @@ enum DS {
 
     // MARK: - Static accent fallbacks (non-adaptive, for programmatic use)
 
-    static let accentStatic = Color(hex: 0x0A84FF)
-    static let accentLightStatic = Color(hex: 0x007AFF)
+    static let accentStatic = Color(hex: 0x9E2B25)
+    static let accentLightStatic = Color(hex: 0x9E2B25, opacity: 0.12)
 
-    /// Evaluation colors
-    static let evalWhiteWinning = Color(hex: 0xECECEC)
-    static let evalBlackWinning = Color(hex: 0x262626)
-    static let evalNeutral = Color(white: 0.50)
-    static let evalGameOver = accentStatic
+    /// Evaluation colors — eval bar is paper (white adv) → deep ink (black adv), red hairline at boundary.
+    static let evalWhiteWinning = Color(hex: 0xF7F1E1)
+    static let evalBlackWinning = Color(hex: 0x1C1710)
+    static let evalNeutral = Color(hex: 0x8A7E6B)
+    static let evalGameOver = DS.redInk
     static let evalPositive = evalWhiteWinning
     static let evalNegative = evalBlackWinning
 
-    // MARK: - Chess Board Colors
+    // MARK: - Chess Board Colors (sepia paper — never themed; see DS.board* in Theme.swift)
 
-    static let chessBoardLight = Color(hex: 0xEBECD0)
-    static let chessBoardDark = Color(hex: 0x739552)
-    static let chessHighlight = Color(hex: 0xF6F669)
-    static let chessMoveDot = Color.black.opacity(0.25)
+    static let chessBoardLight = DS.boardLight
+    static let chessBoardDark = DS.boardDark
+    static let chessHighlight = DS.boardLastLight
+    static let chessMoveDot = Color.black.opacity(0.22)
 
     // MARK: - Move Quality Colors
 
-    static let moveBrilliant = Color(hex: 0x1ABF66)
-    static let moveGreat = Color(hex: 0x3387DE)
-    static let moveBest = Color(hex: 0x8CCC59)
-    static let moveBook = Color(hex: 0xA68C66)
-    static let moveGood = Color(red: 0.40, green: 0.70, blue: 0.85)
-    static let moveOkay = Color(red: 0.56, green: 0.36, blue: 0.82)
-    static let moveNeutral = Color(red: 0.56, green: 0.56, blue: 0.58)
-    static let moveInaccuracy = Color(hex: 0xEDA619)
-    static let moveMistake = Color(hex: 0xE87623)
-    static let moveBlunder = Color(hex: 0xD62E2E)
+    static let moveBrilliant = DS.qBrilliant
+    static let moveGreat = DS.qBrilliant
+    static let moveBest = DS.qBest
+    static let moveBook = DS.qBook
+    static let moveGood = DS.qBest
+    static let moveOkay = DS.qBook
+    static let moveNeutral = DS.ink40
+    static let moveInaccuracy = DS.qInaccuracy
+    static let moveMistake = DS.qMistake
+    static let moveBlunder = DS.qBlunder
 
     // MARK: - Time Control Colors
 
@@ -87,28 +87,25 @@ enum DS {
 
     // MARK: - Semantic Colors
 
-    static let accentGreen = Color(hex: 0x30D158)
-    static let accentRed = DS.adaptive(
-        light: Color(hex: 0xFF3B30),
-        dark: Color(hex: 0xFF453A)
-    )
-    static let accentOrange = Color(hex: 0xFF9F0A)
-    static let accentPurple = Color(hex: 0xBF5AF2)
-    static let accentTeal = Color(hex: 0x64D2FF)
-    static let accentYellow = Color(hex: 0xFFD60A)
+    static let accentGreen = DS.semOnline
+    static let accentRed = DS.semLoss
+    static let accentOrange = DS.semWarning
+    static let accentPurple = DS.ink40
+    static let accentTeal = DS.ink40
+    static let accentYellow = DS.semWarning
 
-    // MARK: - Chess.com Branding
+    // MARK: - Chess.com Branding (neutralized into the palette; refine per-screen in Phase 3)
 
-    static let chessComGreen = Color(hex: 0x73AD59)
-    static let lichessWhite = Color(hex: 0xFAFAFA)
-    static let lichessPurple = Color(hex: 0x629924)
+    static let chessComGreen = DS.semOnline
+    static let lichessWhite = DS.ink
+    static let lichessPurple = DS.ink40
 
     // MARK: - Accuracy Colors
 
-    static let accuracyGreat = Color(red: 0.20, green: 0.78, blue: 0.45)
-    static let accuracyGood = Color(red: 0.95, green: 0.75, blue: 0.15)
-    static let accuracyOkay = Color(red: 0.95, green: 0.55, blue: 0.15)
-    static let accuracyPoor = Color(red: 0.90, green: 0.25, blue: 0.20)
+    static let accuracyGreat = DS.semWin
+    static let accuracyGood = DS.qBest
+    static let accuracyOkay = DS.semWarning
+    static let accuracyPoor = DS.semLoss
 
     static func accuracyColor(for percentage: Double) -> Color {
         if percentage >= 90 { return accuracyGreat }
@@ -119,16 +116,18 @@ enum DS {
 
     // MARK: - Typography
 
-    static let microFont = Font.system(size: 9)
-    static let smallFont = Font.system(size: 10)
-    static let labelFont = Font.system(size: 12)
-    static let titleFont = Font.system(size: 14, weight: .semibold)
-    static let headingFont = Font.system(size: 22, weight: .bold)
-    static let bodyFont = Font.system(size: 13)
-    static let captionFont = Font.system(size: 11)
-    static let monoFont = Font.system(size: 13, weight: .regular, design: .monospaced)
-    static let monoSmall = Font.system(size: 11, weight: .regular, design: .monospaced)
-    static let monoBold = Font.system(size: 13, weight: .semibold, design: .monospaced)
+    // Generic tokens remapped to Annotator voices. Data → Courier Prime, prose/titles → Newsreader.
+    // (Per-component voices — incl. Instrument Sans labels — are assigned in Phases 2–3.)
+    static let microFont = AnnFont.mono(9)
+    static let smallFont = AnnFont.serif(10)
+    static let labelFont = AnnFont.serif(12)
+    static let titleFont = AnnFont.serif(14, .semibold)
+    static let headingFont = AnnFont.serif(22, .semibold)
+    static let bodyFont = AnnFont.serif(13)
+    static let captionFont = AnnFont.serif(11)
+    static let monoFont = AnnFont.mono(13)
+    static let monoSmall = AnnFont.mono(11)
+    static let monoBold = AnnFont.mono(13, bold: true)
 
     // MARK: - Spacing
 
@@ -142,10 +141,11 @@ enum DS {
 
     // MARK: - Corner Radii
 
-    static let radiusSM: CGFloat = 6
+    // Remapped to the Annotator radius scale (4/5/7/8/9/11/12/13).
+    static let radiusSM: CGFloat = 7
     static let radiusMD: CGFloat = 8
     static let radiusLG: CGFloat = 12
-    static let radiusXL: CGFloat = 20
+    static let radiusXL: CGFloat = 13
 
     // MARK: - Layout Constants
 
@@ -190,89 +190,36 @@ extension Color {
 
 // MARK: - Runtime Color Definitions
 
+// Legacy DS color names now resolve to Annotator tokens (see Theme.swift), so every existing
+// screen reskins to paper/ink/red in both modes. Phase 3 migrates call sites to the new names.
 extension Color {
-    static let dsAccent = DS.adaptive(
-        light: Color(hex: 0x007AFF),
-        dark: Color(hex: 0x0A84FF)
-    )
-    static let dsAccentLight = DS.adaptive(
-        light: Color(hex: 0x007AFF).opacity(0.12),
-        dark: Color(hex: 0x0A84FF).opacity(0.12)
-    )
-    static let dsBg = DS.adaptive(
-        light: Color.white.opacity(0.65),
-        dark: Color(hex: 0x1C1C1E, opacity: 0.55)
-    )
-    static let dsBgSecondary = DS.adaptive(
-        light: Color(hex: 0xF5F5F7, opacity: 0.55),
-        dark: Color(hex: 0x2C2C2E, opacity: 0.45)
-    )
-    static let dsBgTertiary = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.06),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.08)
-    )
-    static let dsBgSurface = DS.adaptive(
-        light: Color(hex: 0xF0F0F2, opacity: 0.50),
-        dark: Color(hex: 0x242426, opacity: 0.45)
-    )
-    static let dsBgElevated = DS.adaptive(
-        light: Color.white.opacity(0.70),
-        dark: Color(hex: 0x323234, opacity: 0.55)
-    )
-    static let dsBgHover = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.05),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.07)
-    )
-    static let dsTextPrimary = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.85),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.92)
-    )
-    static let dsTextSecondary = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.55),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.65)
-    )
-    static let dsTextTertiary = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.38),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.42)
-    )
-    static let dsTextMuted = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.22),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.25)
-    )
-    static let dsBorder = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.12),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.10)
-    )
-    static let dsBorderSubtle = DS.adaptive(
-        light: Color(hex: 0x000000, opacity: 0.06),
-        dark: Color(hex: 0xFFFFFF, opacity: 0.06)
-    )
+    static let dsAccent        = DS.redAccent
+    static let dsAccentLight    = DS.redAccent.opacity(0.12)
+    static let dsBg             = DS.paper
+    static let dsBgSecondary    = DS.paperRaised
+    static let dsBgTertiary     = DS.fieldBg
+    static let dsBgSurface      = DS.paperRaised
+    static let dsBgElevated     = DS.paperRaised
+    static let dsBgHover        = DS.hoverWash
+    static let dsTextPrimary    = DS.ink
+    static let dsTextSecondary  = DS.ink60
+    static let dsTextTertiary   = DS.ink40
+    static let dsTextMuted      = DS.ink25
+    static let dsBorder         = DS.hairline
+    static let dsBorderSubtle   = DS.hairline
 }
 
 // MARK: - Glass Design Constants
 
 extension DS {
-    /// Glass border — a subtle white/black stroke that catches light
-    static let glassBorder = DS.adaptive(
-        light: Color.white.opacity(0.7),
-        dark: Color.white.opacity(0.12)
-    )
-    static let glassBorderOuter = DS.adaptive(
-        light: Color.black.opacity(0.08),
-        dark: Color.black.opacity(0.35)
-    )
-    /// Glass separator — subtle dividers between sections
-    static let glassSeparator = DS.adaptive(
-        light: Color.black.opacity(0.12),
-        dark: Color.white.opacity(0.10)
-    )
-    /// Inner glow for glass panels
-    static let glassHighlight = DS.adaptive(
-        light: Color.white.opacity(0.7),
-        dark: Color.white.opacity(0.04)
-    )
-    /// Glass shadow
-    static let glassShadowColor = Color.black.opacity(0.12)
+    // Legacy "glass" line/shadow tokens, remapped to Annotator hairlines + soft shadow.
+    static let glassBorder = DS.hairline
+    static let glassBorderOuter = DS.hairline
+    /// Every 1px rule.
+    static let glassSeparator = DS.hairline
+    static let glassHighlight = DS.hairline
+    /// Soft shadow (depth = hairlines + soft shadow only).
+    static let glassShadowColor = DS.adaptive(light: Color.black.opacity(0.10), dark: Color.black.opacity(0.40))
 }
 
 // MARK: - View Extensions
@@ -283,32 +230,26 @@ extension View {
     /// Glass panel — frosted material with subtle border and shadow, for floating cards
     func glassPanel(radius: CGFloat = DS.radiusLG) -> some View {
         self
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: radius))
+            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: radius))
             .overlay(
                 RoundedRectangle(cornerRadius: radius)
-                    .strokeBorder(DS.glassBorder, lineWidth: 0.5)
+                    .strokeBorder(DS.hairline, lineWidth: 1)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius)
-                    .strokeBorder(DS.glassBorderOuter, lineWidth: 0.5)
-                    .padding(-0.5)
-            )
-            .shadow(color: DS.glassShadowColor, radius: 8, x: 0, y: 2)
+            .shadow(color: DS.glassShadowColor, radius: 10, x: 0, y: 4)
     }
 
-    /// Glass sidebar — translucent material background for sidebar regions
+    /// Sidebar ground — flat chrome surface.
     func glassSidebar() -> some View {
-        self
-            .background(.ultraThinMaterial)
+        self.background(DS.chrome)
     }
 
-    /// Glass card — lighter material for inline cards within a glass sidebar
+    /// Inline card — flat raised paper + 1px hairline.
     func glassCard(radius: CGFloat = DS.radiusMD) -> some View {
         self
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: radius))
+            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: radius))
             .overlay(
                 RoundedRectangle(cornerRadius: radius)
-                    .strokeBorder(DS.glassBorder, lineWidth: 0.5)
+                    .strokeBorder(DS.hairline, lineWidth: 1)
             )
     }
 
@@ -337,9 +278,9 @@ extension View {
 
     func sectionLabel() -> some View {
         self
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(DS.textTertiary)
-            .kerning(0.8)
+            .font(AnnFont.label(10))
+            .foregroundColor(DS.ink40)
+            .kerning(1.4)
             .textCase(.uppercase)
     }
 
@@ -347,17 +288,18 @@ extension View {
         self.glassCard(radius: radius)
     }
 
-    func pillStyle(isActive: Bool, activeColor: Color = DS.accentStatic) -> some View {
+    func pillStyle(isActive: Bool, activeColor: Color = DS.ink) -> some View {
         self
             .padding(.horizontal, 14)
             .padding(.vertical, 5)
             .background(isActive ? activeColor : Color.clear)
-            .foregroundColor(isActive ? .white : DS.textSecondary)
-            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(isActive ? DS.onInk : DS.ink60)
+            .font(AnnFont.label(10))
+            .textCase(.uppercase)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .strokeBorder(isActive ? Color.clear : DS.glassBorder, lineWidth: 0.5)
+                    .strokeBorder(isActive ? Color.clear : DS.borderChip, lineWidth: 1)
             )
     }
 
@@ -373,113 +315,74 @@ extension View {
 
     // MARK: Glass Button Modifiers
 
-    /// Primary glass button — accent-tinted glass with glow
+    /// Primary button — the one red pen (flat red fill, no glow).
     func glassButtonPrimary() -> some View {
         self
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(DS.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
-            )
-            .shadow(color: DS.accent.opacity(0.3), radius: 4, x: 0, y: 2)
+            .font(AnnFont.label(11)).textCase(.uppercase)
+            .foregroundStyle(DS.onRed)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(DS.redInk, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
     }
 
-    /// Secondary glass button — translucent material with border
+    /// Secondary button — bordered, ink text.
     func glassButtonSecondary() -> some View {
         self
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(DS.textPrimary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(DS.glassBorder, lineWidth: 0.5)
-            )
-            .shadow(color: DS.glassShadowColor, radius: 2, x: 0, y: 1)
+            .font(AnnFont.label(11)).textCase(.uppercase)
+            .foregroundStyle(DS.ink)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
     }
 
-    /// Destructive glass button — red-tinted glass
+    /// Destructive button — red fill.
     func glassButtonDestructive() -> some View {
         self
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(DS.accentRed, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
-            )
-            .shadow(color: DS.accentRed.opacity(0.3), radius: 4, x: 0, y: 2)
+            .font(AnnFont.label(11)).textCase(.uppercase)
+            .foregroundStyle(DS.onRed)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(DS.redInk, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
     }
 
-    /// Small glass button — compact variant for inline use
+    /// Small bordered button.
     func glassButtonSmall() -> some View {
         self
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(DS.textPrimary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(DS.glassBorder, lineWidth: 0.5)
-            )
-            .shadow(color: DS.glassShadowColor, radius: 1, x: 0, y: 0.5)
+            .font(AnnFont.label(10)).textCase(.uppercase)
+            .foregroundStyle(DS.ink)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
     }
 
-    /// Small primary glass button — compact accent variant
+    /// Small red button.
     func glassButtonSmallPrimary() -> some View {
         self
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(DS.accent, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
-            )
-            .shadow(color: DS.accent.opacity(0.3), radius: 2, x: 0, y: 1)
+            .font(AnnFont.label(10)).textCase(.uppercase)
+            .foregroundStyle(DS.onRed)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(DS.redInk, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
     }
 
-    /// Glass icon button — for toolbar/icon-only buttons
+    /// Icon button — flat chrome + hairline.
     func glassIconButton(size: CGFloat = 28) -> some View {
         self
             .frame(width: size, height: size)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: size * 0.3, style: .continuous))
-            .shadow(color: DS.glassShadowColor, radius: 1.5, x: 0, y: 0.5)
+            .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
     }
 
-    /// Glass toggle — frosted capsule switch
+    /// Toggle — 36×21, red when on, borderStrong when off, 16px knob.
     func glassToggle(isOn: Bool) -> some View {
         ZStack(alignment: isOn ? .trailing : .leading) {
             Capsule()
-                .fill(isOn ? DS.accent : DS.bgTertiary)
-                .background {
-                    if !isOn {
-                        Capsule().fill(.thinMaterial)
-                    }
-                }
-                .overlay(
-                    Capsule()
-                        .strokeBorder(isOn ? Color.white.opacity(0.2) : DS.glassBorder, lineWidth: 0.5)
-                )
-                .shadow(color: isOn ? DS.accent.opacity(0.3) : DS.glassShadowColor, radius: 2, x: 0, y: 1)
-                .frame(width: 36, height: 20)
+                .fill(isOn ? DS.redInk : DS.borderStrong)
+                .frame(width: DS.toggleWidth, height: DS.toggleHeight)
 
             Circle()
-                .fill(.white)
-                .shadow(color: Color.black.opacity(0.15), radius: 1, x: 0, y: 0.5)
-                .frame(width: 16, height: 16)
-                .padding(.horizontal, 2)
+                .fill(DS.onRed)
+                .frame(width: DS.toggleKnob, height: DS.toggleKnob)
+                .padding(.horizontal, 2.5)
         }
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isOn)
+        .animation(.easeOut(duration: 0.17), value: isOn)
     }
 }
 
@@ -487,121 +390,38 @@ extension View {
 
 // MARK: - Glass Background Views
 
-/// Window background — dark base with subtle muted gradients (same for all screens)
+// Annotator grounds — flat paper (Reading Room) / night (Night Study). No blur, no gradients.
+// "The paper board never changes; only the lamp does." Columns are separated by 1px hairlines.
+
+/// Window ground.
 struct GlassBackground: View {
     var screen: AppScreen = .analysis
-
-    var body: some View {
-        ZStack {
-            Color(hex: 0x0E0E14)
-
-            // Subtle blue-gray glow top-left
-            RadialGradient(
-                colors: [Color(hex: 0x1A2030), Color(hex: 0x0E0E14, opacity: 0)],
-                center: UnitPoint(x: 0, y: 0),
-                startRadius: 0,
-                endRadius: 600
-            )
-
-            // Subtle purple tint bottom-right
-            RadialGradient(
-                colors: [Color(hex: 0x221828), Color(hex: 0x0E0E14, opacity: 0)],
-                center: UnitPoint(x: 1, y: 1),
-                startRadius: 0,
-                endRadius: 500
-            )
-
-            // Subtle dark blue wash across top
-            RadialGradient(
-                colors: [Color(hex: 0x161820), Color(hex: 0x0E0E14, opacity: 0)],
-                center: UnitPoint(x: 0.5, y: 0),
-                startRadius: 0,
-                endRadius: 350
-            )
-        }
-        .ignoresSafeArea()
-    }
+    var body: some View { DS.paper.ignoresSafeArea() }
 }
 
-/// Full-width content area background (Database, ChessCom, Settings)
+/// Full-width content area ground (Database, Games, Settings).
 struct GlassContentBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Color.white.opacity(0.047)
-            LinearGradient(
-                colors: [Color.white.opacity(0.082), Color.white.opacity(0)],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.2)
-            )
-        }
-    }
+    var body: some View { DS.paper }
 }
 
-/// Engine content area — slightly dimmer than other screens
+/// Engine content ground.
 struct GlassEngineContentBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Color.white.opacity(0.031)
-            LinearGradient(
-                colors: [Color.white.opacity(0.07), Color.white.opacity(0)],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.15)
-            )
-        }
-    }
+    var body: some View { DS.paper }
 }
 
-/// Side panel background — blur + #FFFFFF18 + top gradient overlay
+/// Side panel / column ground.
 struct GlassPanelBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-
-            Color.white.opacity(0.094)
-
-            LinearGradient(
-                colors: [Color.white.opacity(0.157), Color.white.opacity(0.012)],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.35)
-            )
-        }
-    }
+    var body: some View { DS.paper }
 }
 
-/// Board area background — blur + #FFFFFF0C + subtle top gradient
+/// Board area ground.
 struct GlassBoardAreaBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-
-            Color.white.opacity(0.047)
-
-            LinearGradient(
-                colors: [Color.white.opacity(0.082), Color.white.opacity(0)],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.2)
-            )
-        }
-    }
+    var body: some View { DS.paper }
 }
 
-/// Icon rail background — blur + #FFFFFF20 + top gradient
+/// Icon rail / chrome ground (legacy rail — superseded by the masthead in Phase 2).
 struct GlassRailBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.thinMaterial)
-
-            Color.white.opacity(0.08)
-
-            LinearGradient(
-                colors: [Color.white.opacity(0.14), Color.white.opacity(0.01)],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.3)
-            )
-        }
-    }
+    var body: some View { DS.chrome }
 }
 
 // MARK: - Lazy View (defers body evaluation)
@@ -614,42 +434,29 @@ struct LazyView<Content: View>: View {
     var body: Content { build() }
 }
 
-/// ButtonStyle: glass secondary — use with .buttonStyle(GlassButtonStyle())
+/// ButtonStyle: bordered secondary (flat Annotator).
 struct GlassButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(DS.textPrimary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(DS.glassBorder, lineWidth: 0.5)
-            )
-            .shadow(color: DS.glassShadowColor, radius: 2, x: 0, y: 1)
-            .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .font(AnnFont.label(11)).textCase(.uppercase)
+            .foregroundStyle(DS.ink)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
+            .brightness(configuration.isPressed ? -0.04 : 0)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
-/// ButtonStyle: glass primary — accent-filled glass
+/// ButtonStyle: the one red pen — flat red fill.
 struct GlassPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(DS.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
-            )
-            .shadow(color: DS.accent.opacity(0.3), radius: 4, x: 0, y: 2)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .font(AnnFont.label(11)).textCase(.uppercase)
+            .foregroundStyle(DS.onRed)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(DS.redInk, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+            .brightness(configuration.isPressed ? 0.12 : 0)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
