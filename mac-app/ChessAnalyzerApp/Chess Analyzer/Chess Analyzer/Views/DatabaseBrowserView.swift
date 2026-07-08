@@ -197,7 +197,7 @@ struct DatabaseBrowserView: View {
             Button("Delete", role: .destructive) {
                 if let folder = folderToDelete {
                     database.deleteFolder(folder, deleteGames: true)
-                    navigation = .root
+                    navigation = .allGames
                 }
                 folderToDelete = nil
             }
@@ -272,6 +272,15 @@ struct DatabaseBrowserView: View {
                     ForEach(database.folders.sorted { $0.name < $1.name }, id: \.id) { folder in
                         sidebarRow(icon: "cylinder", name: folder.name, count: database.gamesInFolderCount(folder.id),
                                    isSelected: navigation == .folder(folder.id)) { navigation = .folder(folder.id) }
+                            .contextMenu {
+                                Button("Rename…") { newFolderName = folder.name; renamingFolder = folder }
+                                Button("Export…") { exportingFolder = folder; showingExportFormatPicker = true }
+                                Divider()
+                                Button("Delete…", role: .destructive) {
+                                    folderToDelete = folder
+                                    showingDeleteFolderAlert = true
+                                }
+                            }
                     }
 
                     if referenceDatabase.gameCount > 0 {
@@ -319,7 +328,13 @@ struct DatabaseBrowserView: View {
                 Text("\(count)").font(AnnFont.mono(10)).foregroundColor(DS.ink40)
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(isSelected ? DS.selectedWash : Color.clear, in: RoundedRectangle(cornerRadius: DS.rControl))
+            .background(isSelected ? DS.selectedMove : Color.clear, in: RoundedRectangle(cornerRadius: DS.rControl))
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 1).fill(DS.redAccent)
+                        .frame(width: 2.5).padding(.vertical, 5)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -776,27 +791,28 @@ struct DatabaseBrowserView: View {
 
     private var tableHeaderBar: some View {
         HStack(spacing: 12) {
-            Button(action: {
-                navigation = .root
-                clearFilters()
-                selectedGameIds.removeAll()
-            }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(DS.ink60)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            Text(currentFolderName)
-                .font(AnnFont.serif(16, .semibold))
-                .foregroundColor(DS.ink)
-
             Spacer()
 
-            // Filter + Import buttons
+            // Delete (only when a specific database is selected) + Filter + Import buttons
             HStack(spacing: 8) {
+                if case .folder(let id) = navigation,
+                   let folder = database.folders.first(where: { $0.id == id }) {
+                    Button(action: {
+                        folderToDelete = folder
+                        showingDeleteFolderAlert = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash").font(.system(size: 14))
+                            Text("Delete").font(AnnFont.label(12)).tracking(12 * 0.1)
+                        }
+                        .foregroundColor(DS.redAccent)
+                        .padding(.vertical, 6).padding(.horizontal, 14)
+                        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.redAccent.opacity(0.45), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showingFilters.toggle() } }) {
                     HStack(spacing: 6) {
                         Image(systemName: "slider.horizontal.3")
@@ -1232,15 +1248,16 @@ struct DatabaseBrowserView: View {
     private func tableRow(_ game: GameRecord, isAlternate: Bool = false) -> some View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
-                Circle().fill(Color(hex: 0xECECEC)).frame(width: 8, height: 8)
+                Circle().fill(DS.boardWhitePiece).frame(width: 9, height: 9)
+                    .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
                 Text(game.white).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
             }
             .padding(.horizontal, 8)
             .frame(width: 180, alignment: .leading)
 
             HStack(spacing: 6) {
-                Circle().fill(Color(hex: 0x262626)).frame(width: 8, height: 8)
-                    .overlay(Circle().strokeBorder(DS.textTertiary, lineWidth: 1))
+                Circle().fill(DS.boardBlackPiece).frame(width: 9, height: 9)
+                    .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
                 Text(game.black).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
             }
             .padding(.horizontal, 8)
