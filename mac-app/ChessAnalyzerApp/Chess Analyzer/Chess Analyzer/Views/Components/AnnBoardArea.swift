@@ -89,7 +89,9 @@ struct AnnBoardArea: View {
                 Text(rating).font(AnnFont.mono(11.5)).foregroundColor(DS.ink60)
             }
             Spacer(minLength: 8)
-            if toMove { AnnToMoveChip() }
+            // Always keep the chip in the layout (invisible when it's not this side's move) so the
+            // row height never changes as TO MOVE swaps sides — no vertical shift of the board.
+            AnnToMoveChip().opacity(toMove ? 1 : 0)
         }
     }
 
