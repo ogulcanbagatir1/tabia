@@ -22,25 +22,13 @@ struct EvaluationBar: View {
             let whiteH = whiteHeight(totalHeight: height)
 
             ZStack(alignment: .bottom) {
-                // Black side (top) - gradient
+                // Black side (top) - flat
                 Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.15), Color(white: 0.25)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .fill(Color(white: 0.2))
 
-                // White side (bottom) - gradient with smooth animation
+                // White side (bottom) - flat with smooth animation
                 Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.85), Color.white],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .fill(Color(white: 0.92))
                     .frame(height: whiteH)
                     .animation(.spring(response: 0.8, dampingFraction: 0.75), value: whiteH)
 
@@ -71,7 +59,7 @@ struct EvaluationBar: View {
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(DS.glassBorderOuter, lineWidth: 0.5)
+                    .strokeBorder(DS.hairline, lineWidth: 0.5)
             )
             .shadow(color: DS.glassShadowColor, radius: 3, x: 0, y: 1)
         }

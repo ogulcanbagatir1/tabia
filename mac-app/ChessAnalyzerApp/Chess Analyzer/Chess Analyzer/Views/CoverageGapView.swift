@@ -13,7 +13,7 @@ struct CoverageGapView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().overlay(Color.white.opacity(0.08))
+            Divider().overlay(DS.hairline)
 
             if !referenceDB.isAvailable || referenceDB.gameCount == 0 {
                 message(icon: "tray", title: "No reference database",
@@ -116,7 +116,7 @@ struct CoverageGapView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(DS.moveBlunder.opacity(gap.opponentScorePercent >= 52 ? 0.28 : 0.10), lineWidth: 1)

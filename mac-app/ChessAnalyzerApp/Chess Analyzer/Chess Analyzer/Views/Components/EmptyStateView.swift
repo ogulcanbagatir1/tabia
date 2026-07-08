@@ -15,17 +15,17 @@ struct EmptyStateView: View {
         VStack(spacing: spacing) {
             Image(systemName: icon)
                 .font(.system(size: iconSize, weight: .light))
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
 
             VStack(spacing: 6) {
                 Text(title)
                     .font(.system(size: titleSize, weight: .semibold))
-                    .foregroundColor(DS.textSecondary)
+                    .foregroundColor(DS.ink60)
 
                 if let description = description {
                     Text(description)
                         .font(.system(size: descriptionSize))
-                        .foregroundColor(DS.textTertiary)
+                        .foregroundColor(DS.ink40)
                         .lineSpacing(4)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: descriptionWidth)

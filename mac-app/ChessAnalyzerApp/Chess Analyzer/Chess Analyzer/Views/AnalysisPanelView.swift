@@ -145,7 +145,7 @@ struct AnalysisPanelView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
     // MARK: - Engine Eval List (compact rows for each active engine)
@@ -162,7 +162,7 @@ struct AnalysisPanelView: View {
                 )
             }
         }
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
     // MARK: - Engine Lines (PV for selected engine only)
@@ -174,7 +174,7 @@ struct AnalysisPanelView: View {
                     AnalysisLineRow(line: line, moveNumber: currentMoveNumber, sideToMove: currentTurn, isTopLine: lineId == 1)
                         .padding(.horizontal, 10)
                         .frame(height: 30)
-                        .background(lineId % 2 != 0 ? Color.white.opacity(0.05) : Color.clear)
+                        .background(lineId % 2 != 0 ? DS.hoverWash : Color.clear)
                 } else {
                     AnalysisLinePlaceholder(isLoading: selectedEngine.isThinking)
                         .padding(.horizontal, 10)
@@ -213,7 +213,7 @@ struct AnalysisPanelView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
     // MARK: - No Engine Prompt
@@ -320,7 +320,7 @@ struct EngineEvalRow: View {
                     .foregroundColor(DS.textTertiary)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 2))
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 2))
             }
 
             // Thinking spinner
@@ -400,19 +400,19 @@ struct AnalysisLineRow: View {
             // Eval text
             Text(line.evaluationText)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             // PV text
             if !line.isGameOver {
                 Text(formattedPV)
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.inkPV)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(line.isPositive ? "White wins by checkmate" : "Black wins by checkmate")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }

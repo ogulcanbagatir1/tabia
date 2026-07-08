@@ -55,7 +55,7 @@ struct ExplorerMoveRow: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .background(isAlternate ? Color.white.opacity(0.03) : Color.clear)
+            .background(isAlternate ? DS.hoverWash : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

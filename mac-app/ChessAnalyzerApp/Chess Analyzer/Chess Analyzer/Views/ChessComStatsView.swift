@@ -636,7 +636,7 @@ private struct RatingChartView: View {
         .padding(.vertical, 7)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(.ultraThinMaterial)
+                .fill(DS.paperRaised)
                 .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
         )
         .offset(x: xOffset, y: 6)

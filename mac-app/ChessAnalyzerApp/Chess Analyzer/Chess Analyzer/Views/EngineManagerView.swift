@@ -19,10 +19,10 @@ struct EngineManagerView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Engine Manager")
                                 .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                                .foregroundColor(DS.ink)
                             Text("\(settings.engines.count) engine\(settings.engines.count == 1 ? "" : "s") configured")
                                 .font(.system(size: 13))
-                                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                                .foregroundColor(DS.ink40)
                         }
 
                         // Engine cards grid
@@ -58,15 +58,15 @@ struct EngineManagerView: View {
 
             Image(systemName: "cpu")
                 .font(.system(size: 56, weight: .light))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                .foregroundColor(DS.ink25)
 
             Text("No Engines Configured")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             Text("Add a chess engine to start analyzing positions.\nStockfish is recommended for the best experience.")
                 .font(.system(size: 13))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(DS.ink40)
                 .lineSpacing(4)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)
@@ -129,28 +129,21 @@ struct EngineManagerView: View {
             VStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(size: 24, weight: .light))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                    .foregroundColor(DS.ink40)
 
                 Text("Add Engine")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                    .foregroundColor(DS.ink40)
             }
             .frame(maxHeight: .infinity)
             .frame(width: 260)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.03))
+                    .fill(DS.paperRaised)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.21), Color.white.opacity(0.04)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .strokeBorder(DS.hairline, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
@@ -160,7 +153,7 @@ struct EngineManagerView: View {
     private func engineCard(_ engine: EngineConfig) -> some View {
         let isCloud = engine.source == .cloud
         let isAvailable = isCloud ? true : (engineStatuses[engine.id] ?? false)
-        let statusColor: Color = isCloud ? DS.accent : (isAvailable ? Color(red: 0.19, green: 0.82, blue: 0.35) : .orange)
+        let statusColor: Color = isCloud ? DS.semOnline : (isAvailable ? DS.semOnline : DS.semWarning)
         let iconColor: Color = isCloud ? .teal : (engine.name.lowercased().contains("leela") || engine.name.lowercased().contains("lc0") ? .purple : DS.accent)
 
         return VStack(alignment: .leading, spacing: 14) {
@@ -172,7 +165,7 @@ struct EngineManagerView: View {
                     .frame(width: 40, height: 40)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(engine.isDefault ? Color(hex: 0x0A84FF, opacity: 0.125) : Color.white.opacity(0.13))
+                            .fill(engine.isDefault ? DS.redAccent.opacity(0.125) : DS.fieldBg)
                     )
 
                 Spacer()
@@ -180,10 +173,10 @@ struct EngineManagerView: View {
                 if engine.isDefault {
                     Text("Active")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Color(hex: 0x0A84FF))
+                        .foregroundColor(DS.redAccent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Color(hex: 0x0A84FF, opacity: 0.19), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(DS.redAccent.opacity(0.19), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
 
@@ -191,7 +184,7 @@ struct EngineManagerView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(engine.name)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
@@ -200,7 +193,7 @@ struct EngineManagerView: View {
                         .frame(width: 6, height: 6)
                     Text(isCloud ? "Online" : (isAvailable ? "Available" : "Not Found"))
                         .font(.system(size: 11))
-                        .foregroundColor(isAvailable || isCloud ? Color(hex: 0x30D158) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(isAvailable || isCloud ? DS.semOnline : DS.ink40)
                 }
             }
         }
@@ -209,27 +202,15 @@ struct EngineManagerView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(engine.isDefault ? 0.10 : 0.094))
+                    .fill(DS.paperRaised)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(engine.isDefault ? 0.157 : 0.145), Color.white.opacity(0)],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.4)
-                        )
-                    )
+                    .fill(Color.clear)
             }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
-                    LinearGradient(
-                        colors: engine.isDefault
-                            ? [Color(hex: 0x0A84FF, opacity: 0.67), Color(hex: 0x0A84FF, opacity: 0.25)]
-                            : [Color.white.opacity(0.31), Color.white.opacity(0.06)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
+                    engine.isDefault ? DS.redAccent : DS.hairline,
                     lineWidth: engine.isDefault ? 2 : 1
                 )
         )
@@ -251,13 +232,13 @@ struct EngineManagerView: View {
             HStack(spacing: 10) {
                 Text("Settings — \(engine.name)")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
                 Spacer()
             }
             .padding(.horizontal, 22)
             .padding(.vertical, 14)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             if !isCloud {
@@ -326,28 +307,15 @@ struct EngineManagerView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.094))
+                    .fill(DS.paperRaised)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.145), Color.white.opacity(0)],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.35)
-                        )
-                    )
+                    .fill(Color.clear)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.31), Color.white.opacity(0.06)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.25), radius: 15, x: 0, y: 6)
         .transition(.opacity)
@@ -363,10 +331,10 @@ struct EngineManagerView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
                 Text(description)
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                    .foregroundColor(DS.ink40)
             }
 
             Spacer()
@@ -377,7 +345,7 @@ struct EngineManagerView: View {
         .padding(.vertical, 14)
         .overlay(alignment: .bottom) {
             if showBorder {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
         }
     }
@@ -399,7 +367,7 @@ struct EngineManagerView: View {
 
             Text("\(engine.settings.hashMB)")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.inkData)
                 .frame(width: 40, alignment: .trailing)
         }
     }
@@ -417,23 +385,23 @@ struct EngineManagerView: View {
             }) {
                 Image(systemName: "minus")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 30, height: 28)
-                    .background(Color.white.opacity(0.08))
+                    .background(DS.fieldBg)
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8, bottomTrailingRadius: 0, topTrailingRadius: 0))
             }
             .buttonStyle(.plain)
 
             Text("\(engine.settings.multiPV)")
                 .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.inkData)
                 .frame(width: 36, height: 28)
-                .background(Color.white.opacity(0.04))
+                .background(DS.fieldBg)
                 .overlay(
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1), alignment: .leading
+                    Rectangle().fill(DS.hairline).frame(width: 1), alignment: .leading
                 )
                 .overlay(
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1), alignment: .trailing
+                    Rectangle().fill(DS.hairline).frame(width: 1), alignment: .trailing
                 )
 
             Button(action: {
@@ -445,16 +413,16 @@ struct EngineManagerView: View {
             }) {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 30, height: 28)
-                    .background(Color.white.opacity(0.08))
+                    .background(DS.fieldBg)
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 8, topTrailingRadius: 8))
             }
             .buttonStyle(.plain)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                .strokeBorder(DS.borderChip, lineWidth: 1)
         )
     }
 
@@ -502,7 +470,7 @@ struct EngineManagerView: View {
                 HStack {
                     Text(label)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                     Spacer()
                 }
             }
@@ -517,7 +485,7 @@ struct EngineManagerView: View {
 
                 Text("\(value)")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.inkData)
                     .frame(width: 32, alignment: .trailing)
             }
         }
@@ -565,17 +533,17 @@ private struct DesignSlider: View {
             ZStack(alignment: .leading) {
                 // Background track
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.white.opacity(0.13))
+                    .fill(DS.trackBg)
                     .frame(height: 4)
 
                 // Fill track
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(hex: 0x0A84FF))
+                    .fill(DS.redAccent)
                     .frame(width: max(0, thumbX), height: 4)
 
                 // Knob
                 Circle()
-                    .fill(Color.white)
+                    .fill(DS.paperRaised)
                     .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
                     .frame(width: 14, height: 14)
                     .offset(x: thumbX - 7)
@@ -670,10 +638,10 @@ struct AddEngineSheet: View {
                 HStack(spacing: 10) {
                     Image(systemName: "cpu")
                         .font(.system(size: 20))
-                        .foregroundColor(Color(hex: 0x0A84FF))
+                        .foregroundColor(DS.redAccent)
                     Text("Add Engine")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                 }
 
                 Spacer()
@@ -681,7 +649,7 @@ struct AddEngineSheet: View {
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.4))
+                        .foregroundColor(DS.ink40)
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
                 }
@@ -690,7 +658,7 @@ struct AddEngineSheet: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Tab bar
@@ -701,7 +669,7 @@ struct AddEngineSheet: View {
             }
             .padding(.horizontal, 24)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             if activeTab == .download {
@@ -716,38 +684,38 @@ struct AddEngineSheet: View {
                     ProgressView().controlSize(.mini)
                     Text(downloadService.statusText)
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                     Spacer()
                     ProgressView(value: downloadService.progress)
                         .frame(width: 80)
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 10)
-                .background(Color(hex: 0x0A84FF, opacity: 0.06))
+                .background(DS.redAccent.opacity(0.06))
             }
 
             if let error = downloadService.error {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundColor(.orange)
+                        .foregroundColor(DS.semWarning)
                         .font(.system(size: 12))
                     Text(error)
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                     Spacer()
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 10)
-                .background(Color.orange.opacity(0.08))
+                .background(DS.semWarning.opacity(0.08))
             }
 
             // "or" divider
             HStack(spacing: 12) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
                 Text("or")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    .foregroundColor(DS.ink40)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
             .padding(.horizontal, 24)
 
@@ -781,37 +749,24 @@ struct AddEngineSheet: View {
             .padding(.top, 16)
             .padding(.bottom, 20)
             .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
         }
         .frame(width: 520, height: 580)
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(DS.paperRaised)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(hex: 0x161620, opacity: 0.7))
+                    .fill(Color.clear)
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.10), Color.white.opacity(0)],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.35)
-                        )
-                    )
+                    .fill(Color.clear)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.37), Color.white.opacity(0.09), Color.white.opacity(0.03)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.37), radius: 20, x: 0, y: 12)
         .onAppear { checkDownloadedEngines() }
@@ -827,26 +782,26 @@ struct AddEngineSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Add a local engine")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             Text("Point to a UCI-compatible engine binary on your machine.")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(DS.ink40)
 
             HStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "folder")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
 
                     if localEnginePath.isEmpty {
                         Text("/usr/local/bin/stockfish")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                            .foregroundColor(DS.ink60)
                     } else {
                         Text(localEnginePath)
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -855,10 +810,10 @@ struct AddEngineSheet: View {
                 .padding(.horizontal, 12)
                 .frame(height: 36)
                 .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.125), lineWidth: 1)
+                        .strokeBorder(DS.borderStrong, lineWidth: 1)
                 )
 
                 Button(action: browseForEngine) {
@@ -881,14 +836,14 @@ struct AddEngineSheet: View {
                 Text(label)
                     .font(.system(size: 13, weight: activeTab == tab ? .medium : .regular))
             }
-            .foregroundColor(activeTab == tab ? Color(hex: 0x0A84FF) : Color(hex: 0xFFFFFF, opacity: 0.33))
+            .foregroundColor(activeTab == tab ? DS.redAccent : DS.ink40)
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
             .contentShape(Rectangle())
             .overlay(alignment: .bottom) {
                 if activeTab == tab {
                     Rectangle()
-                        .fill(Color(hex: 0x0A84FF))
+                        .fill(DS.redAccent)
                         .frame(height: 2)
                 }
             }
@@ -923,11 +878,11 @@ struct AddEngineSheet: View {
                 // Radio button
                 ZStack {
                     Circle()
-                        .strokeBorder(isSelected ? Color.white : Color.white.opacity(0.2), lineWidth: 2)
+                        .strokeBorder(isSelected ? DS.redAccent : DS.borderStrong, lineWidth: 2)
                         .frame(width: 18, height: 18)
                     if isSelected {
                         Circle()
-                            .fill(Color.white)
+                            .fill(DS.redAccent)
                             .frame(width: 8, height: 8)
                     }
                 }
@@ -939,7 +894,7 @@ struct AddEngineSheet: View {
                     .frame(width: 36, height: 36)
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(isSelected ? Color.white.opacity(0.12) : engine.iconColor.opacity(0.12))
+                            .fill(isSelected ? DS.selectedWash : engine.iconColor.opacity(0.12))
                     )
 
                 // Info
@@ -947,20 +902,20 @@ struct AddEngineSheet: View {
                     HStack(spacing: 8) {
                         Text(engine.name)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
 
                         if isInstalled {
                             Text("Installed")
                                 .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(.green)
+                                .foregroundColor(DS.semOnline)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
-                                .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                                .background(DS.semOnline.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
                         }
                     }
                     Text(engine.description)
                         .font(.system(size: 11))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                         .lineLimit(1)
                 }
 
@@ -973,14 +928,14 @@ struct AddEngineSheet: View {
                 } else {
                     Text(engine.versionLabel)
                         .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: isSelected ? 0.56 : 0.33))
+                        .foregroundColor(isSelected ? DS.ink60 : DS.ink40)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color(hex: 0x0A84FF, opacity: 0.19) : Color.clear)
+                    .fill(isSelected ? DS.selectedWash : Color.clear)
             )
             .contentShape(Rectangle())
         }

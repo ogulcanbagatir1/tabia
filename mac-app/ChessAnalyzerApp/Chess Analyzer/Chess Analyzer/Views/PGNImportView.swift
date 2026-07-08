@@ -155,11 +155,11 @@ struct PGNImportView: View {
             footerView
         }
         .frame(width: 560, height: 720)
-        .background(DS.bgElevated)
+        .background(DS.paperRaised)
         .clipShape(RoundedRectangle(cornerRadius: DS.radiusLG))
         .overlay(
             RoundedRectangle(cornerRadius: DS.radiusLG)
-                .strokeBorder(DS.border, lineWidth: 1)
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.5), radius: 32, x: 0, y: 8)
         .onAppear {
@@ -177,12 +177,12 @@ struct PGNImportView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Review Imported Games")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(DS.textPrimary)
+                    .foregroundColor(DS.ink)
 
                 if !editableGames.isEmpty {
                     Text("\(fileURLs.first?.lastPathComponent ?? "PGN") · \(editableGames.count) games found")
                         .font(.system(size: 11))
-                        .foregroundColor(DS.textTertiary)
+                        .foregroundColor(DS.ink40)
                 }
             }
 
@@ -191,7 +191,7 @@ struct PGNImportView: View {
             Button(action: { onCancel() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(DS.textTertiary)
+                    .foregroundColor(DS.ink40)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -200,7 +200,7 @@ struct PGNImportView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -215,19 +215,19 @@ struct PGNImportView: View {
                 }) {
                     let allSelected = editableGames.allSatisfy { $0.isSelected }
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(allSelected ? DS.accent : Color.clear)
+                        .fill(allSelected ? DS.redInk : Color.clear)
                         .frame(width: 16, height: 16)
                         .overlay(
                             allSelected ?
                             Image(systemName: "checkmark")
                                 .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(DS.onRed)
                             : nil
                         )
                         .overlay(
                             !allSelected ?
                             RoundedRectangle(cornerRadius: 3)
-                                .strokeBorder(DS.textTertiary, lineWidth: 1)
+                                .strokeBorder(DS.borderChip, lineWidth: 1)
                             : nil
                         )
                 }
@@ -235,7 +235,7 @@ struct PGNImportView: View {
 
                 Text("Select All (\(editableGames.count))")
                     .font(.system(size: 12))
-                    .foregroundColor(DS.textSecondary)
+                    .foregroundColor(DS.ink60)
             }
 
             Spacer()
@@ -243,12 +243,12 @@ struct PGNImportView: View {
             let selectedCount = editableGames.filter { $0.isSelected }.count
             Text("\(selectedCount) selected")
                 .font(.system(size: 11))
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 8)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -262,13 +262,13 @@ struct PGNImportView: View {
         VStack(spacing: DS.spacingMD) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 40))
-                .foregroundColor(DS.accentOrange)
+                .foregroundColor(DS.semWarning)
             Text("Error parsing PGN")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(DS.textPrimary)
+                .foregroundColor(DS.ink)
             Text(error)
                 .font(.system(size: 12))
-                .foregroundColor(DS.textSecondary)
+                .foregroundColor(DS.ink60)
                 .multilineTextAlignment(.center)
         }
         .padding()
@@ -285,11 +285,11 @@ struct PGNImportView: View {
 
             Image(systemName: "square.and.arrow.down")
                 .font(.system(size: 36))
-                .foregroundColor(DS.accent)
+                .foregroundColor(DS.redAccent)
 
             Text("Importing games...")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(DS.textPrimary)
+                .foregroundColor(DS.ink)
 
             if importTotal > 0 {
                 ProgressView(value: Double(importProgress), total: Double(importTotal))
@@ -298,7 +298,7 @@ struct PGNImportView: View {
 
                 Text("\(importProgress) of \(importTotal) games")
                     .font(.system(size: 12))
-                    .foregroundColor(DS.textSecondary)
+                    .foregroundColor(DS.ink60)
             }
 
             Spacer()
@@ -329,19 +329,19 @@ struct PGNImportView: View {
             // Checkbox
             Button(action: { game.isSelected.toggle() }) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(game.isSelected ? DS.accent : Color.clear)
+                    .fill(game.isSelected ? DS.redInk : Color.clear)
                     .frame(width: 16, height: 16)
                     .overlay(
                         game.isSelected ?
                         Image(systemName: "checkmark")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(DS.onRed)
                         : nil
                     )
                     .overlay(
                         !game.isSelected ?
                         RoundedRectangle(cornerRadius: 3)
-                            .strokeBorder(DS.textTertiary, lineWidth: 1)
+                            .strokeBorder(DS.borderChip, lineWidth: 1)
                         : nil
                     )
             }
@@ -351,7 +351,7 @@ struct PGNImportView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(game.white.isEmpty ? "Unknown" : game.white) vs \(game.black.isEmpty ? "Unknown" : game.black)")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(DS.textPrimary)
+                    .foregroundColor(DS.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
@@ -372,7 +372,7 @@ struct PGNImportView: View {
                             .font(.system(size: 10))
                     }
                 }
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
                 .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -380,13 +380,13 @@ struct PGNImportView: View {
             // Expand chevron
             Image(systemName: "chevron.down")
                 .font(.system(size: 11))
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 10)
         .opacity(game.isSelected ? 1.0 : 0.5)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.borderSubtle).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -402,19 +402,19 @@ struct PGNImportView: View {
             HStack(spacing: 12) {
                 Button(action: { game.isSelected.toggle() }) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(game.isSelected ? DS.accent : Color.clear)
+                        .fill(game.isSelected ? DS.redInk : Color.clear)
                         .frame(width: 16, height: 16)
                         .overlay(
                             game.isSelected ?
                             Image(systemName: "checkmark")
                                 .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(DS.onRed)
                             : nil
                         )
                         .overlay(
                             !game.isSelected ?
                             RoundedRectangle(cornerRadius: 3)
-                                .strokeBorder(DS.textTertiary, lineWidth: 1)
+                                .strokeBorder(DS.borderChip, lineWidth: 1)
                             : nil
                         )
                 }
@@ -423,7 +423,7 @@ struct PGNImportView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(game.white.isEmpty ? "Unknown" : game.white) vs \(game.black.isEmpty ? "Unknown" : game.black)")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DS.textPrimary)
+                        .foregroundColor(DS.ink)
                         .lineLimit(1)
 
                     HStack(spacing: 6) {
@@ -440,7 +440,7 @@ struct PGNImportView: View {
                                 .font(.system(size: 10))
                         }
                     }
-                    .foregroundColor(DS.textTertiary)
+                    .foregroundColor(DS.ink40)
                     .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -452,7 +452,7 @@ struct PGNImportView: View {
                 }) {
                     Image(systemName: "chevron.up")
                         .font(.system(size: 11))
-                        .foregroundColor(DS.accent)
+                        .foregroundColor(DS.redAccent)
                 }
                 .buttonStyle(.plain)
             }
@@ -462,12 +462,12 @@ struct PGNImportView: View {
             // Inline edit form
             inlineEditForm(game)
         }
-        .background(DS.bgSurface)
+        .background(DS.selectedWash)
         .overlay(alignment: .leading) {
-            Rectangle().fill(DS.accent).frame(width: 3)
+            Rectangle().fill(DS.redAccent).frame(width: 3)
         }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.accent).frame(height: 1)
+            Rectangle().fill(DS.redAccent).frame(height: 1)
         }
     }
 
@@ -515,19 +515,19 @@ struct PGNImportView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
 
             TextField("", text: text)
                 .textFieldStyle(.plain)
                 .font(isItalic ? .system(size: 11).italic() : .system(size: 11))
-                .foregroundColor(isItalic ? DS.textSecondary : DS.textPrimary)
+                .foregroundColor(isItalic ? DS.ink60 : DS.ink)
                 .padding(.horizontal, 8)
                 .frame(height: 30)
-                .background(DS.bg)
+                .background(DS.fieldBg)
                 .cornerRadius(5)
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(DS.border, lineWidth: 1)
+                        .strokeBorder(DS.borderStrong, lineWidth: 1)
                 )
         }
         .frame(width: width, alignment: .leading)
@@ -538,7 +538,7 @@ struct PGNImportView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
 
             Picker("", selection: selection) {
                 Text("1-0").tag("1-0")
@@ -549,11 +549,11 @@ struct PGNImportView: View {
             .pickerStyle(.menu)
             .frame(height: 30)
             .frame(maxWidth: .infinity)
-            .background(DS.bg)
+            .background(DS.fieldBg)
             .cornerRadius(5)
             .overlay(
                 RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(DS.border, lineWidth: 1)
+                    .strokeBorder(DS.borderStrong, lineWidth: 1)
             )
         }
         .frame(width: width)
@@ -568,7 +568,7 @@ struct PGNImportView: View {
                 HStack(spacing: DS.spacingSM) {
                     Text("Import to:")
                         .font(.system(size: 12))
-                        .foregroundColor(DS.textSecondary)
+                        .foregroundColor(DS.ink60)
 
                     Picker("", selection: $selectedFolderId) {
                         Text("Default").tag(nil as UUID?)
@@ -584,7 +584,7 @@ struct PGNImportView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.glassSeparator).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
             }
 
@@ -595,10 +595,10 @@ struct PGNImportView: View {
                 Button(action: { onCancel() }) {
                     Text("Cancel")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DS.textSecondary)
+                        .foregroundColor(DS.ink60)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(DS.bgTertiary)
+                        .background(DS.fieldBg)
                         .cornerRadius(DS.radiusSM)
                 }
                 .buttonStyle(.plain)
@@ -609,10 +609,10 @@ struct PGNImportView: View {
                 Button(action: { performImport() }) {
                     Text("Import \(selectedCount) Games")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(DS.onRed)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(selectedCount > 0 && !isImporting ? DS.accent : DS.accent.opacity(0.5))
+                        .background(selectedCount > 0 && !isImporting ? DS.redInk : DS.redInk.opacity(0.5))
                         .cornerRadius(DS.radiusSM)
                 }
                 .buttonStyle(.plain)
@@ -621,7 +621,7 @@ struct PGNImportView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .overlay(alignment: .top) {
-                Rectangle().fill(DS.glassSeparator).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
         }
     }

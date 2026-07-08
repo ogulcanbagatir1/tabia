@@ -22,7 +22,6 @@ struct KnightLoader: View {
                 Ellipse()
                     .fill(tint.opacity(0.16))
                     .frame(width: size * (hop ? 0.30 : 0.52), height: size * 0.11)
-                    .blur(radius: 0.5)
             }
         }
         .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: hop)

@@ -30,7 +30,7 @@ struct PreferencesView: View {
                 }
             }
 
-            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
 
             HStack {
                 Spacer()
@@ -41,7 +41,7 @@ struct PreferencesView: View {
             .padding(DS.spacingLG)
         }
         .frame(width: 600, height: 700)
-        .background(.ultraThinMaterial)
+        .background(DS.paper)
     }
 
     private var settingsTabBar: some View {
@@ -69,7 +69,7 @@ struct PreferencesView: View {
             Spacer()
         }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 }
@@ -96,13 +96,13 @@ struct AppearanceSettingsView: View {
                             } label: {
                                 Text(mode.rawValue)
                                     .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                                    .foregroundColor(isSelected ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                                    .foregroundColor(isSelected ? DS.ink : DS.ink40)
                                     .padding(.vertical, 6)
                                     .padding(.horizontal, 16)
                                     .contentShape(Rectangle())
                                     .background(
                                         isSelected
-                                        ? RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.125))
+                                        ? RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DS.selectedWash)
                                         : nil
                                     )
                             }
@@ -110,13 +110,10 @@ struct AppearanceSettingsView: View {
                         }
                     }
                     .padding(3)
-                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(DS.trackBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(colors: [Color.white.opacity(0.25), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom),
-                                lineWidth: 1
-                            )
+                            .strokeBorder(DS.borderChip, lineWidth: 1)
                     )
                 }
 
@@ -179,30 +176,13 @@ struct AppearanceSettingsView: View {
                         )
                     }
                     .background(
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.white.opacity(0.094))
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.145), Color.white.opacity(0)],
-                                        startPoint: .top,
-                                        endPoint: UnitPoint(x: 0.5, y: 0.4)
-                                    )
-                                )
-                        }
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(DS.paperRaised)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.31), Color.white.opacity(0.06)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ),
-                                lineWidth: 1
-                            )
+                            .strokeBorder(DS.hairline, lineWidth: 1)
                     )
                     .shadow(color: Color.black.opacity(0.19), radius: 12, x: 0, y: 4)
                     .frame(maxWidth: 600)
@@ -219,7 +199,7 @@ struct AppearanceSettingsView: View {
 private func glassSettingsLabel(_ text: String) -> some View {
     Text(text)
         .font(.system(size: 10, weight: .semibold))
-        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+        .foregroundColor(DS.ink25)
         .kerning(0.8)
 }
 
@@ -240,12 +220,12 @@ struct SettingsToggleRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
 
                 if !description.isEmpty {
                     Text(description)
                         .font(.system(size: 11))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                 }
             }
 
@@ -257,13 +237,13 @@ struct SettingsToggleRow: View {
             } label: {
                 ZStack(alignment: isOn ? .trailing : .leading) {
                     Capsule()
-                        .fill(isOn ? Color(hex: 0x0A84FF) : Color.white.opacity(0.13))
+                        .fill(isOn ? DS.redInk : DS.trackBg)
                         .overlay(
-                            isOn ? nil : Capsule().strokeBorder(Color.white.opacity(0.19), lineWidth: 1)
+                            isOn ? nil : Capsule().strokeBorder(DS.borderChip, lineWidth: 1)
                         )
                         .frame(width: 40, height: 22)
                     Circle()
-                        .fill(isOn ? .white : Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .fill(isOn ? DS.onRed : DS.ink60)
                         .frame(width: 18, height: 18)
                         .padding(.horizontal, 2)
                 }
@@ -275,7 +255,7 @@ struct SettingsToggleRow: View {
         .padding(.horizontal, 18)
         .overlay(alignment: .bottom) {
             if showBorder {
-                Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
         }
     }
@@ -313,9 +293,7 @@ struct BoardThemePreview: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(
-                        isSelected
-                        ? LinearGradient(colors: [Color(hex: 0x0A84FF, opacity: 0.73), Color(hex: 0x0A84FF, opacity: 0.31)], startPoint: .top, endPoint: .bottom)
-                        : LinearGradient(colors: [Color.white.opacity(0.08)], startPoint: .top, endPoint: .bottom),
+                        isSelected ? DS.redAccent : DS.hairline,
                         lineWidth: isSelected ? 2 : 1
                     )
             )
@@ -323,7 +301,7 @@ struct BoardThemePreview: View {
 
             Text(theme.name)
                 .font(.system(size: 10, weight: isSelected ? .medium : .regular))
-                .foregroundColor(isSelected ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(isSelected ? DS.ink : DS.ink40)
                 .lineLimit(1)
         }
     }
@@ -344,9 +322,7 @@ struct PieceStylePreview: View {
             ZStack {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(.thinMaterial)
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.white.opacity(0.15))
+                        .fill(DS.paperRaised)
                 }
                 .frame(width: 50, height: 50)
 
@@ -364,9 +340,7 @@ struct PieceStylePreview: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(
-                        isSelected
-                        ? LinearGradient(colors: [Color(hex: 0x0A84FF, opacity: 0.73), Color(hex: 0x0A84FF, opacity: 0.31)], startPoint: .top, endPoint: .bottom)
-                        : LinearGradient(colors: [Color.white.opacity(0.125)], startPoint: .top, endPoint: .bottom),
+                        isSelected ? DS.redAccent : DS.hairline,
                         lineWidth: isSelected ? 2 : 1
                     )
             )
@@ -374,7 +348,7 @@ struct PieceStylePreview: View {
 
             Text(style.name)
                 .font(.system(size: 10, weight: isSelected ? .medium : .regular))
-                .foregroundColor(isSelected ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(isSelected ? DS.ink : DS.ink40)
         }
     }
 }
@@ -433,7 +407,7 @@ struct EngineSettingsView: View {
                         .padding(.vertical, 12)
                         .padding(.horizontal, 16)
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+                            Rectangle().fill(DS.hairline).frame(height: 1)
                         }
 
                         // Custom path
@@ -466,7 +440,7 @@ struct EngineSettingsView: View {
                         .padding(.vertical, 12)
                         .padding(.horizontal, 16)
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+                            Rectangle().fill(DS.hairline).frame(height: 1)
                         }
 
                         // Analysis depth
@@ -489,7 +463,7 @@ struct EngineSettingsView: View {
                         .padding(.vertical, 12)
                         .padding(.horizontal, 16)
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+                            Rectangle().fill(DS.hairline).frame(height: 1)
                         }
 
                         // Auto-analyze toggle
@@ -628,7 +602,7 @@ struct AboutView: View {
                 .font(.system(size: 12))
                 .foregroundColor(DS.textTertiary)
 
-            Rectangle().fill(DS.glassSeparator).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
                 .padding(.horizontal, 40)
 
             Text("A powerful chess analysis tool for macOS")
@@ -675,7 +649,7 @@ struct SettingsScreenView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Settings")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
 
                 // Tab bar
                 HStack(spacing: 0) {
@@ -685,14 +659,14 @@ struct SettingsScreenView: View {
                         } label: {
                             Text(label)
                                 .font(.system(size: 13, weight: selectedTab == index ? .semibold : .regular))
-                                .foregroundColor(selectedTab == index ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                                .foregroundColor(selectedTab == index ? DS.ink : DS.ink40)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 16)
                                 .contentShape(Rectangle())
                                 .overlay(alignment: .bottom) {
                                     if selectedTab == index {
                                         Rectangle()
-                                            .fill(Color(hex: 0x0A84FF))
+                                            .fill(DS.accent)
                                             .frame(height: 2)
                                     }
                                 }
@@ -702,7 +676,7 @@ struct SettingsScreenView: View {
                     Spacer()
                 }
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
             }
             .padding(.horizontal, 44)

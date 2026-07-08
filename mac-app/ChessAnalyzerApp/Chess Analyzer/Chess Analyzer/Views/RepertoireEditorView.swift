@@ -66,15 +66,15 @@ struct RepertoireEditorView: View {
                 // Left: inspector (mirrors main screen's left sidebar)
                 inspector
                     .frame(width: 300)
-                    .background(GlassPanelBackground())
+                    .background(DS.paperRaised)
                     .overlay(alignment: .trailing) {
                         Rectangle().fill(
-                            LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom)
+                            DS.hairline
                         ).frame(width: 1)
                     }
                     .overlay(alignment: .top) {
                         Rectangle().fill(
-                            LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
+                            DS.hairline
                         ).frame(height: 1)
                     }
                     .shadow(color: Color.black.opacity(0.31), radius: 25, x: 6, y: 0)
@@ -97,7 +97,7 @@ struct RepertoireEditorView: View {
                         showAnalyzeButton: false
                     )
                     .overlay(alignment: .bottom) {
-                        Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                        Rectangle().fill(DS.hairline).frame(height: 1)
                     }
 
                     RepertoireMoveTreeView(
@@ -108,15 +108,15 @@ struct RepertoireEditorView: View {
                     )
                 }
                 .frame(width: 300)
-                .background(GlassPanelBackground())
+                .background(DS.paperRaised)
                 .overlay(alignment: .leading) {
                     Rectangle().fill(
-                        LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom)
+                        DS.hairline
                     ).frame(width: 1)
                 }
                 .overlay(alignment: .top) {
                     Rectangle().fill(
-                        LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
+                        DS.hairline
                     ).frame(height: 1)
                 }
                 .shadow(color: Color.black.opacity(0.31), radius: 25, x: -6, y: 0)
@@ -357,7 +357,7 @@ struct RepertoireEditorView: View {
             Button(action: onClose) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -366,18 +366,18 @@ struct RepertoireEditorView: View {
             Circle()
                 .fill(repertoire.side == .white ? Color.white : Color.black)
                 .frame(width: 14, height: 14)
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
+                .overlay(Circle().strokeBorder(DS.borderChip, lineWidth: 1))
 
             Text(repertoire.name)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             Spacer()
 
             Button(action: startDrill) {
                 Image(systemName: "graduationcap")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -387,7 +387,7 @@ struct RepertoireEditorView: View {
             Button(action: { showingOpponentPicker = true }) {
                 Image(systemName: opponentLoading ? "hourglass" : (opponentBook != nil ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.plus"))
                     .font(.system(size: 13))
-                    .foregroundColor(opponentBook != nil ? DS.accent : Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(opponentBook != nil ? DS.accent : DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -400,7 +400,7 @@ struct RepertoireEditorView: View {
             Button(action: { showingStats = true }) {
                 Image(systemName: "chart.pie")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -410,7 +410,7 @@ struct RepertoireEditorView: View {
             Button(action: { showingCoverageAudit = true }) {
                 Image(systemName: "exclamationmark.magnifyingglass")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -420,7 +420,7 @@ struct RepertoireEditorView: View {
             Button(action: { showingImportPicker = true }) {
                 Image(systemName: "arrow.down.circle")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -430,7 +430,7 @@ struct RepertoireEditorView: View {
             Button(action: { isFlipped.toggle() }) {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -439,11 +439,9 @@ struct RepertoireEditorView: View {
         }
         .padding(.horizontal, 28)
         .frame(height: 56)
-        .background(Color.white.opacity(0.03))
+        .background(DS.chrome)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing)
-            ).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -455,19 +453,19 @@ struct RepertoireEditorView: View {
                 moveTitleSection
 
                 if currentRepNode != nil {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                     ownershipSection
 
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                     glyphSection
 
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                     annotationSection
 
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                     tagsAndECOSection
                 } else {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                     rootPrompt
                 }
             }
@@ -480,7 +478,7 @@ struct RepertoireEditorView: View {
                 HStack(spacing: 8) {
                     Text(moveTitleText(for: node))
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                     if !draftGlyph.isEmpty {
                         Text(draftGlyph)
                             .font(.system(size: 16, weight: .bold))
@@ -493,7 +491,7 @@ struct RepertoireEditorView: View {
                 HStack {
                     Text("Starting position")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                     Spacer()
                 }
             }
@@ -513,11 +511,11 @@ struct RepertoireEditorView: View {
     private func sideBadge(isUserMove: Bool) -> some View {
         Text(isUserMove ? "Your move" : "Opponent")
             .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(isUserMove ? DS.accent : Color(hex: 0xFFFFFF, opacity: 0.5))
+            .foregroundColor(isUserMove ? DS.accent : DS.ink40)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
-                isUserMove ? DS.accent.opacity(0.15) : Color.white.opacity(0.08),
+                isUserMove ? DS.accent.opacity(0.15) : DS.hoverWash,
                 in: RoundedRectangle(cornerRadius: 4, style: .continuous)
             )
     }
@@ -526,7 +524,7 @@ struct RepertoireEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Play a move on the board to start building this repertoire. The tree saves automatically as you go.")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.5))
+                .foregroundColor(DS.ink40)
                 .lineSpacing(3)
         }
         .padding(.horizontal, 20)
@@ -539,7 +537,7 @@ struct RepertoireEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Ownership")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
             VStack(spacing: 6) {
@@ -565,7 +563,7 @@ struct RepertoireEditorView: View {
         }) {
             HStack(spacing: 10) {
                 Circle()
-                    .strokeBorder(isSelected ? DS.accent : Color.white.opacity(0.25), lineWidth: 1.5)
+                    .strokeBorder(isSelected ? DS.accent : DS.borderChip, lineWidth: 1.5)
                     .background(
                         Circle().fill(isSelected ? DS.accent : Color.clear)
                             .padding(3)
@@ -584,7 +582,7 @@ struct RepertoireEditorView: View {
             .cornerRadius(DS.radiusSM)
             .overlay(
                 RoundedRectangle(cornerRadius: DS.radiusSM)
-                    .strokeBorder(isSelected ? DS.accent.opacity(0.5) : Color.white.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(isSelected ? DS.accent.opacity(0.5) : DS.hairline, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
@@ -630,7 +628,7 @@ struct RepertoireEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Evaluation")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
             let glyphs = ["", "!", "!!", "?", "??", "!?", "?!"]
@@ -656,11 +654,11 @@ struct RepertoireEditorView: View {
                 .foregroundColor(isSelected ? .white : (glyph.isEmpty ? DS.textTertiary : glyphColor(glyph)))
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
-                .background(isSelected ? glyphColor(glyph) : Color.white.opacity(0.05))
+                .background(isSelected ? glyphColor(glyph) : DS.fieldBg)
                 .cornerRadius(DS.radiusSM)
                 .overlay(
                     RoundedRectangle(cornerRadius: DS.radiusSM)
-                        .strokeBorder(Color.white.opacity(0.094), lineWidth: 1)
+                        .strokeBorder(DS.hairline, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -685,7 +683,7 @@ struct RepertoireEditorView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Idea tags")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .kerning(0.4)
 
                 TextField("e.g. space, prepares e5", text: Binding(
@@ -701,25 +699,18 @@ struct RepertoireEditorView: View {
                 .frame(height: 30)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.white.opacity(0.05))
+                        .fill(DS.fieldBg)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
+                        .strokeBorder(DS.borderStrong, lineWidth: 1)
                 )
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("ECO code")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .kerning(0.4)
 
                 TextField("e.g. B90", text: Binding(
@@ -735,18 +726,11 @@ struct RepertoireEditorView: View {
                 .frame(height: 30)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.white.opacity(0.05))
+                        .fill(DS.fieldBg)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
+                        .strokeBorder(DS.borderStrong, lineWidth: 1)
                 )
             }
         }
@@ -760,7 +744,7 @@ struct RepertoireEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Notes")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
             TextEditor(text: Binding(

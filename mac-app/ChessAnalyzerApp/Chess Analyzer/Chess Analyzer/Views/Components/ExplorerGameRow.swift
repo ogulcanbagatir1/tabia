@@ -20,7 +20,7 @@ struct ExplorerGameRow: View {
                 HStack(spacing: 0) {
                     Text(playerString)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(DS.textPrimary)
+                        .foregroundColor(DS.ink)
                         .lineLimit(1)
 
                     Spacer(minLength: 4)
@@ -36,7 +36,7 @@ struct ExplorerGameRow: View {
                 HStack(spacing: 0) {
                     Text(resultDateString)
                         .font(.system(size: 10))
-                        .foregroundColor(DS.textSecondary)
+                        .foregroundColor(DS.ink60)
 
                     Spacer()
                 }

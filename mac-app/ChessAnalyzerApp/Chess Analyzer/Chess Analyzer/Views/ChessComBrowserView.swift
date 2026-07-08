@@ -299,7 +299,7 @@ struct ChessComBrowserView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Circle().fill(Color.white).frame(width: 8, height: 8)
-                        .overlay(Circle().strokeBorder(Color.gray.opacity(0.3), lineWidth: 0.5))
+                        .overlay(Circle().strokeBorder(DS.hairline, lineWidth: 0.5))
                     Text("Lichess")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(DS.textPrimary)
@@ -423,26 +423,26 @@ struct ChessComBrowserView: View {
                     let displayName = !savedUsername.isEmpty ? savedUsername : lichessUsername
                     ZStack {
                         Circle()
-                            .fill(Color.white.opacity(0.125))
+                            .fill(DS.paperRaised)
                             .frame(width: 44, height: 44)
                             .overlay(
                                 Circle().strokeBorder(
-                                    LinearGradient(colors: [Color.white.opacity(0.31), Color.white.opacity(0.09)], startPoint: .top, endPoint: .bottom),
+                                    DS.hairline,
                                     lineWidth: 1
                                 )
                             )
                         Text(String(displayName.prefix(1)).uppercased())
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(displayName)
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                         Text("Last synced \(lastSyncString)")
                             .font(.system(size: 11))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                            .foregroundColor(DS.ink25)
                     }
                 }
 
@@ -520,7 +520,7 @@ struct ChessComBrowserView: View {
             .padding(.vertical, 16)
             .padding(.horizontal, 28)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Stats Cards Row
@@ -759,39 +759,22 @@ struct ChessComBrowserView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(category)
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                    .foregroundColor(DS.ink40)
                 Text(verbatim: rating != nil ? String(rating!) : "-")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.094))
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.145), Color.white.opacity(0)],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.4)
-                        )
-                    )
-            }
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(DS.paperRaised)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.31), Color.white.opacity(0.06)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.19), radius: 10, x: 0, y: 4)
     }
@@ -811,13 +794,13 @@ struct ChessComBrowserView: View {
                     }) {
                         Text(option)
                             .font(.system(size: 11, weight: isActive ? .semibold : .regular))
-                            .foregroundColor(isActive ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                            .foregroundColor(isActive ? DS.ink : DS.ink40)
                             .padding(.vertical, 5)
                             .padding(.horizontal, 12)
                             .background(
                                 isActive
-                                ? RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.094))
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.white.opacity(0.19), lineWidth: 1))
+                                ? RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DS.selectedWash)
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
                                 : nil
                             )
                             .contentShape(Rectangle())
@@ -833,12 +816,12 @@ struct ChessComBrowserView: View {
                 Button(action: { withAnimation(.easeInOut(duration: 0.12)) { showStats = false } }) {
                     Text("Games")
                         .font(.system(size: 11, weight: showStats ? .regular : .medium))
-                        .foregroundColor(showStats ? Color(hex: 0xFFFFFF, opacity: 0.33) : Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(showStats ? DS.ink40 : DS.ink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(showStats ? Color.clear : Color.white.opacity(0.10))
+                                .fill(showStats ? Color.clear : DS.selectedWash)
                         )
                 }
                 .buttonStyle(.plain)
@@ -846,21 +829,21 @@ struct ChessComBrowserView: View {
                 Button(action: { withAnimation(.easeInOut(duration: 0.12)) { showStats = true } }) {
                     Text("Stats")
                         .font(.system(size: 11, weight: showStats ? .medium : .regular))
-                        .foregroundColor(showStats ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(showStats ? DS.ink : DS.ink40)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(showStats ? Color.white.opacity(0.10) : Color.clear)
+                                .fill(showStats ? DS.selectedWash : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
             }
             .padding(3)
-            .background(Color.white.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(DS.trackBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.19), lineWidth: 1)
+                    .strokeBorder(DS.borderChip, lineWidth: 1)
             )
         }
     }
@@ -971,10 +954,9 @@ struct ChessComBrowserView: View {
         }
         .padding(.horizontal, 28)
         .frame(height: 36)
-        .background(Color.white.opacity(0.06))
-        .background(Color(hex: 0x0E0E14))
+        .background(DS.chrome)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -991,17 +973,17 @@ struct ChessComBrowserView: View {
                 if alignment == .trailing, sortColumn == column {
                     Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                        .foregroundColor(DS.ink25)
                 }
 
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                    .foregroundColor(DS.ink25)
 
                 if alignment != .trailing, sortColumn == column {
                     Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                        .foregroundColor(DS.ink25)
                 }
             }
             .frame(maxWidth: .infinity, alignment: alignment == .trailing ? .trailing : (alignment == .center ? .center : .leading))
@@ -1068,11 +1050,11 @@ struct ChessComBrowserView: View {
             .frame(height: 40)
             .background(
                 selectedGameIds.contains(game.id)
-                ? chessComGreen.opacity(0.12)
-                : (isAlternate ? Color.white.opacity(0.06) : Color.clear)
+                ? DS.selectedWash
+                : (isAlternate ? DS.hoverWash : Color.clear)
             )
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
             .contentShape(Rectangle())
         }
@@ -1171,19 +1153,19 @@ struct ChessComBrowserView: View {
         HStack {
             Text("\(totalGameCount) games synced")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
 
             Spacer()
 
             Text(hasAnyAccount ? "Chess.com connected" : "Not connected")
                 .font(.system(size: 11))
-                .foregroundColor(hasAnyAccount ? Color(hex: 0x30D158) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(hasAnyAccount ? DS.semOnline : DS.ink40)
         }
         .padding(.horizontal, 28)
         .frame(height: 30)
-        .background(Color.white.opacity(0.04))
+        .background(DS.chrome)
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.094)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -1360,13 +1342,7 @@ struct ChessComBrowserView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(DS.bgSecondary)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [chessComGreen.opacity(0.8), chessComGreen],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(chessComGreen)
                         .frame(width: geo.size.width * CGFloat(syncProgressPercent) / 100)
                         .animation(.easeInOut(duration: 0.3), value: syncProgressPercent)
                 }

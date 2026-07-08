@@ -72,14 +72,10 @@ struct IconRailView: View {
         .frame(width: 64)
         .background(GlassRailBackground())
         .overlay(alignment: .trailing) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.09), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom)
-            ).frame(width: 1)
+            Rectangle().fill(DS.hairline).frame(width: 1)
         }
         .overlay(alignment: .top) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.05)], startPoint: .leading, endPoint: .trailing)
-            ).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -89,11 +85,11 @@ struct IconRailView: View {
         return Button(action: { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { selected = screen } }) {
             Image(systemName: screen.icon)
                 .font(.system(size: 20, weight: .regular))
-                .foregroundColor(isSelected ? Color(hex: 0xFFFFFF, opacity: 0.93) : Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(isSelected ? DS.ink : DS.ink40)
                 .frame(width: 44, height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(isSelected ? Color.white.opacity(0.15) : Color.clear)
+                        .fill(isSelected ? DS.selectedWash : Color.clear)
                 )
                 .shadow(color: isSelected ? Color.white.opacity(0.06) : Color.clear, radius: 8, x: 0, y: 1)
                 .contentShape(Rectangle())

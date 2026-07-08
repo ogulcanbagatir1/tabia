@@ -36,8 +36,11 @@ struct MainWindowView: View {
     // Look-ahead: track which node we're speculatively analyzing
     @State private var lookAheadNodeId: UUID?
 
-    // Active screen (icon rail navigation)
-    @State private var activeScreen: AppScreen = .analysis
+    // Active screen (masthead navigation). TABIA_SCREEN env overrides the initial screen (dev aid).
+    @State private var activeScreen: AppScreen = {
+        if let s = ProcessInfo.processInfo.environment["TABIA_SCREEN"], let scr = AppScreen(rawValue: s) { return scr }
+        return .analysis
+    }()
 
     // Explorer source toggle
     @State private var explorerSource: ExplorerSource = .lichess

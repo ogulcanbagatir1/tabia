@@ -148,7 +148,7 @@ struct LichessExplorerView: View {
         .textCase(.uppercase)
         .padding(.horizontal, 12)
         .frame(height: 26)
-        .background(Color.white.opacity(0.03))
+        .background(DS.chrome)
     }
 
     private func moveRow(_ move: LichessMove, isAlternate: Bool) -> some View {
@@ -180,7 +180,7 @@ struct LichessExplorerView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -262,7 +262,7 @@ struct LichessExplorerView: View {
             if let authError = authError {
                 Text(authError)
                     .font(.system(size: 11))
-                    .foregroundColor(.red)
+                    .foregroundColor(DS.semLoss)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }

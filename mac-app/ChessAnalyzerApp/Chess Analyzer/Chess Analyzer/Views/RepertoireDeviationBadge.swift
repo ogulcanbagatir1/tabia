@@ -30,11 +30,11 @@ struct RepertoireDeviationBadge: View {
 
                 Text("·")
                     .font(.system(size: 10))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.3))
+                    .foregroundColor(DS.ink40)
 
                 Text(matches.map { $0.0.name }.joined(separator: ", "))
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
                     .lineLimit(1)
             }
             .padding(.horizontal, 10)

@@ -29,7 +29,7 @@ struct EvaluationGraphView: View {
                     path.move(to: CGPoint(x: 0, y: centerY))
                     path.addLine(to: CGPoint(x: width, y: centerY))
                 }
-                .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .stroke(DS.hairline, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
 
                 if points.count >= 2 {
                     // White area (above center)
@@ -42,7 +42,7 @@ struct EvaluationGraphView: View {
                         path.addLine(to: CGPoint(x: points.last!.x, y: centerY))
                         path.closeSubpath()
                     }
-                    .fill(Color.white.opacity(0.05))
+                    .fill(DS.trackBg)
 
                     // Black area (below center)
                     Path { path in
@@ -54,7 +54,7 @@ struct EvaluationGraphView: View {
                         path.addLine(to: CGPoint(x: points.last!.x, y: centerY))
                         path.closeSubpath()
                     }
-                    .fill(Color.white.opacity(0.03))
+                    .fill(DS.trackBg)
 
                     // Eval line
                     Path { path in
@@ -63,7 +63,7 @@ struct EvaluationGraphView: View {
                             path.addLine(to: points[i])
                         }
                     }
-                    .stroke(Color(hex: 0xFFFFFF, opacity: 0.67), lineWidth: 1.5)
+                    .stroke(DS.ink60, lineWidth: 1.5)
 
                     // Current move indicator
                     if currentMoveIndex < points.count {
@@ -72,10 +72,10 @@ struct EvaluationGraphView: View {
                             path.move(to: CGPoint(x: indicatorX, y: 0))
                             path.addLine(to: CGPoint(x: indicatorX, y: height))
                         }
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        .stroke(DS.borderChip, lineWidth: 1)
 
                         Circle()
-                            .fill(Color.white)
+                            .fill(DS.redAccent)
                             .frame(width: 6, height: 6)
                             .shadow(color: Color.white.opacity(0.4), radius: 3)
                             .position(points[currentMoveIndex])
@@ -151,46 +151,46 @@ struct GameAnalysisResultsView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "chart.bar.xaxis")
                             .font(.system(size: 16))
-                            .foregroundColor(Color(hex: 0x0A84FF))
+                            .foregroundColor(DS.redAccent)
                         Text("Game Review")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                     }
                     Spacer()
                     Text(resultText)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+                        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 4))
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
 
                 // Eval graph
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evaluation")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
 
                     EvaluationGraphView(
                         gameAnalyzer: gameAnalyzer,
                         gameTree: gameTree
                     )
                     .frame(height: 120)
-                    .background(Color.white.opacity(0.047), in: RoundedRectangle(cornerRadius: 6))
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                            .strokeBorder(DS.hairline, lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .padding(14)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
 
                 // Accuracy cards
@@ -206,29 +206,29 @@ struct GameAnalysisResultsView: View {
                 }
                 .padding(14)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
 
                 // Move Classification
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Move Classification")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
 
                     // Column headers
                     HStack(spacing: 8) {
                         Color.clear.frame(width: 8)
                         Text("Type")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                            .foregroundColor(DS.ink40)
                         Spacer()
                         Text("White")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                            .foregroundColor(DS.ink40)
                             .frame(width: 40, alignment: .trailing)
                         Text("Black")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                            .foregroundColor(DS.ink40)
                             .frame(width: 40, alignment: .trailing)
                     }
                     .padding(.bottom, 4)
@@ -246,7 +246,7 @@ struct GameAnalysisResultsView: View {
                 }
                 .padding(14)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
             }
         }
@@ -265,26 +265,26 @@ struct PlayerAccuracyCard: View {
             Circle()
                 .fill(side == .white ? Color(hex: 0xECECEC) : Color(hex: 0x262626))
                 .overlay(
-                    side == .black ? Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 1) : nil
+                    side == .black ? Circle().strokeBorder(DS.borderChip, lineWidth: 1) : nil
                 )
                 .frame(width: 12, height: 12)
 
             // Side label
             Text(side == .white ? "White" : "Black")
                 .font(.system(size: 10))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(DS.ink40)
 
             // Accuracy score
             Text(String(format: "%.1f", accuracy))
                 .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
         }
         .frame(maxWidth: .infinity)
         .padding(12)
-        .background(Color.white.opacity(0.047), in: RoundedRectangle(cornerRadius: 8))
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
     }
 }
@@ -304,18 +304,18 @@ struct ClassificationRow: View {
 
             Text(quality.label)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             Spacer()
 
             Text("\(whiteCount)")
                 .font(.system(size: 12))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .frame(width: 40, alignment: .trailing)
 
             Text("\(blackCount)")
                 .font(.system(size: 12))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .frame(width: 40, alignment: .trailing)
         }
         .frame(height: 28)

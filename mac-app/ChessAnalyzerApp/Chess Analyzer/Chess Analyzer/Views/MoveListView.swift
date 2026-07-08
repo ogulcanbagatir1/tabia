@@ -9,7 +9,7 @@ struct MoveListView: View {
             HStack {
                 Text("MOVES")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                    .foregroundColor(DS.ink25)
                     .kerning(0.8)
 
                 Spacer()
@@ -31,7 +31,7 @@ struct MoveListView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Move list with vertical layout
@@ -84,11 +84,11 @@ struct MoveListView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .frame(width: 22, height: 22)
                 .background(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(Color.white.opacity(0.13))
+                        .fill(DS.fieldBg)
                 )
                 .contentShape(Rectangle())
         }
@@ -283,7 +283,7 @@ struct MoveRow: View {
                 // Move number column
                 Text("\(row.moveNumber).")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                    .foregroundColor(DS.ink25)
                     .frame(width: 24, alignment: .trailing)
 
                 // White move column
@@ -346,7 +346,7 @@ struct MoveRow: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(row.moveNumber % 2 == 0 ? Color.white.opacity(0.06) : Color.clear)
+        .background(row.moveNumber % 2 == 0 ? DS.hoverWash : Color.clear)
     }
 
     private func beginEditingNote(for node: GameNode) {
@@ -458,12 +458,12 @@ struct MoveButton: View {
                             size: isMainLine ? 12 : 11,
                             weight: isCurrent ? .semibold : .medium
                         ))
-                        .foregroundColor(isCurrent ? .white : Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(isCurrent ? DS.ink : DS.ink)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(isCurrent ? Color(hex: 0x0A84FF, opacity: 0.35) : Color.clear)
+                                .fill(isCurrent ? DS.selectedWash : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -797,14 +797,14 @@ struct MoveContextMenuView: View {
             HStack {
                 Text("ANNOTATE MOVE")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                    .foregroundColor(DS.ink40)
                     .kerning(0.6)
                 Spacer()
             }
             .padding(.vertical, 6)
             .padding(.horizontal, 12)
 
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
 
             // Annotation items
             if let setAnnotation = onSetAnnotation {
@@ -820,12 +820,12 @@ struct MoveContextMenuView: View {
                             .frame(width: 24, alignment: .center)
                         Text(item.label)
                             .font(.system(size: 13))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                     }
                 }
             }
 
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
 
             // Promote / Subline
             if let promote = onPromoteToMainLine, !isMainLine {
@@ -835,11 +835,11 @@ struct MoveContextMenuView: View {
                 } content: {
                     Image(systemName: "arrow.up.to.line")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                         .frame(width: 24, alignment: .center)
                     Text("Promote to Main Line")
                         .font(.system(size: 13))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                 }
             }
 
@@ -850,16 +850,16 @@ struct MoveContextMenuView: View {
                 } content: {
                     Image(systemName: "arrow.down.to.line")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                         .frame(width: 24, alignment: .center)
                     Text("Make Subline")
                         .font(.system(size: 13))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                 }
             }
 
             if showsPromoteOrSubline {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Add Comment
@@ -868,14 +868,14 @@ struct MoveContextMenuView: View {
             } content: {
                 Image(systemName: "message")
                     .font(.system(size: 14))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 24, alignment: .center)
                 Text(node.comment.isEmpty ? "Add Comment" : "Edit Comment")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
             }
 
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
 
             // Copy PGN
             ContextMenuItem {
@@ -886,11 +886,11 @@ struct MoveContextMenuView: View {
             } content: {
                 Image(systemName: "doc.on.doc")
                     .font(.system(size: 14))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 24, alignment: .center)
                 Text("Copy PGN")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
             }
 
             // Delete
@@ -901,45 +901,24 @@ struct MoveContextMenuView: View {
                 } content: {
                     Image(systemName: "trash")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: 0xFF453A))
+                        .foregroundColor(DS.redAccent)
                         .frame(width: 24, alignment: .center)
                     Text("Delete from Here")
                         .font(.system(size: 13))
-                        .foregroundColor(Color(hex: 0xFF453A))
+                        .foregroundColor(DS.redAccent)
                 }
             }
         }
         .fixedSize(horizontal: true, vertical: false)
         .padding(.vertical, 4)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(hex: 0x161620, opacity: 0.7))
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(0.094))
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.157), Color.white.opacity(0.02)],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.3)
-                        )
-                    )
-            }
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(DS.paperRaised)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.31), Color.white.opacity(0.06), Color.white.opacity(0.03)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.37), radius: 10, x: 0, y: 8)
     }
@@ -965,10 +944,10 @@ private struct ContextMenuItem<Content: View>: View {
             .background {
                 if isHovered || isActive {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(.thinMaterial)
+                        .fill(DS.hoverWash)
                         .overlay(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(DS.glassBorder, lineWidth: 0.5)
+                                .strokeBorder(DS.hairline, lineWidth: 0.5)
                         )
                         .padding(.horizontal, 4)
                 }

@@ -261,10 +261,10 @@ struct DatabaseBrowserView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "cylinder")
                         .font(.system(size: 18))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                     Text("Databases")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                 }
 
                 Spacer()
@@ -274,7 +274,7 @@ struct DatabaseBrowserView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 14))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                            .foregroundColor(DS.ink25)
                         TextField("Search databases...", text: $rootSearchText)
                             .textFieldStyle(.plain)
                             .font(.system(size: 12))
@@ -282,17 +282,17 @@ struct DatabaseBrowserView: View {
                             Button(action: { rootSearchText = "" }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 10))
-                                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                                    .foregroundColor(DS.ink25)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 10)
                     .frame(width: 220, height: 32)
-                    .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.094), lineWidth: 1)
+                            .strokeBorder(DS.hairline, lineWidth: 1)
                     )
 
                     // Create Database button
@@ -305,7 +305,7 @@ struct DatabaseBrowserView: View {
             .padding(.horizontal, 28)
             .frame(height: 52)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             ScrollView {
@@ -413,12 +413,12 @@ struct DatabaseBrowserView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                             .lineLimit(1)
                         if let subtitle = subtitle, !subtitle.isEmpty {
                             Text(subtitle)
                                 .font(.system(size: 11))
-                                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                                .foregroundColor(DS.ink40)
                                 .lineLimit(1)
                         }
                     }
@@ -428,7 +428,7 @@ struct DatabaseBrowserView: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 16)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+                    Rectangle().fill(DS.hairline).frame(height: 1)
                 }
 
                 // Card Body
@@ -436,51 +436,34 @@ struct DatabaseBrowserView: View {
                     HStack {
                         Text("Games")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                            .foregroundColor(DS.ink40)
                         Spacer()
                         Text(formattedGameCount(gameCount))
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                            .foregroundColor(DS.ink)
                     }
 
                     HStack {
                         Text("Last modified")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                            .foregroundColor(DS.ink40)
                         Spacer()
                         Text(lastModified != nil ? relativeTimeString(lastModified!) : "-")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                            .foregroundColor(DS.ink60)
                     }
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
             }
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.094))
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.145), Color.white.opacity(0)],
-                                startPoint: .top,
-                                endPoint: UnitPoint(x: 0.5, y: 0.4)
-                            )
-                        )
-                }
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(DS.paperRaised)
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.31), Color.white.opacity(0.06)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .strokeBorder(DS.hairline, lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.19), radius: 10, x: 0, y: 4)
         }
@@ -491,7 +474,7 @@ struct DatabaseBrowserView: View {
         HStack {
             Text("\(database.folders.count + 1) databases · \(formattedGameCount(database.libraryGameCount)) games")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                .foregroundColor(DS.ink25)
 
             Spacer()
 
@@ -499,13 +482,13 @@ struct DatabaseBrowserView: View {
             let _ = formatter.dateFormat = "MMM d, yyyy"
             Text("Last synced: \(formatter.string(from: Date()))")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                .foregroundColor(DS.ink25)
         }
         .padding(.horizontal, 28)
         .frame(height: 28)
-        .background(Color.white.opacity(0.024))
+        .background(DS.chrome)
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -713,7 +696,7 @@ struct DatabaseBrowserView: View {
             }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -721,7 +704,7 @@ struct DatabaseBrowserView: View {
 
             Text(currentFolderName)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             Spacer()
 
@@ -734,13 +717,13 @@ struct DatabaseBrowserView: View {
                         Text("Filters")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .padding(.vertical, 6)
                     .padding(.horizontal, 14)
-                    .background(Color.white.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.19), lineWidth: 1)
+                            .strokeBorder(DS.borderChip, lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -763,11 +746,9 @@ struct DatabaseBrowserView: View {
         }
         .padding(.horizontal, 28)
         .frame(height: 56)
-        .background(Color.white.opacity(0.03))
+        .background(DS.chrome)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing)
-            ).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -779,11 +760,11 @@ struct DatabaseBrowserView: View {
             HStack(spacing: 8) {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 16))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
 
                 Text("Filters")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
 
                 Spacer()
 
@@ -792,7 +773,7 @@ struct DatabaseBrowserView: View {
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
                 }
@@ -801,7 +782,7 @@ struct DatabaseBrowserView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Body
@@ -832,7 +813,7 @@ struct DatabaseBrowserView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                            Rectangle().fill(DS.hairline).frame(height: 1)
                         }
 
                     // Black Elo
@@ -840,7 +821,7 @@ struct DatabaseBrowserView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
                         .overlay(alignment: .bottom) {
-                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                            Rectangle().fill(DS.hairline).frame(height: 1)
                         }
 
                     // Tournament
@@ -889,21 +870,17 @@ struct DatabaseBrowserView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
             .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.094)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
-            .background(Color.white.opacity(0.04))
+            .background(DS.chrome)
         }
         .frame(width: 360)
-        .background(GlassPanelBackground())
+        .background(DS.paperRaised)
         .overlay(alignment: .leading) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom)
-            ).frame(width: 1)
+            Rectangle().fill(DS.hairline).frame(width: 1)
         }
         .overlay(alignment: .top) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.37), Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
-            ).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
         .shadow(color: .black.opacity(0.37), radius: 15, x: -6, y: 0)
     }
@@ -914,7 +891,7 @@ struct DatabaseBrowserView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .kerning(0.4)
 
             content()
@@ -922,7 +899,7 @@ struct DatabaseBrowserView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -931,7 +908,7 @@ struct DatabaseBrowserView: View {
     private func filterSearchField(text: Binding<String>, placeholder: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                .foregroundColor(DS.ink25)
                 .font(.system(size: 13))
 
             TextField(placeholder, text: text)
@@ -941,7 +918,7 @@ struct DatabaseBrowserView: View {
             if !text.wrappedValue.isEmpty {
                 Button(action: { text.wrappedValue = "" }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                        .foregroundColor(DS.ink25)
                         .font(.system(size: 11))
                 }
                 .buttonStyle(.plain)
@@ -951,18 +928,11 @@ struct DatabaseBrowserView: View {
         .frame(height: 30)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(DS.fieldBg)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
     }
 
@@ -1173,7 +1143,7 @@ struct DatabaseBrowserView: View {
         .frame(height: 34)
         .background(DS.bgSecondary)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -1299,7 +1269,7 @@ struct DatabaseBrowserView: View {
             HStack(spacing: 8) {
                 Text("\(cachedGames.count)\(allExhausted ? "" : "+") games")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
 
                 if isLoadingGames {
                     ProgressView()
@@ -1308,10 +1278,10 @@ struct DatabaseBrowserView: View {
 
                 Text("Synced")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color(hex: 0x30D158))
+                    .foregroundColor(DS.semOnline)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(Color(hex: 0x30D158, opacity: 0.19), in: RoundedRectangle(cornerRadius: 6))
+                    .background(DS.semOnline.opacity(0.19), in: RoundedRectangle(cornerRadius: 6))
             }
 
             Spacer()
@@ -1324,13 +1294,13 @@ struct DatabaseBrowserView: View {
 
             Text("Sorted by date")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                .foregroundColor(DS.ink25)
         }
         .padding(.horizontal, 28)
         .frame(height: 30)
-        .background(Color.white.opacity(0.04))
+        .background(DS.chrome)
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.094)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -1807,7 +1777,7 @@ struct NewDatabaseSheet: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             if showingProgress {
@@ -1998,7 +1968,7 @@ struct NewDatabaseSheet: View {
             .padding(.top, 16)
             .padding(.bottom, 20)
             .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
             }  // end else (form section)
         }

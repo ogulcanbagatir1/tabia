@@ -18,15 +18,15 @@ struct WDLStatsBar: View {
                 HStack {
                     Text("White \(Int(wPct))%")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(DS.textSecondary)
+                        .foregroundColor(DS.ink60)
                     Spacer()
                     Text("Draw \(Int(dPct))%")
                         .font(.system(size: 10))
-                        .foregroundColor(DS.textTertiary)
+                        .foregroundColor(DS.ink40)
                     Spacer()
                     Text("Black \(Int(bPct))%")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(DS.textSecondary)
+                        .foregroundColor(DS.ink60)
                 }
             }
 
@@ -36,17 +36,17 @@ struct WDLStatsBar: View {
                 HStack(spacing: 0) {
                     if wPct > 0 {
                         Rectangle()
-                            .fill(DS.evalWhiteWinning)
+                            .fill(DS.semWin)
                             .frame(width: max(w * wPct / 100, 2))
                     }
                     if dPct > 0 {
                         Rectangle()
-                            .fill(DS.evalNeutral)
+                            .fill(DS.semDraw)
                             .frame(width: max(w * dPct / 100, 2))
                     }
                     if bPct > 0 {
                         Rectangle()
-                            .fill(DS.evalBlackWinning)
+                            .fill(DS.semLoss)
                             .frame(width: max(w * bPct / 100, 2))
                     }
                 }

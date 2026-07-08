@@ -55,7 +55,7 @@ struct RepertoireDrillView: View {
             Button(action: onClose) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -67,10 +67,10 @@ struct RepertoireDrillView: View {
 
             Text("Drilling")
                 .font(.system(size: 13))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.55))
+                .foregroundColor(DS.ink60)
             Text(session.repertoire.name)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
 
             Spacer()
 
@@ -81,7 +81,7 @@ struct RepertoireDrillView: View {
             Button(action: { isFlipped.toggle() }) {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -90,11 +90,9 @@ struct RepertoireDrillView: View {
         }
         .padding(.horizontal, 28)
         .frame(height: 56)
-        .background(Color.white.opacity(0.03))
+        .background(DS.chrome)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(
-                LinearGradient(colors: [Color.white.opacity(0.19), Color.white.opacity(0.03)], startPoint: .leading, endPoint: .trailing)
-            ).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -113,10 +111,10 @@ struct RepertoireDrillView: View {
                 Text(session.replyMode.label)
                     .font(.system(size: 11, weight: .medium))
             }
-            .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+            .foregroundColor(DS.ink60)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -135,11 +133,11 @@ struct RepertoireDrillView: View {
 
             Text("\(session.masteredCount) / \(session.total)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.55))
+                .foregroundColor(DS.ink60)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Body states
@@ -178,7 +176,7 @@ struct RepertoireDrillView: View {
             boardArea
             statusBar(
                 icon: "ellipsis.circle",
-                tint: Color(hex: 0xFFFFFF, opacity: 0.55),
+                tint: DS.ink60,
                 title: "Opponent replies",
                 detail: "…"
             )
@@ -242,7 +240,7 @@ struct RepertoireDrillView: View {
                         .foregroundColor(DS.accent)
                     Text("\(ref.san) — \(Int(ref.userScorePercent.rounded()))% for you over \(ref.games.formatted()) games")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.72))
+                        .foregroundColor(DS.ink60)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -258,12 +256,12 @@ struct RepertoireDrillView: View {
                 ScrollView {
                     Text(node.annotation)
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.72))
+                        .foregroundColor(DS.ink60)
                         .lineSpacing(3)
                         .frame(maxWidth: 520, alignment: .leading)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+                        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .frame(maxHeight: 120)
                 .padding(.horizontal, 28)
@@ -354,10 +352,10 @@ struct RepertoireDrillView: View {
                 .foregroundColor(tint)
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                .foregroundColor(DS.ink)
             Text(detail)
                 .font(.system(size: 12))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.55))
+                .foregroundColor(DS.ink60)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

@@ -34,7 +34,7 @@ struct ReferenceActivityBadge: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(DS.paperRaised, in: Capsule())
                 .overlay(Capsule().strokeBorder(DS.border, lineWidth: 1))
                 .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
                 .padding(16)

@@ -12,7 +12,7 @@ struct RepertoireStatsView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().overlay(Color.white.opacity(0.08))
+            Divider().overlay(DS.hairline)
 
             ScrollView {
                 VStack(spacing: 18) {
@@ -64,7 +64,7 @@ struct RepertoireStatsView: View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 10)
+                    .stroke(DS.trackBg, lineWidth: 10)
                 Circle()
                     .trim(from: 0, to: max(0.001, min(1, value / 100)))
                     .stroke(tint, style: StrokeStyle(lineWidth: 10, lineCap: .round))
@@ -80,7 +80,7 @@ struct RepertoireStatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var countRow: some View {
@@ -104,7 +104,7 @@ struct RepertoireStatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 10))
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var leechSection: some View {
@@ -162,7 +162,7 @@ struct RepertoireStatsView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func leechLine(_ leech: RepertoireKnowledge.Leech) -> String {

@@ -45,7 +45,7 @@ struct RepertoireMoveTreeView: View {
         HStack {
             Text("LINES")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                .foregroundColor(DS.ink25)
                 .kerning(0.8)
 
             Spacer()
@@ -64,7 +64,7 @@ struct RepertoireMoveTreeView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.19)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -72,13 +72,13 @@ struct RepertoireMoveTreeView: View {
         VStack(spacing: 6) {
             Image(systemName: "books.vertical")
                 .font(.system(size: 28))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.15))
+                .foregroundColor(DS.ink25)
             Text("No moves yet")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                .foregroundColor(DS.ink40)
             Text("Play on the board to build the tree")
                 .font(.system(size: 10))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
+                .foregroundColor(DS.ink25)
         }
         .frame(maxWidth: .infinity)
     }
@@ -192,11 +192,11 @@ struct RepertoireMoveTreeView: View {
                 if !prefix.isEmpty {
                     Text(prefix)
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: finalOpacity * 0.5))
+                        .foregroundColor(DS.ink.opacity(finalOpacity * 0.5))
                 }
                 Text(san)
                     .font(.system(size: 12, weight: weight))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: finalOpacity))
+                    .foregroundColor(DS.ink.opacity(finalOpacity))
                 if !glyph.isEmpty {
                     Text(glyph)
                         .font(.system(size: 11, weight: .bold))
@@ -207,7 +207,7 @@ struct RepertoireMoveTreeView: View {
             .padding(.vertical, 2)
             .background(
                 isCurrent
-                    ? RoundedRectangle(cornerRadius: 4, style: .continuous).fill(DS.accent.opacity(0.20))
+                    ? RoundedRectangle(cornerRadius: 4, style: .continuous).fill(DS.selectedWash)
                     : nil
             )
             .contentShape(Rectangle())
@@ -217,7 +217,7 @@ struct RepertoireMoveTreeView: View {
 
     private func parenColor(depth: Int) -> Color {
         let dim = max(0.40, 0.78 - 0.10 * Double(depth - 1))
-        return Color(hex: 0xFFFFFF, opacity: dim)
+        return DS.ink.opacity(dim)
     }
 
     // MARK: - Helpers
@@ -243,7 +243,7 @@ struct RepertoireMoveTreeView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                .foregroundColor(DS.ink60)
                 .frame(width: 22, height: 22)
                 .contentShape(Rectangle())
         }

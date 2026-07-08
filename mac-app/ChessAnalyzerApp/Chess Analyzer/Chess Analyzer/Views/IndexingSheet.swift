@@ -40,7 +40,7 @@ struct IndexingSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().overlay(Color.white.opacity(0.08))
+            Divider().overlay(DS.hairline)
 
             if referenceDB.isIndexing {
                 indexingProgress
@@ -102,7 +102,7 @@ struct IndexingSheet: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 10))
+            .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 10))
             .overlay(alignment: .trailing) {
                 if calculating { ProgressView().controlSize(.small).padding(.trailing, 10) }
             }

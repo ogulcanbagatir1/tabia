@@ -73,10 +73,10 @@ struct RepertoireBrowserView: View {
             HStack(spacing: 12) {
                 Image(systemName: "books.vertical")
                     .font(.system(size: 18))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                    .foregroundColor(DS.ink60)
                 Text("Repertoires")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                    .foregroundColor(DS.ink)
             }
 
             Spacer()
@@ -86,7 +86,7 @@ struct RepertoireBrowserView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                        .foregroundColor(DS.ink25)
                     TextField("Search repertoires...", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
@@ -94,17 +94,17 @@ struct RepertoireBrowserView: View {
                         Button(action: { searchText = "" }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 10))
-                                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                                .foregroundColor(DS.ink25)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 10)
                 .frame(width: 220, height: 32)
-                .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.094), lineWidth: 1)
+                        .strokeBorder(DS.borderStrong, lineWidth: 1)
                 )
 
                 Button(action: { showingNewRepertoireSheet = true }) {
@@ -116,7 +116,7 @@ struct RepertoireBrowserView: View {
         .padding(.horizontal, 28)
         .frame(height: 52)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -183,11 +183,11 @@ struct RepertoireBrowserView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(rep.name)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                         .lineLimit(1)
                     Text("\(rep.side.displayName)\(rep.ecoRangeDisplay.map { " · \($0)" } ?? "")")
                         .font(.system(size: 11))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                         .lineLimit(1)
                 }
 
@@ -196,7 +196,7 @@ struct RepertoireBrowserView: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 16)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Card Body
@@ -204,61 +204,44 @@ struct RepertoireBrowserView: View {
                 HStack {
                     Text("Positions")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                     Spacer()
                     Text("\(rep.nodeCount)")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                 }
 
                 HStack {
                     Text("Your moves")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                     Spacer()
                     Text("\(rep.userMoveCount)")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
+                        .foregroundColor(DS.ink)
                 }
 
                 HStack {
                     Text("Last modified")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.33))
+                        .foregroundColor(DS.ink40)
                     Spacer()
                     Text(relativeTimeString(rep.dateModified))
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.67))
+                        .foregroundColor(DS.ink60)
                 }
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
         }
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.094))
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.145), Color.white.opacity(0)],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.4)
-                        )
-                    )
-            }
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(DS.paperRaised)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.31), Color.white.opacity(0.06)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(DS.hairline, lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.19), radius: 10, x: 0, y: 4)
     }
@@ -309,15 +292,15 @@ struct RepertoireBrowserView: View {
         HStack {
             Text("\(repertoireDB.repertoireCount) repertoires")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.27))
+                .foregroundColor(DS.ink25)
 
             Spacer()
         }
         .padding(.horizontal, 28)
         .frame(height: 28)
-        .background(Color.white.opacity(0.024))
+        .background(DS.chrome)
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+            Rectangle().fill(DS.hairline).frame(height: 1)
         }
     }
 
@@ -360,7 +343,7 @@ struct NewRepertoireSheet: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Body
@@ -438,7 +421,7 @@ struct NewRepertoireSheet: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(DS.hairline).frame(height: 1)
             }
         }
         .frame(width: 480)
