@@ -32,25 +32,28 @@ struct ExplorerMoveRow: View {
                     .foregroundColor(DS.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
 
-                // W/D/L bar — thicker, more visible
+                // W/D/L mini bar — monochrome paper→ink stack (never green/red),
+                // track ground with a hairline between the paper (win) and tan (draw) segments.
                 HStack(spacing: 0) {
                     if whitePercent > 0 {
                         Rectangle()
-                            .fill(DS.evalWhiteWinning)
+                            .fill(DS.wdlWin)
                             .frame(width: 80 * whitePercent / 100)
+                            .overlay(alignment: .trailing) { Rectangle().fill(DS.wdlFrame).frame(width: 1) }
                     }
                     if drawPercent > 0 {
                         Rectangle()
-                            .fill(DS.evalNeutral)
+                            .fill(DS.wdlDraw)
                             .frame(width: 80 * drawPercent / 100)
                     }
                     if blackPercent > 0 {
                         Rectangle()
-                            .fill(DS.evalBlackWinning)
+                            .fill(DS.wdlLoss)
                             .frame(width: 80 * blackPercent / 100)
                     }
                 }
-                .frame(width: 80, height: 8)
+                .frame(width: 80, height: 6, alignment: .leading)
+                .background(DS.trackBg)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
             }
             .padding(.horizontal, 12)
