@@ -129,6 +129,9 @@ struct MainWindowView: View {
             AnnStatusBar(left: statusLeft, right: statusRight)
         }
         .background(GlassBackground(screen: activeScreen))
+        // Let the masthead rise into the title-bar band so the wordmark sits on the same
+        // line as the native traffic lights (it reserves horizontal room for them).
+        .ignoresSafeArea(.container, edges: .top)
         .overlay { ReferenceActivityBadge() }
         .sheet(isPresented: $showingSaveSheet) {
             SaveGameView(gameTree: gameTree, database: database)

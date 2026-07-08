@@ -18,7 +18,10 @@ struct MastheadView<Right: View>: View {
                 }
             }
 
-            HStack(spacing: 20) {
+            HStack(spacing: 14) {
+                // Reserve room for the native traffic lights so the wordmark sits just to their right.
+                Color.clear.frame(width: 60, height: 1)
+
                 (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
                     .font(AnnFont.serif(20, .semibold))
                     .fixedSize()
