@@ -141,6 +141,10 @@ class PGNParser {
     /// begins only at a `[` tag line at line start, outside any comment/variation, AFTER movetext has
     /// started — so a result token or a `[` inside a comment/variation can't falsely split a game.
     func splitGames(_ string: String) -> [(header: String, moveText: String)] {
+        // Normalize line endings first. Swift treats "\r\n" as a SINGLE Character grapheme, so the
+        // `== "\n"` line-start checks below never match on CRLF files (common in exported PGNs) — every
+        // subsequent "[Event ...]" fails to start a new game and the whole file collapses into one.
+        let string = string.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         var games: [(String, String)] = []
         var header = "", moveText = ""
         var seenMoveText = false
