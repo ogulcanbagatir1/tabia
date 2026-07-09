@@ -565,105 +565,72 @@ struct NewRepertoireSheet: View {
     @State private var side: RepertoireSide = .white
     @State private var summary = ""
 
+    private var canCreate: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Create New Repertoire")
-                    .font(AnnFont.serif(16, .semibold))
-                    .foregroundColor(DS.textPrimary)
+            // Header — editorial title + a one-line voice subtitle
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    (Text("New ").font(AnnFont.serif(18, .semibold))
+                     + Text("Repertoire").font(AnnFont.voice(18)))
+                        .foregroundColor(DS.ink)
+                    Text("Name your book and choose the side you'll defend.")
+                        .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
+                }
 
                 Spacer()
 
                 Button(action: { onCancel() }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DS.textTertiary)
-                        .frame(width: 28, height: 28)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(DS.ink40)
+                        .frame(width: 26, height: 26)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 20)
+            .padding(.top, 22)
+            .padding(.bottom, 18)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
             // Body
-            VStack(alignment: .leading, spacing: 20) {
-                // Name
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Name")
-                        .font(AnnFont.label(13))
-                        .tracking(13 * 0.1)
-                        .foregroundColor(DS.textPrimary)
-
-                    TextField("Najdorf Sicilian", text: $name)
-                        .textFieldStyle(.plain)
-                        .font(AnnFont.serif(13))
-                        .padding(.horizontal, 12)
-                        .frame(height: 36)
-                        .background(DS.bg)
-                        .cornerRadius(DS.radiusSM)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.radiusSM)
-                                .strokeBorder(DS.border, lineWidth: 1)
-                        )
+            VStack(alignment: .leading, spacing: 22) {
+                field("Name") {
+                    annTextField("Najdorf Sicilian", text: $name)
                 }
 
-                // Side picker
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Side")
-                        .font(AnnFont.label(13))
-                        .tracking(13 * 0.1)
-                        .foregroundColor(DS.textPrimary)
-
-                    HStack(spacing: 8) {
+                field("Side") {
+                    HStack(spacing: 10) {
                         sideButton(.white)
                         sideButton(.black)
                     }
                 }
 
-                // Summary
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Summary")
-                        .font(AnnFont.label(13))
-                        .tracking(13 * 0.1)
-                        .foregroundColor(DS.textPrimary)
-
-                    TextField("Optional — short description", text: $summary)
-                        .textFieldStyle(.plain)
-                        .font(AnnFont.serif(13))
-                        .padding(.horizontal, 12)
-                        .frame(height: 36)
-                        .background(DS.bg)
-                        .cornerRadius(DS.radiusSM)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.radiusSM)
-                                .strokeBorder(DS.border, lineWidth: 1)
-                        )
+                field("Summary  ·  optional") {
+                    annTextField("Short description", text: $summary)
                 }
             }
             .padding(24)
 
             // Footer
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Spacer()
-                Button(action: { onCancel() }) {
-                    Text("Cancel")
-                }
-                .buttonStyle(GlassButtonStyle())
+                Button(action: { onCancel() }) { Text("Cancel") }
+                    .buttonStyle(GlassButtonStyle())
 
                 Button(action: {
                     let trimmed = name.trimmingCharacters(in: .whitespaces)
                     guard !trimmed.isEmpty else { return }
                     onCreate(trimmed, side, summary.trimmingCharacters(in: .whitespaces))
                 }) {
-                    Text("Create")
+                    Text("Create Repertoire")
                 }
                 .buttonStyle(GlassPrimaryButtonStyle())
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(!canCreate)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
@@ -671,8 +638,33 @@ struct NewRepertoireSheet: View {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
         }
-        .frame(width: 480)
-        .background(GlassPanelBackground())
+        .frame(width: 460)
+        .background(DS.paper)
+    }
+
+    // Uppercase micro-label above a control — the Annotator field voice.
+    private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label.uppercased())
+                .font(AnnFont.label(10)).tracking(10 * 0.14)
+                .foregroundColor(DS.ink40)
+            content()
+        }
+    }
+
+    private func annTextField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(AnnFont.serif(13.5))
+            .foregroundColor(DS.ink)
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background(DS.fieldBg)
+            .cornerRadius(DS.rControl)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                    .strokeBorder(DS.hairline, lineWidth: 1)
+            )
     }
 
     private func sideButton(_ s: RepertoireSide) -> some View {
@@ -680,21 +672,21 @@ struct NewRepertoireSheet: View {
         return Button(action: { side = s }) {
             HStack(spacing: 8) {
                 Circle()
-                    .fill(s == .white ? Color.white : Color.black)
-                    .frame(width: 14, height: 14)
-                    .overlay(Circle().strokeBorder(DS.textTertiary, lineWidth: 1))
+                    .fill(s == .white ? DS.onRed : DS.ink)
+                    .frame(width: 13, height: 13)
+                    .overlay(Circle().strokeBorder(DS.ink40, lineWidth: 1))
                 Text(s.displayName)
-                    .font(AnnFont.serif(13, isSelected ? .semibold : .regular))
-                    .foregroundColor(isSelected ? DS.textPrimary : DS.textSecondary)
+                    .font(AnnFont.label(11)).tracking(11 * 0.08)
+                    .foregroundColor(isSelected ? DS.ink : DS.ink40)
             }
             .padding(.horizontal, 14)
-            .frame(height: 36)
+            .frame(height: 38)
             .frame(maxWidth: .infinity)
-            .background(isSelected ? DS.accentLight : DS.bg)
-            .cornerRadius(DS.radiusSM)
+            .background(isSelected ? DS.redAccent.opacity(0.10) : DS.fieldBg)
+            .cornerRadius(DS.rControl)
             .overlay(
-                RoundedRectangle(cornerRadius: DS.radiusSM)
-                    .strokeBorder(isSelected ? DS.accent : DS.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                    .strokeBorder(isSelected ? DS.redAccent : DS.hairline, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

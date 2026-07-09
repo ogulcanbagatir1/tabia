@@ -303,7 +303,7 @@ struct DatabaseBrowserView: View {
                 Text("The reference database is read-only — a re-download replaces it.")
                     .font(AnnFont.voice(11.5)).foregroundColor(DS.ink40)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("\(database.folders.count + 1) COLLECTIONS · \(formattedGameCount(database.libraryGameCount)) GAMES")
+                Text("\(database.folders.count + 1) DATABASES · \(formattedGameCount(database.libraryGameCount)) GAMES")
                     .font(AnnFont.mono(9)).foregroundColor(DS.ink25)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

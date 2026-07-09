@@ -565,7 +565,7 @@ struct LibraryExplorerView: View {
         EmptyStateView(
             icon: "books.vertical",
             title: "No Library Data",
-            description: "Select databases to explore your personal opening repertoire",
+            description: "Select one or more databases to explore openings across your games",
             iconSize: 40
         )
     }

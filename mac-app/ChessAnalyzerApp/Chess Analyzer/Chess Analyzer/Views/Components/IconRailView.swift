@@ -32,8 +32,8 @@ enum AppScreen: String, CaseIterable {
         case .analysis:   return "Analysis"
         case .explorer:   return "Explorer"
         case .repertoire: return "Repertoire"
-        case .chesscom:   return "Games"
-        case .database:   return "Database"
+        case .chesscom:   return "My Games"
+        case .database:   return "Library"
         case .engine:     return "Engines"
         case .settings:   return "Settings"
         }

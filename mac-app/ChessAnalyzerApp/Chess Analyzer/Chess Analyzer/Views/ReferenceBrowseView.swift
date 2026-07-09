@@ -40,7 +40,7 @@ struct ReferenceBrowseView: View {
             Button(action: onBack) {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                    Text("Databases").font(AnnFont.label(12)).tracking(12 * 0.1)
+                    Text("Library").font(AnnFont.label(12)).tracking(12 * 0.1)
                 }
             }
             .buttonStyle(.plain)
