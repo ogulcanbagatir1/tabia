@@ -19,10 +19,29 @@ struct TabiaApp: App {
 
         // Seed runs (TABIA_SEED) use an in-memory store so sample data never touches the real DB.
         let ephemeral = ProcessInfo.processInfo.environment["TABIA_SEED"] != nil
+
+        // Pin the on-disk store to an ABSOLUTE path. SwiftData's default store URL is derived from
+        // sandbox-relative APIs (NSHomeDirectory / applicationSupportDirectory), so the resolved
+        // location silently shifts between the sandbox container and ~/Library/Application Support
+        // across launches — a sync would write to one and the next launch would read the other, so
+        // freshly imported games appeared to vanish. Resolve the real home from the password db
+        // (sandbox-independent) and always use the app's container path, which is writable whether or
+        // not the process is sandboxed and already holds the existing library.
+        let config: ModelConfiguration
+        if ephemeral {
+            config = ModelConfiguration(isStoredInMemoryOnly: true)
+        } else {
+            let realHome = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) } ?? NSHomeDirectory()
+            let storeDir = URL(fileURLWithPath: realHome, isDirectory: true)
+                .appendingPathComponent("Library/Containers/com.ogulcan.Tabia/Data/Library/Application Support", isDirectory: true)
+            try? FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
+            config = ModelConfiguration(url: storeDir.appendingPathComponent("default.store"))
+        }
+
         let container = try! ModelContainer(
             for: GameRecord.self, GameFolder.self, ChessComCachedStats.self, CachedName.self,
                  Repertoire.self, RepertoireFolder.self, RepertoireNode.self, PositionSchedule.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: ephemeral)
+            configurations: config
         )
         self.container = container
         self.database = GameDatabase(modelContext: container.mainContext, container: container)
