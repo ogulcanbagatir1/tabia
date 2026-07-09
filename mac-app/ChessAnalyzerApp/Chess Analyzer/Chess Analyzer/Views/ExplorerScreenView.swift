@@ -21,13 +21,18 @@ struct ExplorerScreenView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            leftColumn
-                .frame(width: 448)
-                .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+        GeometryReader { geo in
+            // The board grows to fill the height (kept square); the left column is sized to it and
+            // the explorer table takes whatever width is left.
+            let boardSide = max(min(geo.size.height - 210, geo.size.width - 470), 360)
+            HStack(spacing: 0) {
+                leftColumn
+                    .frame(width: boardSide + 48)
+                    .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
 
-            rightColumn
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                rightColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .background(DS.paper)
         .onAppear { updateOpening() }
@@ -60,9 +65,13 @@ struct ExplorerScreenView: View {
                 }
             }
 
-            // Board (BoardView already draws its own aligned rounded border + shadow — no extra frame here).
-            BoardView(board: board, gameTree: gameTree, isFlipped: false, showLabels: false)
-                .frame(width: 384, height: 384)
+            // Board fills the remaining height, kept square (BoardView draws its own border + shadow).
+            GeometryReader { g in
+                let side = min(g.size.width, g.size.height)
+                BoardView(board: board, gameTree: gameTree, isFlipped: false, showLabels: false)
+                    .frame(width: side, height: side)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            }
 
             // Nav row + reset
             HStack(spacing: 8) {
@@ -76,8 +85,6 @@ struct ExplorerScreenView: View {
             Text("Play a move, or pick a continuation on the right — the explorer walks the position with you.")
                 .font(AnnFont.voice(13.5)).foregroundColor(DS.ink60)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
         }
         .padding(24)
     }
