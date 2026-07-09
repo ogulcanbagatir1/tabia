@@ -45,7 +45,11 @@ struct RepertoireEditorView: View {
     var body: some View {
         Group {
             if let session = drillSession {
-                RepertoireDrillView(session: session, onClose: { drillSession = nil })
+                // If the editor was opened purely to drill (BEGIN DRILL on the shelf), closing the
+                // drill should return to the shelf, not drop into the editor the user never asked for.
+                RepertoireDrillView(session: session, onClose: {
+                    if autoStartDrill { onClose() } else { drillSession = nil }
+                })
             } else {
                 editorBody
             }
