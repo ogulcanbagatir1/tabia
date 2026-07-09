@@ -1,181 +1,150 @@
 import SwiftUI
 
-/// Knowledge dashboard for a repertoire: how much you know, what's due, and your weak spots.
+/// Knowledge popover (R4) for a repertoire: two donut gauges (Known / Covered), five mono stats,
+/// and a red-flagged weak-spots list. Always a dark editorial popover, in both appearances.
 struct RepertoireStatsView: View {
     let repertoire: Repertoire
     @ObservedObject var repertoireDB: RepertoireDatabase
     var onClose: () -> Void
+    /// The shelf already computes this; pass it in to skip the recompute.
+    var preloaded: RepertoireKnowledge? = nil
 
     @State private var knowledge: RepertoireKnowledge = .empty
     @State private var loaded = false
 
-    var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().overlay(DS.hairline)
+    // R4 is a fixed dark surface regardless of system appearance.
+    private let bg        = Color(hex: 0x211C13)
+    private let bgBorder  = Color(hex: 0x4A4130)
+    private let cardBg    = Color(hex: 0x241E14)
+    private let cardBd    = Color(hex: 0x3A3222)
+    private let track     = Color(hex: 0x2A2418)
+    private let green     = Color(hex: 0x8FB35B)
+    private let red       = Color(hex: 0xC25048)
+    private let bright    = Color(hex: 0xF1EADA)
+    private let white     = Color(hex: 0xEDE6DA)
+    private let muted     = Color(hex: 0xA99C82)
+    private let dim       = Color(hex: 0x857A63)
 
-            ScrollView {
-                VStack(spacing: 18) {
-                    ringRow
-                    countRow
-                    leechSection
-                }
-                .padding(18)
-            }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            header
+            gauges
+            statRow
+            weakSpots
         }
-        .frame(width: 520, height: 600)
-        .background(DS.card)
+        .padding(EdgeInsets(top: 20, leading: 22, bottom: 20, trailing: 22))
+        .frame(width: 430)
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(bg))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(bgBorder, lineWidth: 1))
         .onAppear(perform: computeIfNeeded)
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "chart.pie.fill")
-                .font(.system(size: 14))
-                .foregroundColor(DS.accent)
-            Text("Knowledge")
-                .font(AnnFont.serif(15, .semibold))
-                .foregroundColor(DS.textPrimary)
-            Text(repertoire.name)
-                .font(AnnFont.serif(13, .regular))
-                .foregroundColor(DS.textTertiary)
+        HStack {
+            (Text("Knowledge").font(AnnFont.serif(18, .semibold)).foregroundColor(bright)
+             + Text(" — \(repertoire.name)").font(AnnFont.voice(18)).foregroundColor(muted))
             Spacer()
             Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(DS.textSecondary)
-                    .frame(width: 26, height: 26)
-                    .contentShape(Rectangle())
+                Text(verbatim: "✕").font(AnnFont.mono(12)).foregroundColor(dim)
+                    .frame(width: 22, height: 22).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 18)
-        .frame(height: 52)
     }
 
-    private var ringRow: some View {
-        HStack(spacing: 14) {
-            ring(value: knowledge.knowledgePercent, label: "Known", tint: DS.moveBest)
-            ring(value: knowledge.coveragePercent, label: "Covered", tint: DS.accent)
+    // MARK: - Gauges
+
+    private var gauges: some View {
+        HStack(spacing: 16) {
+            donut(value: knowledge.knowledgePercent, label: "KNOWN", color: green)
+            donut(value: knowledge.coveragePercent, label: "COVERED", color: red)
         }
     }
 
-    private func ring(value: Double, label: String, tint: Color) -> some View {
-        VStack(spacing: 8) {
+    private func donut(value: Double, label: String, color: Color) -> some View {
+        VStack(spacing: 6) {
             ZStack {
-                Circle()
-                    .stroke(DS.trackBg, lineWidth: 10)
+                Circle().stroke(track, lineWidth: 7)
                 Circle()
                     .trim(from: 0, to: max(0.001, min(1, value / 100)))
-                    .stroke(tint, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(value.rounded()))%")
-                    .font(AnnFont.mono(22, bold: true))
-                    .foregroundColor(DS.textPrimary)
+                    .font(AnnFont.serif(19, .semibold)).foregroundColor(bright)
             }
-            .frame(width: 96, height: 96)
-            Text(label)
-                .font(AnnFont.label(12))
-                .tracking(12 * 0.1)
-                .foregroundColor(DS.textTertiary)
+            .frame(width: 76, height: 76)
+            Text(label).font(AnnFont.mono(9.5)).tracking(9.5 * 0.08).foregroundColor(muted)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, 16)
+        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(cardBd, lineWidth: 1))
     }
 
-    private var countRow: some View {
-        HStack(spacing: 10) {
-            countCell(value: knowledge.dueNow, label: "Due now", tint: knowledge.dueNow > 0 ? DS.accent : DS.textTertiary)
-            countCell(value: knowledge.drilledDecisions, label: "Drilled", tint: DS.textSecondary)
-            countCell(value: knowledge.matureDecisions, label: "Mature", tint: DS.moveBest)
-            countCell(value: knowledge.importantDecisions, label: "Important", tint: knowledge.importantDecisions > 0 ? DS.accent : DS.textTertiary)
-            countCell(value: knowledge.totalDecisions, label: "Total", tint: DS.textSecondary)
+    // MARK: - Stat row
+
+    private var statRow: some View {
+        HStack(spacing: 6) {
+            statCell(knowledge.dueNow, "DUE NOW", knowledge.dueNow > 0 ? red : white)
+            statCell(knowledge.drilledDecisions, "DRILLED", white)
+            statCell(knowledge.matureDecisions, "MATURE", green)
+            statCell(knowledge.importantDecisions, "IMPORTANT", white)
+            statCell(knowledge.totalDecisions, "TOTAL", white)
         }
     }
 
-    private func countCell(value: Int, label: String, tint: Color) -> some View {
-        VStack(spacing: 4) {
-            Text("\(value)")
-                .font(AnnFont.mono(20, bold: true))
-                .foregroundColor(tint)
-            Text(label)
-                .font(AnnFont.label(10))
-                .tracking(10 * 0.1)
-                .foregroundColor(DS.textTertiary)
+    private func statCell(_ value: Int, _ label: String, _ color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)").font(AnnFont.mono(15, bold: true)).foregroundColor(color)
+            Text(label).font(AnnFont.mono(8.5)).foregroundColor(dim)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private var leechSection: some View {
+    // MARK: - Weak spots
+
+    private var weakSpots: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(DS.moveBlunder)
-                Text("Weak spots")
-                    .font(AnnFont.serif(13, .semibold))
-                    .foregroundColor(DS.textPrimary)
-                if !knowledge.leeches.isEmpty {
-                    Text("\(knowledge.leeches.count)")
-                        .font(AnnFont.mono(10, bold: true))
-                        .foregroundColor(DS.moveBlunder)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(DS.moveBlunder.opacity(0.12), in: Capsule())
-                }
-            }
+            Text(verbatim: "⚑ WEAK SPOTS")
+                .font(AnnFont.label(10)).tracking(10 * 0.14).foregroundColor(red)
 
             if !loaded {
-                Text("…").foregroundColor(DS.textTertiary).font(AnnFont.serif(12, .regular))
+                Text(verbatim: "…").font(AnnFont.mono(11)).foregroundColor(dim)
             } else if knowledge.leeches.isEmpty {
-                Text("No leeches — nothing is being repeatedly missed.")
-                    .font(AnnFont.serif(12, .regular))
-                    .foregroundColor(DS.textTertiary)
-                    .padding(.vertical, 8)
+                Text("Nothing is being repeatedly missed — the whole line is holding.")
+                    .font(AnnFont.voice(13)).foregroundColor(muted)
             } else {
                 ForEach(knowledge.leeches) { leech in
-                    leechRow(leech)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(leechLine(leech))
+                            .font(AnnFont.voice(13.5)).foregroundColor(white).lineLimit(1)
+                        Text("\(leech.wrongCount) misses · \(leech.correctCount) correct")
+                            .font(AnnFont.mono(9)).foregroundColor(dim)
+                    }
+                    .padding(.leading, 12).padding(.vertical, 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(alignment: .leading) { Rectangle().fill(red).frame(width: 2) }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func leechRow(_ leech: RepertoireKnowledge.Leech) -> some View {
-        HStack(spacing: 10) {
-            if leech.isImportant {
-                Image(systemName: "star.fill").font(.system(size: 10)).foregroundColor(DS.accent)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(leechLine(leech))
-                    .font(AnnFont.mono(12, bold: true))
-                    .foregroundColor(DS.textPrimary)
-                    .lineLimit(1)
-                Text("\(leech.wrongCount) misses · \(leech.correctCount) correct")
-                    .font(AnnFont.mono(10))
-                    .foregroundColor(DS.textTertiary)
-            }
-            Spacer()
-            Text("\(leech.wrongCount)×")
-                .font(AnnFont.mono(13, bold: true))
-                .foregroundColor(DS.moveBlunder)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity)
-        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8))
+        .padding(.top, 14)
+        .overlay(alignment: .top) { Rectangle().fill(cardBd).frame(height: 1) }
     }
 
     private func leechLine(_ leech: RepertoireKnowledge.Leech) -> String {
         let prefix = leech.pathSAN.isEmpty ? "start" : leech.pathSAN.joined(separator: " ")
-        return "\(prefix)  →  \(leech.san)"
+        return "\(prefix) → \(leech.san)"
     }
 
     private func computeIfNeeded() {
         guard !loaded else { return }
-        let schedules = repertoireDB.positionSchedules(for: repertoire.id).mapValues { $0.stats }
-        knowledge = RepertoireStatsBuilder.build(repertoire: repertoire, schedules: schedules)
+        if let preloaded {
+            knowledge = preloaded
+        } else {
+            let schedules = repertoireDB.positionSchedules(for: repertoire.id).mapValues { $0.stats }
+            knowledge = RepertoireStatsBuilder.build(repertoire: repertoire, schedules: schedules)
+        }
         loaded = true
     }
 }

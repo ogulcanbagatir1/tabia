@@ -15,6 +15,7 @@ struct RepertoireBrowserView: View {
     // The repertoire selected in the left shelf — its lines show in the center panel.
     // (Opening the full editor is a separate action, via the center "Edit" button.)
     @State private var selectedRepertoire: Repertoire?
+    @State private var showingKnowledge = false
 
     // Per-repertoire SM-2 knowledge (due/coverage/drilled…) + the 7-day due forecast, computed
     // from the position schedules and cached so cards and the training rail don't re-fetch on render.
@@ -92,6 +93,13 @@ struct RepertoireBrowserView: View {
         } message: {
             Text("This will permanently delete this repertoire and all its lines.")
         }
+        .sheet(isPresented: $showingKnowledge) {
+            if let rep = selectedRepertoire {
+                RepertoireStatsView(repertoire: rep, repertoireDB: repertoireDB,
+                                    onClose: { showingKnowledge = false },
+                                    preloaded: knowledge[rep.id])
+            }
+        }
     }
 
     // MARK: - Left column — "Your Books" (R1)
@@ -148,6 +156,8 @@ struct RepertoireBrowserView: View {
                     }
                     Spacer()
                     if let k = knowledge[rep.id], k.dueNow > 0 { dueChip(k.dueNow) }
+                    Button(action: { showingKnowledge = true }) { Text("Knowledge") }
+                        .buttonStyle(GlassButtonStyle())
                     Button(action: { openRepertoire = rep }) { Text("Edit") }
                         .buttonStyle(GlassButtonStyle())
                 }
