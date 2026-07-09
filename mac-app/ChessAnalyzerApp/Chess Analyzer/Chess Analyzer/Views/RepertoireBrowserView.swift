@@ -10,6 +10,9 @@ struct RepertoireBrowserView: View {
     @State private var repertoireToDelete: Repertoire?
     @State private var showingDeleteAlert = false
     @State private var openRepertoire: Repertoire?
+    // The repertoire selected in the left shelf — its lines show in the center panel.
+    // (Opening the full editor is a separate action, via the center "Edit" button.)
+    @State private var selectedRepertoire: Repertoire?
 
     // Per-repertoire SM-2 knowledge (due/coverage/drilled…) + the 7-day due forecast, computed
     // from the position schedules and cached so cards and the training rail don't re-fetch on render.
@@ -32,7 +35,10 @@ struct RepertoireBrowserView: View {
                 emptyState
             } else {
                 HStack(spacing: 0) {
-                    booksColumn
+                    leftBooks
+                        .frame(width: 372)
+                        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                    centerPanel
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     rightRail
                         .frame(width: 396)
@@ -43,8 +49,14 @@ struct RepertoireBrowserView: View {
 
             statusBar
         }
-        .onAppear { refreshKnowledge() }
-        .onChange(of: repertoireDB.repertoires.count) { _, _ in refreshKnowledge() }
+        .onAppear {
+            refreshKnowledge()
+            if selectedRepertoire == nil { selectedRepertoire = repertoireDB.repertoires.first }
+        }
+        .onChange(of: repertoireDB.repertoires.count) { _, _ in
+            refreshKnowledge()
+            if selectedRepertoire == nil { selectedRepertoire = repertoireDB.repertoires.first }
+        }
         .sheet(isPresented: $showingNewRepertoireSheet) {
             NewRepertoireSheet { name, side, summary in
                 showingNewRepertoireSheet = false
@@ -81,51 +93,178 @@ struct RepertoireBrowserView: View {
 
     // MARK: - Left column — "Your Books" (R1)
 
-    private var booksColumn: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+    private var leftBooks: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        (Text("Your Books")
-                            .font(AnnFont.serif(26, .semibold)).foregroundColor(DS.ink)
-                         + Text("  —  \(repertoireDB.repertoires.count) repertoires, one habit")
-                            .font(AnnFont.voice(23)).foregroundColor(DS.ink40))
-                        Text(aggregateStatLine)
-                            .font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
-                    }
-                    Spacer(minLength: 12)
+                    Text("Your Books").font(AnnFont.serif(20, .semibold)).foregroundColor(DS.ink)
+                    Spacer()
                     newRepertoireButton
                 }
+                Text(aggregateStatLine).font(AnnFont.mono(9.5)).foregroundColor(DS.ink40).lineLimit(1)
+            }
+            .padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 14)
+            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
 
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 18),
-                                    GridItem(.flexible(), spacing: 18)], spacing: 18) {
+            ScrollView {
+                VStack(spacing: 14) {
                     ForEach(filtered) { rep in
-                        Button(action: { openRepertoire = rep }) { bookCard(rep) }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button("Open") { openRepertoire = rep }
-                                Divider()
-                                Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
-                                Divider()
-                                Button("Delete…", role: .destructive) {
-                                    repertoireToDelete = rep; showingDeleteAlert = true
-                                }
-                            }
+                        Button(action: { selectedRepertoire = rep }) {
+                            bookCard(rep, selected: selectedRepertoire?.id == rep.id)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Edit") { openRepertoire = rep }
+                            Divider()
+                            Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
+                            Divider()
+                            Button("Delete…", role: .destructive) { repertoireToDelete = rep; showingDeleteAlert = true }
+                        }
                     }
                 }
-
-                Text("Coverage is measured against your own online games — not against theory you'll never meet.")
-                    .font(AnnFont.voice(14)).foregroundColor(DS.ink40)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
+                .padding(16)
             }
-            .padding(.horizontal, 30).padding(.vertical, 26)
         }
+        .background(DS.paper)
     }
 
     private var newRepertoireButton: some View {
-        Button(action: { showingNewRepertoireSheet = true }) { Text("New Repertoire") }
+        Button(action: { showingNewRepertoireSheet = true }) { Text("New") }
             .buttonStyle(GlassPrimaryButtonStyle())
+    }
+
+    // MARK: - Center — selected repertoire's lines (read-only preview; "Edit" opens the editor)
+
+    private var centerPanel: some View {
+        VStack(spacing: 0) {
+            if let rep = selectedRepertoire {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(rep.name).font(AnnFont.serif(22, .semibold)).foregroundColor(DS.ink)
+                        Text(centerMeta(rep)).font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
+                    }
+                    Spacer()
+                    if let k = knowledge[rep.id], k.dueNow > 0 { dueChip(k.dueNow) }
+                    Button(action: { openRepertoire = rep }) { Text("Edit") }
+                        .buttonStyle(GlassButtonStyle())
+                }
+                .padding(.horizontal, 26).padding(.vertical, 18)
+                .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+                linesTree(rep)
+            } else {
+                centerEmpty
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.paper)
+    }
+
+    private func centerMeta(_ rep: Repertoire) -> String {
+        let cov = Int((knowledge[rep.id]?.coveragePercent ?? 0).rounded())
+        return "\(rep.side.displayName.uppercased()) · \(rep.userMoveCount) YOUR MOVES · \(cov)% COVERAGE"
+    }
+
+    private var centerEmpty: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "books.vertical")
+                .font(.system(size: 40, weight: .light)).foregroundColor(DS.ink25)
+            Text("Select a repertoire").font(AnnFont.serif(18, .semibold)).foregroundColor(DS.ink)
+            Text("Pick a book on the left to see its lines here.")
+                .font(AnnFont.voice(14)).foregroundColor(DS.ink40)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func linesTree(_ rep: Repertoire) -> some View {
+        let rows = flattenedLines(rep)
+        if rows.isEmpty {
+            VStack(spacing: 12) {
+                Spacer()
+                Text("No lines yet").font(AnnFont.serif(17, .medium)).foregroundColor(DS.ink)
+                Text("Open the editor to build this repertoire, move by move.")
+                    .font(AnnFont.voice(13.5)).foregroundColor(DS.ink40).multilineTextAlignment(.center)
+                Button(action: { openRepertoire = rep }) { Text("Edit") }
+                    .buttonStyle(GlassButtonStyle())
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(rows) { row in lineRow(row) }
+                }
+                .padding(.horizontal, 20).padding(.vertical, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func lineRow(_ row: LineRow) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(row.node.isUserMove ? DS.redAccent : Color.clear)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().strokeBorder(row.node.isUserMove ? DS.redAccent : DS.ink40, lineWidth: 1.5))
+            Text(moveLabel(row))
+                .font(AnnFont.mono(13.5, bold: true)).foregroundColor(DS.ink).fixedSize()
+            if !row.node.annotation.isEmpty {
+                Text(row.node.annotation).font(AnnFont.voice(13)).foregroundColor(DS.ink40).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            if row.node.isUserMove {
+                Text(row.node.isPrimary ? "MAIN" : "ALT")
+                    .font(AnnFont.label(8.5)).tracking(8.5 * 0.12).foregroundColor(DS.ink40)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: DS.rBar, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
+            }
+        }
+        .padding(.vertical, 7)
+        .padding(.leading, CGFloat(row.depth) * 22 + 4)
+        .padding(.trailing, 8)
+    }
+
+    private func moveLabel(_ row: LineRow) -> String {
+        let san = row.node.san ?? row.node.uciMove ?? "—"
+        let isWhite = row.ply % 2 == 1
+        let num = (row.ply + 1) / 2
+        return isWhite ? "\(num). \(san)" : "\(num)… \(san)"
+    }
+
+    private struct LineRow: Identifiable {
+        let id: UUID
+        let node: RepertoireNode
+        let depth: Int
+        let ply: Int
+    }
+
+    private func flattenedLines(_ rep: Repertoire) -> [LineRow] {
+        guard let root = rep.nodes.first(where: { $0.id == rep.rootNodeId })
+                ?? rep.nodes.first(where: { $0.parent == nil }) else { return [] }
+        var rows: [LineRow] = []
+        func walk(_ node: RepertoireNode, depth: Int, ply: Int) {
+            let kids = node.children.sorted { a, b in
+                if a.isPrimary != b.isPrimary { return a.isPrimary }
+                return (a.san ?? "") < (b.san ?? "")
+            }
+            for (i, child) in kids.enumerated() {
+                let d = i == 0 ? depth : depth + 1
+                rows.append(LineRow(id: child.id, node: child, depth: d, ply: ply + 1))
+                walk(child, depth: d, ply: ply + 1)
+            }
+        }
+        walk(root, depth: 0, ply: 0)
+        return rows
+    }
+
+    private func dueChip(_ n: Int) -> some View {
+        Text("\(n) DUE")
+            .font(AnnFont.mono(10, bold: true)).foregroundColor(DS.redAccent)
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .overlay(RoundedRectangle(cornerRadius: DS.rBar, style: .continuous).strokeBorder(DS.redAccent, lineWidth: 1))
     }
 
     // MARK: - Grid (reuses rootDatabaseCard styling)
@@ -225,20 +364,14 @@ struct RepertoireBrowserView: View {
 
     // MARK: - Book card (R1)
 
-    private func bookCard(_ rep: Repertoire) -> some View {
+    private func bookCard(_ rep: Repertoire, selected: Bool = false) -> some View {
         let k = knowledge[rep.id] ?? .empty
         let cov = Int(k.coveragePercent.rounded())
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(rep.name).font(AnnFont.serif(21, .semibold)).foregroundColor(DS.ink).lineLimit(1)
+                Text(rep.name).font(AnnFont.serif(18, .semibold)).foregroundColor(DS.ink).lineLimit(1)
                 Spacer(minLength: 6)
-                if k.dueNow > 0 {
-                    Text("\(k.dueNow) DUE")
-                        .font(AnnFont.mono(10, bold: true)).foregroundColor(DS.redAccent)
-                        .padding(.horizontal, 7).padding(.vertical, 2)
-                        .overlay(RoundedRectangle(cornerRadius: DS.rBar, style: .continuous)
-                            .strokeBorder(DS.redAccent, lineWidth: 1))
-                }
+                if k.dueNow > 0 { dueChip(k.dueNow) }
             }
             Text(sideLabel(rep))
                 .font(AnnFont.label(9)).tracking(9 * 0.12).foregroundColor(DS.ink40).lineLimit(1)
@@ -259,10 +392,12 @@ struct RepertoireBrowserView: View {
             }
             Text(revisedLine(rep.dateModified)).font(AnnFont.mono(9.5)).foregroundColor(DS.ink25)
         }
-        .padding(.horizontal, 22).padding(.vertical, 20)
+        .padding(.horizontal, 20).padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DS.paperRaised))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(selected ? DS.selectedMove : DS.paperRaised))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(selected ? DS.redAccent : DS.hairline, lineWidth: selected ? 1.5 : 1))
     }
 
     private func statSpan(_ value: String, _ label: String) -> some View {
