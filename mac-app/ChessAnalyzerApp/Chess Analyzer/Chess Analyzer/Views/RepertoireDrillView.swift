@@ -143,7 +143,9 @@ struct RepertoireDrillView: View {
                 referenceStrip
                 annotationBlock
             }
-            actionButtons
+            // Reserve a constant height so the button row collapsing (e.g. while the opponent
+            // replies) can't re-center the column and jog the board up and down.
+            actionButtons.frame(height: 36)
             progressStrip
             Spacer(minLength: 8)
         }
