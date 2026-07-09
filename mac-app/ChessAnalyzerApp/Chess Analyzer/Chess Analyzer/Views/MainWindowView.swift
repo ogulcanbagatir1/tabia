@@ -287,7 +287,10 @@ struct MainWindowView: View {
 
             // Board extras: eval bar + labels + internal padding + gaps
             let boardExtras = boardAreaComponents.evalBarWidth + boardAreaComponents.spacing + boardAreaComponents.labelWidth + 40
-            let verticalExtras = boardAreaComponents.labelHeight + boardAreaComponents.bottomControlsHeight + 40
+            // Vertical chrome inside AnnBoardArea that shares the column with the board: the two
+            // player rows, the plate line, the eval value under the bar, the inter-row spacing,
+            // and the ±20 vertical padding. Reserve it so the board fills the rest without clipping.
+            let verticalExtras: CGFloat = 168
 
             // Max board size from height
             let maxBoardFromHeight = availableHeight - verticalExtras
@@ -296,10 +299,8 @@ struct MainWindowView: View {
             let minSidebarsTotal = minExplorerWidth + minRightSidebarWidth + (sidebarGap * 2) + 2
             let maxBoardFromWidth = availableWidth - minSidebarsTotal - boardExtras
 
-            // Board = min(width-constrained, height-constrained), clamped to minimum 300
-            // Cap the board near the design's 8×68px (544). It centers in the fluid column
-            // rather than ballooning to fill it, leaving room for the players + plate line.
-            let boardSize = max(min(min(maxBoardFromHeight, maxBoardFromWidth), 560), 300)
+            // Largest square that fits its allotted area — height- or width-constrained, min 300.
+            let boardSize = max(min(maxBoardFromHeight, maxBoardFromWidth), 300)
 
             // Board area = board + extras
             let boardAreaWidth = boardSize + boardExtras
