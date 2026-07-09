@@ -134,22 +134,27 @@ struct RepertoireDrillView: View {
     // MARK: - Drill stage (asking / thinking / wrong / lineComplete share one layout)
 
     private var drillStage: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 8)
-            promptLine
-            boardArea
-            askCard
-            if session.phase == .userWrong {
-                referenceStrip
-                annotationBlock
+        // The board is pinned to a fixed vertical spot (roughly centered) via a computed top inset, so
+        // everything that changes between turns — the ask-card text, the SHOW ANSWER/SKIP row appearing
+        // and disappearing, the wrong-move details — flows DOWNWARD below the board and can never
+        // re-center the column and jog the board up and down.
+        GeometryReader { geo in
+            let topInset = max((geo.size.height - 460) / 2 - 48, 20)
+            VStack(spacing: 16) {
+                promptLine
+                boardArea
+                askCard
+                if session.phase == .userWrong {
+                    referenceStrip
+                    annotationBlock
+                }
+                actionButtons.frame(height: 36)
+                progressStrip
+                Spacer(minLength: 0)
             }
-            // Reserve a constant height so the button row collapsing (e.g. while the opponent
-            // replies) can't re-center the column and jog the board up and down.
-            actionButtons.frame(height: 36)
-            progressStrip
-            Spacer(minLength: 8)
+            .padding(.top, topInset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var promptLine: some View {
