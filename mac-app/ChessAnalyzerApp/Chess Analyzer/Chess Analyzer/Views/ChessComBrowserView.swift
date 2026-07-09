@@ -136,20 +136,21 @@ struct ChessComBrowserView: View {
         let db = database
         let hasFilters = hasClientSideFilters
 
-        Task.detached {
+        // Read on the main actor — `database.modelContext` is the container's mainContext, which has
+        // thread affinity. Reading it from a detached background task silently returns nothing on the
+        // on-disk store (the fetch's `try?` swallows the failure), so imported games never appear.
+        Task { @MainActor in
             let count = db.onlineGamesCount()
             let batch = db.fetchFilteredOnlineGames(timeClass: tc, limit: ps, offset: 0)
-            await MainActor.run {
-                totalGameCount = count
-                dbOffset = batch.count
-                if batch.count < ps { allDbGamesExhausted = true }
-                if hasFilters {
-                    cachedGames = applyClientFilters(batch)
-                } else {
-                    cachedGames = batch
-                }
-                isLoadingGames = false
+            totalGameCount = count
+            dbOffset = batch.count
+            if batch.count < ps { allDbGamesExhausted = true }
+            if hasFilters {
+                cachedGames = applyClientFilters(batch)
+            } else {
+                cachedGames = batch
             }
+            isLoadingGames = false
         }
     }
 
@@ -163,18 +164,17 @@ struct ChessComBrowserView: View {
         let hasFilters = hasClientSideFilters
         let db = database
 
-        Task.detached {
+        // Same as reloadGames: the mainContext read must run on the main actor, not a detached task.
+        Task { @MainActor in
             let batch = db.fetchFilteredOnlineGames(timeClass: tc, limit: batchSize, offset: currentOffset)
-            await MainActor.run {
-                dbOffset += batch.count
-                if batch.count < batchSize { allDbGamesExhausted = true }
-                if hasFilters {
-                    cachedGames.append(contentsOf: applyClientFilters(batch))
-                } else {
-                    cachedGames.append(contentsOf: batch)
-                }
-                isLoadingGames = false
+            dbOffset += batch.count
+            if batch.count < batchSize { allDbGamesExhausted = true }
+            if hasFilters {
+                cachedGames.append(contentsOf: applyClientFilters(batch))
+            } else {
+                cachedGames.append(contentsOf: batch)
             }
+            isLoadingGames = false
         }
     }
 

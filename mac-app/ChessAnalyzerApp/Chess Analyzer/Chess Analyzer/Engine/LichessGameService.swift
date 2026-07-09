@@ -26,7 +26,9 @@ class LichessGameService: ObservableObject {
         // Build URL
         var components = URLComponents(string: "https://lichess.org/api/games/user/\(username)")!
         var queryItems: [URLQueryItem] = [
-            URLQueryItem(name: "pgnInBody", value: "true"),
+            // NDJSON response → embed each game's PGN (with moves) in its JSON object.
+            // (pgnInBody is for the plain-PGN response; it leaves `pgn` nil here, so games arrive moveless.)
+            URLQueryItem(name: "pgnInJson", value: "true"),
             URLQueryItem(name: "opening", value: "true"),
             URLQueryItem(name: "clocks", value: "true"),
         ]
