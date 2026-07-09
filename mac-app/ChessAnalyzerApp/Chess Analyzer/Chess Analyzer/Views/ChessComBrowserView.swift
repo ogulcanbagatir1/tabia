@@ -59,7 +59,10 @@ struct ChessComBrowserView: View {
     @State private var lichessImportedCount = 0
     @State private var lichessSyncTask: Task<Void, Never>?
 
-    private let chessComGreen = DS.chessComGreen
+    // The Annotator has one accent (the red pen); "brand green" is gone. Neutral ink for the
+    // places that were tinted green; explicit DS.redAccent where a real accent is wanted.
+    private let chessComGreen = DS.ink40
+    @State private var syncPulse = false
 
     private var hasMorePages: Bool { !allDbGamesExhausted }
 
@@ -298,7 +301,7 @@ struct ChessComBrowserView: View {
             // Lichess connect
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
-                    Circle().fill(Color.white).frame(width: 8, height: 8)
+                    Circle().fill(DS.ink).frame(width: 8, height: 8)
                         .overlay(Circle().strokeBorder(DS.hairline, lineWidth: 0.5))
                     Text("Lichess")
                         .font(AnnFont.serif(13, .semibold))
@@ -355,7 +358,7 @@ struct ChessComBrowserView: View {
                 } else {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(DS.ink40)
                             .font(.system(size: 14))
                         Text("Logged in")
                             .font(AnnFont.serif(13))
@@ -455,6 +458,7 @@ struct ChessComBrowserView: View {
                     if service.isLoading || lichessService.isLoading {
                         ProgressView()
                             .controlSize(.small)
+                            .tint(DS.redAccent)
                     } else {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.clockwise")
@@ -463,14 +467,10 @@ struct ChessComBrowserView: View {
                                 .font(AnnFont.label(12))
                                 .tracking(12 * 0.1)
                         }
-                        .foregroundColor(Color(hex: 0x30D158))
+                        .foregroundColor(DS.onRed)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 16)
-                        .background(Color(hex: 0x30D158, opacity: 0.094), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color(hex: 0x30D158, opacity: 0.31), lineWidth: 1)
-                        )
+                        .background(DS.redInk, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
                     }
                 }
                 .buttonStyle(.plain)
@@ -726,9 +726,9 @@ struct ChessComBrowserView: View {
 
     private var statsCardsRow: some View {
         HStack(spacing: 16) {
-            statsCard(category: "Bullet", dotColor: DS.timeControlBullet)
-            statsCard(category: "Blitz", dotColor: DS.timeControlBlitz)
-            statsCard(category: "Rapid", dotColor: DS.timeControlRapid)
+            statsCard(category: "Bullet", dotColor: DS.ink40)
+            statsCard(category: "Blitz", dotColor: DS.ink40)
+            statsCard(category: "Rapid", dotColor: DS.ink40)
         }
         .frame(maxWidth: .infinity)
     }
@@ -924,7 +924,7 @@ struct ChessComBrowserView: View {
 
                     if hasMorePages {
                         HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
+                            ProgressView().controlSize(.small).tint(DS.redAccent)
                             Text("Loading more games...")
                                 .font(AnnFont.serif(11))
                                 .foregroundColor(DS.textSecondary)
@@ -1038,7 +1038,7 @@ struct ChessComBrowserView: View {
                 Text(chessComTimeClassLabel(game.timeClass))
                     .font(AnnFont.label(11))
                     .tracking(11 * 0.1)
-                    .foregroundColor(DS.timeControlColor(for: game.timeClass ?? ""))
+                    .foregroundColor(DS.ink60)
                     .lineLimit(1)
                     .frame(width: 60, alignment: .center)
                     .padding(.trailing, 32)
@@ -1085,9 +1085,10 @@ struct ChessComBrowserView: View {
         let userPlayedWhite = game.white.lowercased() == username
         let userWon = (userPlayedWhite && game.result == "1-0") || (!userPlayedWhite && game.result == "0-1")
         let userLost = (userPlayedWhite && game.result == "0-1") || (!userPlayedWhite && game.result == "1-0")
-        if userWon { return chessComGreen }
-        if userLost { return DS.moveMistake }
-        return DS.textTertiary
+        // Results stay monochrome (no traffic-light win/loss): the win reads in full ink, the rest muted.
+        if userWon { return DS.ink }
+        if userLost { return DS.ink40 }
+        return DS.ink40
     }
 
     private func chessComTimeClassLabel(_ timeClass: String?) -> String {
@@ -1118,7 +1119,7 @@ struct ChessComBrowserView: View {
         VStack(spacing: 12) {
             Spacer()
             if isLoadingGames {
-                ProgressView().controlSize(.regular)
+                ProgressView().controlSize(.regular).tint(DS.redAccent)
                 Text("Loading games...")
                     .font(AnnFont.serif(12))
                     .foregroundColor(DS.textTertiary)
@@ -1171,9 +1172,14 @@ struct ChessComBrowserView: View {
 
             Spacer()
 
-            Text(hasAnyAccount ? "Chess.com connected" : "Not connected")
-                .font(AnnFont.mono(11))
-                .foregroundColor(hasAnyAccount ? DS.semOnline : DS.ink40)
+            HStack(spacing: 6) {
+                if hasAnyAccount {
+                    Circle().fill(DS.semOnline).frame(width: 6, height: 6)
+                }
+                Text(hasAnyAccount ? "Connected" : "Not connected")
+                    .font(AnnFont.mono(11))
+                    .foregroundColor(DS.ink40)
+            }
         }
         .padding(.horizontal, 28)
         .frame(height: 30)
@@ -1343,30 +1349,37 @@ struct ChessComBrowserView: View {
     private var syncProgressSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Importing games...")
+                Text("Importing games…")
                     .font(AnnFont.serif(13, .medium))
-                    .foregroundColor(DS.textPrimary)
+                    .foregroundColor(DS.ink)
                 Spacer()
-                Text(verbatim: "\(syncProgressPercent)%")
+                Text(verbatim: "\(importedCount)")
                     .font(AnnFont.mono(13, bold: true))
-                    .foregroundColor(chessComGreen)
+                    .foregroundColor(DS.redAccent)
             }
 
+            // Totals stream in and aren't known up front (and dedup skews any %), so show an honest
+            // indeterminate bar — a red pen segment sweeping a flat track — plus the live count below.
             GeometryReader { geo in
+                let w = geo.size.width
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(DS.bgSecondary)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(chessComGreen)
-                        .frame(width: geo.size.width * CGFloat(syncProgressPercent) / 100)
-                        .animation(.easeInOut(duration: 0.3), value: syncProgressPercent)
+                    Capsule().fill(DS.trackBg)
+                    Capsule().fill(DS.redInk)
+                        .frame(width: w * 0.3)
+                        .offset(x: syncPulse ? w * 0.7 : 0)
                 }
             }
-            .frame(height: 8)
+            .frame(height: 6)
+            .clipShape(Capsule())
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) { syncPulse = true }
+            }
 
-            Text(verbatim: "\(importedCount) of \(totalGamesFound) games imported")
+            Text(verbatim: totalGamesFound > importedCount
+                 ? "\(importedCount) imported · \(totalGamesFound) found"
+                 : "\(importedCount) games imported")
                 .font(AnnFont.mono(12))
-                .foregroundColor(DS.textTertiary)
+                .foregroundColor(DS.ink40)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -1471,9 +1484,10 @@ struct ChessComBrowserView: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.mini)
-                Text(verbatim: "Importing... \(importedCount) of \(totalGamesFound) games")
+                    .tint(DS.redAccent)
+                Text(verbatim: "Importing… \(importedCount) games")
                     .font(AnnFont.mono(11))
-                    .foregroundColor(DS.textSecondary)
+                    .foregroundColor(DS.ink60)
             }
 
             Spacer()

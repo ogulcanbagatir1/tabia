@@ -5,7 +5,7 @@ struct ChessComStatsView: View {
     let username: String
     let selectedTimeClass: String
 
-    private let chessComGreen = DS.chessComGreen
+    private let chessComGreen = DS.ink40
 
     @State private var stats: ChessComStats?
 
@@ -69,7 +69,12 @@ struct ChessComStatsView: View {
     // MARK: - Colors
 
     static func colorForTimeClass(_ tc: String) -> Color {
-        DS.timeControlColor(for: tc)
+        switch tc.lowercased() {
+        case "bullet": return DS.ink
+        case "blitz":  return DS.ink40
+        case "rapid":  return DS.redAccent
+        default:       return DS.ink60
+        }
     }
 
     // MARK: - Rating Chart Section
@@ -83,9 +88,9 @@ struct ChessComStatsView: View {
                 Spacer()
                 // Legend
                 HStack(spacing: 16) {
-                    legendItem(label: "Bullet", color: DS.timeControlBullet)
-                    legendItem(label: "Blitz", color: DS.timeControlBlitz)
-                    legendItem(label: "Rapid", color: DS.timeControlRapid)
+                    legendItem(label: "Bullet", color: DS.ink)
+                    legendItem(label: "Blitz", color: DS.ink40)
+                    legendItem(label: "Rapid", color: DS.redAccent)
                 }
             }
 
@@ -138,11 +143,11 @@ struct ChessComStatsView: View {
 
             // Labels
             HStack {
-                wdlLabel(dot: DS.accentGreen, text: "Wins", count: stats.wins)
+                wdlLabel(dot: DS.wdlWin, text: "Wins", count: stats.wins)
                 Spacer()
-                wdlLabel(dot: DS.textTertiary, text: "Draws", count: stats.draws)
+                wdlLabel(dot: DS.wdlDraw, text: "Draws", count: stats.draws)
                 Spacer()
-                wdlLabel(dot: DS.accentRed, text: "Losses", count: stats.losses)
+                wdlLabel(dot: DS.wdlLoss, text: "Losses", count: stats.losses)
             }
         }
         .padding(20)
@@ -164,21 +169,22 @@ struct ChessComStatsView: View {
             HStack(spacing: 0) {
                 if wins > 0 {
                     Rectangle()
-                        .fill(DS.accentGreen)
+                        .fill(DS.wdlWin)
                         .frame(width: max(winW, 2))
                 }
                 if draws > 0 {
                     Rectangle()
-                        .fill(DS.textTertiary)
+                        .fill(DS.wdlDraw)
                         .frame(width: max(drawW, 2))
                 }
                 if losses > 0 {
                     Rectangle()
-                        .fill(DS.accentRed)
+                        .fill(DS.wdlLoss)
                         .frame(width: max(lossW, 2))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.wdlFrame, lineWidth: 1))
         }
     }
 
@@ -208,12 +214,12 @@ struct ChessComStatsView: View {
 
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    perfCell(label: "Win Rate", value: String(format: "%.1f%%", stats.winRate), color: DS.accentGreen)
+                    perfCell(label: "Win Rate", value: String(format: "%.1f%%", stats.winRate), color: DS.ink)
                     perfCell(label: "Draw Rate", value: String(format: "%.1f%%", stats.totalGames > 0 ? Double(stats.draws) / Double(stats.totalGames) * 100 : 0), color: DS.accent)
                 }
                 HStack(spacing: 12) {
                     perfCell(label: "Best Win Streak", value: "\(stats.streaks.bestWinStreak)", color: DS.textPrimary)
-                    perfCell(label: "Peak Rating", value: peakRating != nil ? "\(peakRating!)" : "-", color: DS.timeControlBullet)
+                    perfCell(label: "Peak Rating", value: peakRating != nil ? "\(peakRating!)" : "-", color: DS.ink)
                 }
             }
         }
@@ -333,7 +339,7 @@ struct ChessComStatsView: View {
             // Win rate
             Text(verbatim: String(format: "%.1f%%", opening.winRate))
                 .font(AnnFont.mono(12, bold: true))
-                .foregroundColor(opening.winRate >= 50 ? chessComGreen : DS.accentRed)
+                .foregroundColor(opening.winRate >= 50 ? DS.ink : DS.ink40)
                 .frame(width: 80, alignment: .trailing)
         }
         .padding(.horizontal, 16)
@@ -351,7 +357,7 @@ struct ChessComStatsView: View {
             HStack(spacing: 1) {
                 if wins > 0 {
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(DS.accentGreen)
+                        .fill(DS.wdlWin)
                         .frame(width: max(geo.size.width * CGFloat(wins) / t, 2))
                 }
                 if draws > 0 {
@@ -361,7 +367,7 @@ struct ChessComStatsView: View {
                 }
                 if losses > 0 {
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(DS.accentRed)
+                        .fill(DS.wdlLoss)
                         .frame(width: max(geo.size.width * CGFloat(losses) / t, 2))
                 }
             }
@@ -508,12 +514,7 @@ private struct RatingChartView: View {
                             path.addLine(to: CGPoint(x: firstX, y: h))
                             path.closeSubpath()
                         }
-                        .fill(
-                            LinearGradient(
-                                colors: [color.opacity(0.2), color.opacity(0.02)],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
+                        .fill(color.opacity(0.08))
 
                         // Line
                         Path { path in
@@ -533,7 +534,6 @@ private struct RatingChartView: View {
                             Circle()
                                 .fill(color)
                                 .frame(width: 5, height: 5)
-                                .shadow(color: color.opacity(0.5), radius: 3)
                                 .position(x: x, y: y)
                         }
                     }
@@ -555,7 +555,6 @@ private struct RatingChartView: View {
                         .fill(color)
                         .frame(width: 7, height: 7)
                         .overlay(Circle().strokeBorder(Color.primary.opacity(0.8), lineWidth: 1))
-                        .shadow(color: color.opacity(0.5), radius: 4)
                         .position(info.screenPoint)
                 }
             }
