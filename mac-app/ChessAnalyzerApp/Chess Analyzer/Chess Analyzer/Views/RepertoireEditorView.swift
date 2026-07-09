@@ -7,6 +7,8 @@ struct RepertoireEditorView: View {
     @EnvironmentObject var referenceDatabase: ReferenceDatabase
     let repertoire: Repertoire
     var onClose: () -> Void
+    /// When true, jump straight into a drill session on appear (used by the shelf's BEGIN DRILL).
+    var autoStartDrill: Bool = false
 
     @StateObject private var board = ChessBoard()
     @StateObject private var gameTree = GameTree()
@@ -47,6 +49,9 @@ struct RepertoireEditorView: View {
             } else {
                 editorBody
             }
+        }
+        .onAppear {
+            if autoStartDrill && drillSession == nil { startDrill() }
         }
         .sheet(isPresented: $showingCoverageAudit) {
             CoverageGapView(repertoire: repertoire, referenceDB: referenceDatabase,

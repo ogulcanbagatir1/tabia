@@ -10,6 +10,8 @@ struct RepertoireBrowserView: View {
     @State private var repertoireToDelete: Repertoire?
     @State private var showingDeleteAlert = false
     @State private var openRepertoire: Repertoire?
+    // When the editor is opened via BEGIN DRILL, jump straight into a drill session.
+    @State private var drillLaunch = false
     // The repertoire selected in the left shelf — its lines show in the center panel.
     // (Opening the full editor is a separate action, via the center "Edit" button.)
     @State private var selectedRepertoire: Repertoire?
@@ -22,7 +24,8 @@ struct RepertoireBrowserView: View {
     var body: some View {
         Group {
             if let rep = openRepertoire {
-                RepertoireEditorView(repertoire: rep, onClose: { openRepertoire = nil })
+                RepertoireEditorView(repertoire: rep, onClose: { openRepertoire = nil; drillLaunch = false },
+                                     autoStartDrill: drillLaunch)
             } else {
                 libraryBody
             }
@@ -448,10 +451,11 @@ struct RepertoireBrowserView: View {
     }
 
     private func beginDrill() {
-        // Open the repertoire with the most cards due — the editor hosts the drill session.
+        // Open the repertoire with the most cards due and jump straight into the drill session.
         let target = repertoireDB.repertoires.max {
             (knowledge[$0.id]?.dueNow ?? 0) < (knowledge[$1.id]?.dueNow ?? 0)
         }
+        drillLaunch = true
         openRepertoire = target ?? repertoireDB.repertoires.first
     }
 
