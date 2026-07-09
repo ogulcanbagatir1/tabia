@@ -11,89 +11,83 @@ struct RepertoireDrillView: View {
     @State private var isFlipped = false
     @State private var lastSyncedVersion: Int = -1
 
+    @State private var pulse = false
+
     var body: some View {
         VStack(spacing: 0) {
-            header
+            drillMasthead
 
-            switch session.phase {
-            case .empty:
-                emptyView
-            case .userToMove:
-                askingBody
-            case .opponentThinking:
-                thinkingBody
-            case .userWrong:
-                wrongBody
-            case .lineComplete:
-                lineCompleteBody
-            case .completed:
-                completedView
+            Group {
+                switch session.phase {
+                case .empty:     emptyView
+                case .completed: completedView
+                default:         drillStage
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            drillStatusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(GlassContentBackground())
+        .background(DS.paper)
         .onAppear {
             isFlipped = session.repertoire.side == .black
             syncDisplay(force: true)
             handlePhase()
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
         }
-        .onChange(of: session.boardVersion) { _, _ in
-            syncDisplay(force: false)
-        }
-        .onChange(of: session.statePhase) { _, _ in
-            handlePhase()
-        }
-        .onChange(of: gameTree.currentNode.id) { _, _ in
-            handleUserMove()
-        }
+        .onChange(of: session.boardVersion) { _, _ in syncDisplay(force: false) }
+        .onChange(of: session.statePhase) { _, _ in handlePhase() }
+        .onChange(of: gameTree.currentNode.id) { _, _ in handleUserMove() }
     }
 
-    // MARK: - Header
+    // MARK: - Collapsed masthead (R3)
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(DS.ink60)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
+    private var drillMasthead: some View {
+        ZStack {
+            HStack(spacing: 12) {
+                Text("DRILLING — \(session.repertoire.name.uppercased())")
+                    .font(AnnFont.label(10)).tracking(10 * 0.12).foregroundColor(DS.redAccent)
+                Text("CARD \(min(session.masteredCount + 1, max(session.total, 1))) OF \(session.total)")
+                    .font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
             }
-            .buttonStyle(.plain)
 
-            Image(systemName: "graduationcap")
-                .font(.system(size: 14))
-                .foregroundColor(DS.accent)
-
-            Text("Drilling")
-                .font(AnnFont.serif(13))
-                .foregroundColor(DS.ink60)
-            Text(session.repertoire.name)
-                .font(AnnFont.serif(14, .semibold))
-                .foregroundColor(DS.ink)
-
-            Spacer()
-
-            replyModeMenu
-
-            progressBadge
-
-            Button(action: { isFlipped.toggle() }) {
-                Image(systemName: "arrow.up.arrow.down")
-                    .font(.system(size: 13))
-                    .foregroundColor(DS.ink60)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
+            HStack(spacing: 10) {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DS.ink60).frame(width: 28, height: 28).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                scoreChip
+                replyModeMenu
+                Button(action: { isFlipped.toggle() }) {
+                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 13))
+                        .foregroundColor(DS.ink60).frame(width: 28, height: 28).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).help("Flip board")
+                Button(action: onClose) {
+                    Text("END SESSION").font(AnnFont.label(10)).tracking(10 * 0.1).foregroundColor(DS.ink60)
+                        .padding(.horizontal, 11).padding(.vertical, 6)
+                        .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                            .strokeBorder(DS.borderChip, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .help("Flip board")
         }
-        .padding(.horizontal, 28)
-        .frame(height: 56)
+        .padding(.horizontal, 18)
+        .frame(height: 47)
         .background(DS.chrome)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    private var scoreChip: some View {
+        HStack(spacing: 9) {
+            Text("✓ \(session.successCount)").font(AnnFont.mono(10.5, bold: true)).foregroundColor(DS.semWin)
+            Text("✗ \(session.failCount)").font(AnnFont.mono(10.5, bold: true)).foregroundColor(DS.redAccent)
         }
+        .padding(.horizontal, 11).padding(.vertical, 6)
+        .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
     }
 
     private var replyModeMenu: some View {
@@ -106,130 +100,159 @@ struct RepertoireDrillView: View {
             }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: "dial.medium")
-                    .font(.system(size: 11))
-                Text(session.replyMode.label)
-                    .font(AnnFont.label(11))
-                    .tracking(11 * 0.1)
+                Text(session.replyMode.label.uppercased()).font(AnnFont.label(10)).tracking(10 * 0.1)
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
             }
             .foregroundColor(DS.ink60)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 11).padding(.vertical, 6)
+            .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
+        .menuStyle(.borderlessButton).fixedSize()
         .help("Opponent reply mix: Realistic (frequency) · Critical (prep) · Breadth (rare lines)")
     }
 
-    private var progressBadge: some View {
-        HStack(spacing: 8) {
-            Label("\(session.successCount)", systemImage: "checkmark.circle.fill")
-                .font(AnnFont.mono(11, bold: true))
-                .foregroundColor(DS.moveBest)
-
-            Label("\(session.failCount)", systemImage: "xmark.circle.fill")
-                .font(AnnFont.mono(11, bold: true))
-                .foregroundColor(DS.moveBlunder)
-
-            Text("\(session.masteredCount) / \(session.total)")
-                .font(AnnFont.mono(11))
-                .foregroundColor(DS.ink60)
+    private var drillStatusBar: some View {
+        HStack {
+            Text(modeDescription).font(AnnFont.mono(9.5)).foregroundColor(DS.ink40).lineLimit(1)
+            Spacer()
+            Text("SESSION \(session.masteredCount)/\(session.total) CORRECT · ✓\(session.successCount) ✗\(session.failCount)")
+                .font(AnnFont.mono(9.5)).foregroundColor(DS.ink40)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 18).frame(height: 28).background(DS.chrome)
+        .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
-    // MARK: - Body states
+    private var modeDescription: String {
+        switch session.replyMode {
+        case .realistic: return "REALISTIC MODE — OPPONENT PLAYS WEIGHTED BOOK MOVES"
+        case .critical:  return "CRITICAL MODE — OPPONENT PLAYS THE TOUGHEST REPLIES"
+        case .breadth:   return "BREADTH MODE — OPPONENT EXPLORES RARE SIDELINES"
+        case .opponent:  return "PREP MODE — OPPONENT PLAYS THIS PLAYER'S BOOK"
+        }
+    }
 
-    private var askingBody: some View {
+    // MARK: - Drill stage (asking / thinking / wrong / lineComplete share one layout)
+
+    private var drillStage: some View {
         VStack(spacing: 16) {
-            Spacer(minLength: 12)
+            Spacer(minLength: 8)
+            promptLine
             boardArea
+            askCard
+            if session.phase == .userWrong {
+                referenceStrip
+                annotationBlock
+            }
+            actionButtons
+            progressStrip
+            Spacer(minLength: 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
-            statusBar(
-                icon: "play.circle",
-                tint: DS.accent,
-                title: sideToMoveIsUser ? "Your move" : "Your move",
-                detail: "Play your line. Alternatives are accepted."
-            )
+    private var promptLine: some View {
+        HStack {
+            Text(promptTitle).font(AnnFont.serif(15)).foregroundColor(DS.ink)
+            Spacer()
+            Text("MOVE \(board.fullMoveNumber) · \(session.repertoire.side.displayName.uppercased())")
+                .font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
+        }
+        .frame(width: 512)
+    }
 
+    private var promptTitle: String {
+        switch session.phase {
+        case .userToMove:       return "Play your prepared move."
+        case .opponentThinking: return "The opponent is replying…"
+        case .userWrong:        return "That wasn't your line."
+        case .lineComplete:     return "Line complete — well played."
+        default:                return ""
+        }
+    }
+
+    private var askCard: some View {
+        let cfg = askConfig
+        return HStack(spacing: 12) {
+            Circle().fill(cfg.dot).frame(width: 9, height: 9)
+                .opacity(session.phase == .userToMove ? (pulse ? 1 : 0.3) : 1)
+            Text(cfg.title).font(AnnFont.serif(16, .semibold)).foregroundColor(DS.ink)
+            if !cfg.detail.isEmpty {
+                Text(cfg.detail).font(AnnFont.voice(15)).foregroundColor(DS.ink60)
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(DS.paperRaised))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+    }
+
+    private var askConfig: (dot: Color, title: String, detail: String) {
+        switch session.phase {
+        case .userToMove:       return (DS.redAccent, "Your move.", "Play your line — alternatives are accepted.")
+        case .opponentThinking: return (DS.ink40, "Opponent replies…", "")
+        case .userWrong:        return (DS.redAccent, "Not your line.", "Play \(expectedText).")
+        case .lineComplete:     return (DS.semWin, "Line complete.", "Next line coming up.")
+        default:                return (DS.ink40, "", "")
+        }
+    }
+
+    @ViewBuilder private var actionButtons: some View {
+        switch session.phase {
+        case .userToMove:
             HStack(spacing: 12) {
-                Button(action: { session.revealAndFail() }) {
-                    Text("Show answer")
+                drillButton("SHOW ANSWER") { session.revealAndFail() }
+                drillButton("SKIP", muted: true) { session.skip() }
+            }
+        case .userWrong:
+            drillButton("CONTINUE", primary: true) { session.continueAfterWrong() }
+                .keyboardShortcut(.return, modifiers: [])
+        case .lineComplete:
+            drillButton("NEXT LINE", primary: true) { session.nextLine() }
+                .keyboardShortcut(.return, modifiers: [])
+        default:
+            EmptyView()
+        }
+    }
+
+    private func drillButton(_ title: String, muted: Bool = false, primary: Bool = false,
+                             _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(AnnFont.label(10.5)).tracking(10.5 * 0.1)
+                .foregroundColor(primary ? DS.onRed : (muted ? DS.ink60 : DS.ink))
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background {
+                    if primary { RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).fill(DS.redInk) }
                 }
-                .buttonStyle(GlassButtonStyle())
-
-                Button(action: { session.skip() }) {
-                    Text("Skip")
+                .overlay {
+                    if !primary {
+                        RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                            .strokeBorder(muted ? DS.hairline : DS.borderStrong, lineWidth: 1)
+                    }
                 }
-                .buttonStyle(GlassButtonStyle())
-            }
-            Spacer(minLength: 12)
+                .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .buttonStyle(.plain)
     }
 
-    private var thinkingBody: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 12)
-            boardArea
-            statusBar(
-                icon: "ellipsis.circle",
-                tint: DS.ink60,
-                title: "Opponent replies",
-                detail: "…"
-            )
-            Spacer(minLength: 12)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var wrongBody: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 12)
-            boardArea
-
-            statusBar(
-                icon: "xmark.circle.fill",
-                tint: DS.moveBlunder,
-                title: "Not your line",
-                detail: "Play: \(expectedText)"
-            )
-
-            referenceStrip
-
-            annotationBlock
-
-            Button(action: { session.continueAfterWrong() }) {
-                Text("Continue")
+    private var progressStrip: some View {
+        let total = max(session.total, 1)
+        let done = min(session.masteredCount, total)
+        let per = 28
+        let idxRows = stride(from: 0, to: total, by: per).map { Array($0..<min($0 + per, total)) }
+        return VStack(spacing: 6) {
+            ForEach(idxRows.indices, id: \.self) { r in
+                HStack(spacing: 6) {
+                    ForEach(idxRows[r], id: \.self) { i in
+                        Circle()
+                            .fill(i < done ? DS.semWin : Color.clear)
+                            .frame(width: 8, height: 8)
+                            .overlay(Circle().strokeBorder(
+                                i < done ? DS.semWin : (i == done ? DS.redAccent : DS.borderChip),
+                                lineWidth: 1.5))
+                    }
+                }
             }
-            .buttonStyle(GlassPrimaryButtonStyle())
-            .keyboardShortcut(.return, modifiers: [])
-            Spacer(minLength: 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var lineCompleteBody: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 12)
-            boardArea
-            statusBar(
-                icon: "checkmark.seal.fill",
-                tint: DS.moveBest,
-                title: "Line complete",
-                detail: "Next line…"
-            )
-            Button(action: { session.nextLine() }) {
-                Text("Next line")
-            }
-            .buttonStyle(GlassPrimaryButtonStyle())
-            .keyboardShortcut(.return, modifiers: [])
-            Spacer(minLength: 12)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 4)
     }
 
     private var referenceStrip: some View {
@@ -335,40 +358,9 @@ struct RepertoireDrillView: View {
     // MARK: - Reusable bits
 
     private var boardArea: some View {
-        HStack {
-            Spacer(minLength: 0)
-            BoardView(board: board, gameTree: gameTree, isFlipped: isFlipped)
-                .frame(maxWidth: 560, maxHeight: 560)
-                .padding(.horizontal, 20)
-                .allowsHitTesting(session.phase == .userToMove)
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 20)
-        .frame(maxWidth: .infinity)
-    }
-
-    private func statusBar(icon: String, tint: Color, title: String, detail: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(tint)
-            Text(title)
-                .font(AnnFont.serif(13, .semibold))
-                .foregroundColor(DS.ink)
-            Text(detail)
-                .font(AnnFont.serif(12))
-                .foregroundColor(DS.ink60)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(tint.opacity(0.10))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(tint.opacity(0.30), lineWidth: 1)
-        )
+        BoardView(board: board, gameTree: gameTree, isFlipped: isFlipped, showLabels: false)
+            .frame(width: 460, height: 460)
+            .allowsHitTesting(session.phase == .userToMove)
     }
 
     // MARK: - Derived text
