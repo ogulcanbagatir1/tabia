@@ -21,11 +21,12 @@ struct AnnBoardArea: View {
             // Top player (black by default; white when flipped)
             playerRow(isWhite: isFlipped).frame(width: boardSize + 31)
 
-            // Top-aligned so the eval bar's top/bottom line up exactly with the board
-            // (the mono value hangs below the bar, matching the design's align-items: stretch).
+            // Top-aligned so the eval bar tracks the board. BoardView renders its grid ~8pt
+            // below the top of its frame, so nudge the bar down by the same amount to make its
+            // top/bottom line up exactly with the board (the mono value hangs below the bar).
             HStack(alignment: .top, spacing: 16) {
                 board_
-                evalBar
+                evalBar.offset(y: 8)
             }
 
             // Bottom player
