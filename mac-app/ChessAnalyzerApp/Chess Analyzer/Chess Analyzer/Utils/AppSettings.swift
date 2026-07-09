@@ -341,6 +341,9 @@ class AppSettings: ObservableObject {
 
     func addEngine(_ config: EngineConfig) {
         var list = engines
+        // Never register the same binary twice — keeps startup recovery and dev seeding idempotent.
+        // Cloud engines have no path, so only dedupe local binaries by their path.
+        if !config.path.isEmpty, list.contains(where: { $0.path == config.path }) { return }
         // If this is the first engine, make it default
         var newConfig = config
         if list.isEmpty {

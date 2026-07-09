@@ -27,20 +27,24 @@ struct EngineManagerView: View {
 
                         // Engine cards grid
                         engineCardsGrid
-                            .fixedSize(horizontal: false, vertical: true)
 
-                        // Per-engine settings
-                        if let engineId = selectedEngineId,
-                           let engine = settings.engines.first(where: { $0.id == engineId }) {
+                        // Per-engine settings — falls back to the default engine when nothing is
+                        // explicitly selected, so the panel is always populated.
+                        if let engine = settings.engines.first(where: { $0.id == selectedEngineId }) ?? settings.defaultEngine {
                             engineSettingsCard(engine)
                         }
                     }
+                    .frame(maxWidth: 880, alignment: .leading)
                     .padding(.vertical, 36)
                     .padding(.horizontal, 44)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
-        .onAppear { checkAllEngineStatuses() }
+        .onAppear {
+            checkAllEngineStatuses()
+            if selectedEngineId == nil { selectedEngineId = settings.defaultEngine?.id }
+        }
         .sheet(isPresented: $showingAddSheet) {
             AddEngineSheet(downloadService: downloadService, onEngineAdded: { config in
                 settings.addEngine(config)
@@ -88,8 +92,10 @@ struct EngineManagerView: View {
 
     // MARK: - Engine Cards Grid
 
+    private let cardColumns = [GridItem(.adaptive(minimum: 240, maximum: 300), spacing: 16, alignment: .top)]
+
     private var engineCardsGrid: some View {
-        HStack(alignment: .top, spacing: 16) {
+        LazyVGrid(columns: cardColumns, alignment: .leading, spacing: 16) {
             ForEach(settings.engines) { engine in
                 engineCard(engine)
                     .onTapGesture {
@@ -136,8 +142,7 @@ struct EngineManagerView: View {
                     .tracking(12 * 0.1)
                     .foregroundColor(DS.ink40)
             }
-            .frame(maxHeight: .infinity)
-            .frame(width: 260)
+            .frame(maxWidth: .infinity, minHeight: 150)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(DS.paperRaised)
@@ -200,8 +205,8 @@ struct EngineManagerView: View {
                 }
             }
         }
-        .frame(width: 260)
         .padding(22)
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)

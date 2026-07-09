@@ -369,6 +369,7 @@ struct PieceStylePreview: View {
 
 struct EngineSettingsView: View {
     @ObservedObject var settings: AppSettings
+    @Environment(\.openWindow) private var openWindow
     @State private var detectedPath: String? = nil
     @State private var engineStatus: EngineStatus = .checking
 
@@ -381,9 +382,16 @@ struct EngineSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                // Manage engines — full add / remove / download / configure lives in the
+                // Engine Manager window. This card is the discoverable entry point from Settings.
+                VStack(alignment: .leading, spacing: 10) {
+                    settingsSectionLabel("ENGINES")
+                    engineManagerCard
+                }
+
                 // Stockfish Engine
                 VStack(alignment: .leading, spacing: 10) {
-                    settingsSectionLabel("STOCKFISH ENGINE")
+                    settingsSectionLabel("STOCKFISH DETECTION")
 
                     VStack(spacing: 0) {
                         // Status row
@@ -396,7 +404,7 @@ struct EngineSettingsView: View {
                                     .foregroundColor(DS.textSecondary)
                             case .found(let path):
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                    .foregroundColor(DS.semOnline)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Stockfish found")
                                         .font(AnnFont.serif(13, .medium))
@@ -409,7 +417,7 @@ struct EngineSettingsView: View {
                                 }
                             case .notFound:
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(DS.semWarning)
                                 Text("Stockfish not found")
                                     .font(AnnFont.serif(13, .medium))
                                     .foregroundColor(DS.textPrimary)
@@ -448,29 +456,6 @@ struct EngineSettingsView: View {
                             Text("Leave empty to auto-detect from /usr/local/bin or /opt/homebrew/bin")
                                 .font(AnnFont.serif(10))
                                 .foregroundColor(DS.textTertiary)
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 16)
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.hairline).frame(height: 1)
-                        }
-
-                        // Analysis depth
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Analysis Depth")
-                                    .font(AnnFont.serif(13, .medium))
-                                    .foregroundColor(DS.textPrimary)
-                                Text("Higher depth = more accurate but slower")
-                                    .font(AnnFont.serif(11))
-                                    .foregroundColor(DS.textTertiary)
-                            }
-                            Spacer()
-                            Stepper(value: $settings.engineDepth, in: EngineSettings.depthRange) {
-                                Text("\(settings.engineDepth)")
-                                    .font(AnnFont.mono(13, bold: true))
-                                    .foregroundColor(DS.accent)
-                            }
                         }
                         .padding(.vertical, 12)
                         .padding(.horizontal, 16)
@@ -535,6 +520,43 @@ struct EngineSettingsView: View {
         }
         .onAppear { checkEngineStatus() }
         .onChange(of: settings.stockfishPath) { _, _ in checkEngineStatus() }
+    }
+
+    private var engineSummaryTitle: String {
+        let n = settings.engines.count
+        if n == 0 { return "No engines configured" }
+        let def = settings.defaultEngine?.name ?? "—"
+        return "\(n) engine\(n == 1 ? "" : "s") · Default: \(def)"
+    }
+
+    private var engineManagerCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "cpu")
+                .font(.system(size: 22))
+                .foregroundColor(DS.redAccent)
+                .frame(width: 44, height: 44)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DS.redAccent.opacity(0.12)))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(engineSummaryTitle)
+                    .font(AnnFont.serif(13, .semibold))
+                    .foregroundColor(DS.textPrimary)
+                Text("Add, download, remove, and tune engines — threads, hash, lines, and depth.")
+                    .font(AnnFont.serif(11))
+                    .foregroundColor(DS.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Button("Open Engine Manager") { openWindow(id: WindowID.engineRoom) }
+                .buttonStyle(GlassPrimaryButtonStyle())
+        }
+        .padding(16)
+        .frame(maxWidth: 500)
+        .background(DS.bgSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.border, lineWidth: 1))
     }
 
     private func checkEngineStatus() {

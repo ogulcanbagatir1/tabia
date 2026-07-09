@@ -94,6 +94,7 @@ struct MainWindowView: View {
                 active: $activeScreen,
                 onSelectTab: { activeScreen = $0 },
                 onSettings: openSettingsWindow,
+                onEngines: { openWindow(id: WindowID.engineRoom) },
                 rightActions: { mastheadActions }
             )
 

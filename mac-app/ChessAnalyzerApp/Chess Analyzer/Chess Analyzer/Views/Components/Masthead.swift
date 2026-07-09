@@ -6,6 +6,7 @@ struct MastheadView<Right: View>: View {
     @Binding var active: AppScreen
     let onSelectTab: (AppScreen) -> Void
     let onSettings: () -> Void
+    var onEngines: (() -> Void)? = nil
     @ViewBuilder var rightActions: () -> Right
 
     var body: some View {
@@ -30,6 +31,17 @@ struct MastheadView<Right: View>: View {
 
                 HStack(spacing: 10) {
                     rightActions()
+                    if let onEngines {
+                        Button(action: onEngines) {
+                            Image(systemName: "cpu")
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(DS.ink60)
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Engines (⌘E)")
+                    }
                     Button(action: onSettings) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 14, weight: .regular))
