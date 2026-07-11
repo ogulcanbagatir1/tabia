@@ -20,165 +20,138 @@ struct SaveGameView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Text("Save Game")
-                    .font(AnnFont.serif(16, .semibold))
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    (Text("Save ").font(AnnFont.serif(18, .semibold))
+                     + Text("Game").font(AnnFont.voice(18)))
+                        .foregroundColor(DS.ink)
+                    Text("File the game to your library, or export it as PGN.")
+                        .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
+                }
                 Spacer()
                 Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(DS.textSecondary)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(DS.ink40)
+                        .frame(width: 26, height: 26).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
-            .padding(DS.spacingLG)
-
-            Divider()
+            .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 18)
+            .overlay(alignment: .bottom) { hairline }
 
             // Form
             ScrollView {
-                VStack(alignment: .leading, spacing: DS.spacingLG) {
-                    // Players
-                    VStack(alignment: .leading, spacing: DS.spacingSM) {
-                        Text("Players")
-                            .font(DS.titleFont)
-
-                        HStack(spacing: DS.spacingMD) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("White")
-                                    .font(DS.captionFont)
-                                    .foregroundColor(DS.textSecondary)
-                                TextField("White player", text: $whiteName)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Black")
-                                    .font(DS.captionFont)
-                                    .foregroundColor(DS.textSecondary)
-                                TextField("Black player", text: $blackName)
-                                    .textFieldStyle(.roundedBorder)
-                            }
+                VStack(alignment: .leading, spacing: 22) {
+                    section("Players") {
+                        HStack(spacing: 12) {
+                            field("White") { annTextField("White player", $whiteName) }
+                            field("Black") { annTextField("Black player", $blackName) }
                         }
                     }
 
-                    Divider()
-
-                    // Event details
-                    VStack(alignment: .leading, spacing: DS.spacingSM) {
-                        Text("Event Details")
-                            .font(DS.titleFont)
-
-                        HStack(spacing: DS.spacingMD) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Event")
-                                    .font(DS.captionFont)
-                                    .foregroundColor(DS.textSecondary)
-                                TextField("Event name", text: $eventName)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Site")
-                                    .font(DS.captionFont)
-                                    .foregroundColor(DS.textSecondary)
-                                TextField("Location", text: $siteName)
-                                    .textFieldStyle(.roundedBorder)
-                            }
+                    section("Event") {
+                        HStack(spacing: 12) {
+                            field("Event") { annTextField("Event name", $eventName) }
+                            field("Site") { annTextField("Location", $siteName) }
                         }
-
-                        HStack(spacing: DS.spacingMD) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Date")
-                                    .font(DS.captionFont)
-                                    .foregroundColor(DS.textSecondary)
+                        HStack(spacing: 12) {
+                            field("Date") {
                                 DatePicker("", selection: $gameDate, displayedComponents: .date)
                                     .labelsHidden()
                             }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Result")
-                                    .font(DS.captionFont)
-                                    .foregroundColor(DS.textSecondary)
+                            field("Result") {
                                 Picker("", selection: $result) {
-                                    ForEach(resultOptions, id: \.self) { opt in
-                                        Text(opt).tag(opt)
-                                    }
+                                    ForEach(resultOptions, id: \.self) { Text($0).tag($0) }
                                 }
-                                .labelsHidden()
-                                .pickerStyle(.segmented)
+                                .labelsHidden().pickerStyle(.segmented)
                             }
                         }
                     }
 
-                    Divider()
-
-                    // Folder selection
-                    VStack(alignment: .leading, spacing: DS.spacingSM) {
-                        Text("Save Location")
-                            .font(DS.titleFont)
-
+                    section("Save Location") {
                         Picker("Database", selection: $selectedFolderId) {
                             Text("Default").tag(nil as UUID?)
                             ForEach(database.folders.sorted(by: { $0.name < $1.name })) { folder in
-                                Label(folder.name, systemImage: "cylinder")
-                                    .tag(folder.id as UUID?)
+                                Label(folder.name, systemImage: "cylinder").tag(folder.id as UUID?)
                             }
                         }
                         .labelsHidden()
                     }
 
-                    Divider()
-
-                    // PGN Preview
-                    VStack(alignment: .leading, spacing: DS.spacingSM) {
-                        Text("PGN Preview")
-                            .font(DS.titleFont)
-
+                    section("PGN Preview") {
                         Text(generatedPGN)
-                            .font(DS.monoSmall)
-                            .foregroundColor(DS.textSecondary)
-                            .padding(DS.spacingMD)
+                            .font(AnnFont.mono(11))
+                            .foregroundColor(DS.ink60)
+                            .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(DS.bgSecondary)
-                            .cornerRadius(DS.radiusMD)
+                            .background(DS.fieldBg)
+                            .cornerRadius(DS.rControl)
+                            .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                                .strokeBorder(DS.hairline, lineWidth: 1))
                             .lineLimit(8)
                     }
                 }
-                .padding(DS.spacingLG)
+                .padding(24)
             }
 
-            Divider()
-
             // Actions
-            HStack(spacing: DS.spacingMD) {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .buttonStyle(GlassButtonStyle())
-                .keyboardShortcut(.cancelAction)
+            HStack(spacing: 10) {
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(GlassButtonStyle())
+                    .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
-                Button("Export to File...") {
-                    exportToFile()
-                }
-                .buttonStyle(GlassButtonStyle())
+                Button("Export to File…") { exportToFile() }
+                    .buttonStyle(GlassButtonStyle())
 
-                Button("Save to Library") {
-                    saveToLibrary()
-                }
-                .buttonStyle(GlassPrimaryButtonStyle())
-                .keyboardShortcut(.return, modifiers: [])
+                Button("Save to Library") { saveToLibrary() }
+                    .buttonStyle(GlassPrimaryButtonStyle())
+                    .keyboardShortcut(.return, modifiers: [])
             }
-            .padding(DS.spacingLG)
+            .padding(.horizontal, 24).padding(.vertical, 16)
+            .overlay(alignment: .top) { hairline }
         }
-        .frame(width: 500, height: 550)
+        .frame(width: 500, height: 560)
+        .background(DS.paper)
         .alert("Game Saved", isPresented: $showingSaveSuccess) {
             Button("OK") { dismiss() }
         } message: {
             Text("The game has been saved to your library.")
         }
+    }
+
+    // MARK: - Annotator form pieces
+
+    private var hairline: some View { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(AnnFont.label(10)).tracking(10 * 0.14).foregroundColor(DS.ink40)
+            content()
+        }
+    }
+
+    private func field<Content: View>(_ caption: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(caption.uppercased())
+                .font(AnnFont.label(9)).tracking(9 * 0.12).foregroundColor(DS.ink40)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func annTextField(_ placeholder: String, _ text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(AnnFont.serif(13.5)).foregroundColor(DS.ink)
+            .padding(.horizontal, 12).frame(height: 36)
+            .background(DS.fieldBg)
+            .cornerRadius(DS.rControl)
+            .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
+                .strokeBorder(DS.hairline, lineWidth: 1))
     }
 
     // MARK: - Helpers
