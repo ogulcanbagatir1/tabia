@@ -300,13 +300,6 @@ struct DatabaseBrowserView: View {
                                    isSelected: navigation == .reference) { navigation = .reference }
                     }
 
-                    Rectangle().fill(DS.hairline).frame(height: 1).padding(.vertical, 12).padding(.horizontal, 12)
-
-                    AnnLabel("Smart Sets", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
-                        .padding(.horizontal, 12).padding(.bottom, 8)
-                    smartRow("Reviewed games")
-                    smartRow("Losses out of book")
-                    smartRow("This month")
                 }
                 .padding(.horizontal, 8)
             }
@@ -351,15 +344,6 @@ struct DatabaseBrowserView: View {
         .buttonStyle(.plain)
     }
 
-    private func smartRow(_ name: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "line.3.horizontal.decrease.circle").font(.system(size: 12))
-                .foregroundColor(DS.ink40).frame(width: 18)
-            Text(name).font(AnnFont.serif(13, .regular)).foregroundColor(DS.ink60)
-            Spacer()
-        }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-    }
 
     private var rootView: some View {
         VStack(spacing: 0) {
