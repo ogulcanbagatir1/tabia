@@ -80,25 +80,19 @@ struct TabiaApp: App {
 
             // File menu
             CommandGroup(replacing: .newItem) {
-                Button("New Game") {
-                    // TODO: Implement new game
-                }
+                Button("New Game") { NotificationCenter.default.post(name: .tabiaNewGame, object: nil) }
                 .keyboardShortcut("n", modifiers: .command)
             }
-            
+
             CommandMenu("File") {
-                Button("Open PGN...") {
-                    // TODO: Implement open PGN
-                }
+                Button("Open PGN...") { NotificationCenter.default.post(name: .tabiaOpenPGN, object: nil) }
                 .keyboardShortcut("o", modifiers: .command)
-                
-                Button("Save PGN...") {
-                    // TODO: Implement save PGN
-                }
+
+                Button("Save PGN...") { NotificationCenter.default.post(name: .tabiaSavePGN, object: nil) }
                 .keyboardShortcut("s", modifiers: .command)
-                
+
                 Divider()
-                
+
                 Button("Import PGN Database...") {
                     let panel = NSOpenPanel()
                     panel.allowsMultipleSelection = false
@@ -112,77 +106,55 @@ struct TabiaApp: App {
                     }
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
-                
-                Button("Export Game...") {
-                    // TODO: Implement export
-                }
+
+                Button("Export Game...") { NotificationCenter.default.post(name: .tabiaExportGame, object: nil) }
             }
-            
+
             // Edit menu
             CommandMenu("Edit") {
-                Button("Copy FEN") {
-                    // TODO: Copy FEN to clipboard
-                }
+                Button("Copy FEN") { NotificationCenter.default.post(name: .tabiaCopyFEN, object: nil) }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
-                
-                Button("Paste FEN") {
-                    // TODO: Paste FEN from clipboard
-                }
+
+                Button("Paste FEN") { NotificationCenter.default.post(name: .tabiaPasteFEN, object: nil) }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
-                
+
                 Divider()
-                
-                Button("Flip Board") {
-                    // TODO: Implement flip board
-                }
-                .keyboardShortcut("f", modifiers: .command)
+
+                Button("Flip Board") { NotificationCenter.default.post(name: .tabiaFlipBoard, object: nil) }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
             }
-            
+
             // Analysis menu
             CommandMenu("Analysis") {
-                Button("Start Engine") {
-                    // TODO: Start engine
-                }
-                .keyboardShortcut("e", modifiers: .command)
+                // ⌘E opens the Engine Room (EngineRoomCommands); engine start/stop stay shortcut-light
+                // so they don't collide with it.
+                Button("Start Engine") { NotificationCenter.default.post(name: .tabiaStartEngine, object: nil) }
 
-                Button("Stop Engine") {
-                    // TODO: Stop engine
-                }
+                Button("Stop Engine") { NotificationCenter.default.post(name: .tabiaStopEngine, object: nil) }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
 
                 Divider()
 
-                Button("Analyze Position") {
-                    // TODO: Analyze current position
-                }
-                .keyboardShortcut("a", modifiers: .command)
+                // ⌥⌘A, not ⌘A — a plain ⌘A menu item would hijack Select All in every text field.
+                Button("Analyze Position") { NotificationCenter.default.post(name: .tabiaAnalyzePosition, object: nil) }
+                .keyboardShortcut("a", modifiers: [.command, .option])
 
-                Button("Show Best Move") {
-                    // TODO: Show best move
-                }
+                Button("Show Best Move") { NotificationCenter.default.post(name: .tabiaShowBestMove, object: nil) }
                 .keyboardShortcut("b", modifiers: .command)
             }
-            
+
             // Navigation menu
             CommandMenu("Navigate") {
-                Button("Go to Start") {
-                    // TODO: Go to start
-                }
+                Button("Go to Start") { NotificationCenter.default.post(name: .tabiaGoToStart, object: nil) }
                 .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
-                
-                Button("Previous Move") {
-                    // TODO: Previous move
-                }
+
+                Button("Previous Move") { NotificationCenter.default.post(name: .tabiaPreviousMove, object: nil) }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
-                
-                Button("Next Move") {
-                    // TODO: Next move
-                }
+
+                Button("Next Move") { NotificationCenter.default.post(name: .tabiaNextMove, object: nil) }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
-                
-                Button("Go to End") {
-                    // TODO: Go to end
-                }
+
+                Button("Go to End") { NotificationCenter.default.post(name: .tabiaGoToEnd, object: nil) }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             }
         }

@@ -1,5 +1,7 @@
 import SwiftUI
 import AppKit
+import Combine
+import UniformTypeIdentifiers
 
 struct MainWindowView: View {
     @StateObject private var board = ChessBoard()
@@ -141,6 +143,9 @@ struct MainWindowView: View {
             startEngineIfConfigured()
             updateCurrentOpening()
         }
+        // Menu-bar commands (posted from the Scene-level command set) run here in view context.
+        // Merged into one subscription so the type-checker stays fast.
+        .onReceive(Self.menuCommandPublisher) { note in handleMenuCommand(note.name) }
         .onChange(of: gameTree.currentNode.id) { _, _ in
             syncBoardWithGameTree()
             updateCurrentOpening()
@@ -577,6 +582,79 @@ struct MainWindowView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             evaluatePositionNow()
         }
+    }
+
+    /// All menu-command notifications merged into one publisher (keeps the body's type-check cheap).
+    private static let menuCommandPublisher = Publishers.MergeMany(
+        [Notification.Name.tabiaNewGame, .tabiaOpenPGN, .tabiaSavePGN, .tabiaExportGame,
+         .tabiaCopyFEN, .tabiaPasteFEN, .tabiaFlipBoard, .tabiaStartEngine, .tabiaStopEngine,
+         .tabiaAnalyzePosition, .tabiaShowBestMove, .tabiaGoToStart, .tabiaPreviousMove,
+         .tabiaNextMove, .tabiaGoToEnd].map { NotificationCenter.default.publisher(for: $0) }
+    )
+
+    private func handleMenuCommand(_ name: Notification.Name) {
+        switch name {
+        case .tabiaNewGame:        resetGame(); activeScreen = .analysis
+        case .tabiaOpenPGN:        openPGNFromPanel()
+        case .tabiaSavePGN:        savePGNToFile()
+        case .tabiaExportGame:     showingSaveSheet = true
+        case .tabiaCopyFEN:
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(board.getFEN(), forType: .string)
+        case .tabiaPasteFEN:       pasteFEN()
+        case .tabiaFlipBoard:      isBoardFlipped.toggle()
+        case .tabiaStartEngine:    startEngineIfConfigured()
+        case .tabiaStopEngine:     multiEngine.stopAll()
+        case .tabiaAnalyzePosition: activeScreen = .analysis; evaluatePositionNow()
+        case .tabiaShowBestMove:   settings.showBestMoveArrow.toggle()
+        case .tabiaGoToStart:      gameTree.goToStart(); syncBoardWithGameTree()
+        case .tabiaPreviousMove:   _ = gameTree.goBack(); syncBoardWithGameTree()
+        case .tabiaNextMove:       _ = gameTree.goForward(); syncBoardWithGameTree()
+        case .tabiaGoToEnd:        gameTree.goToEnd(); syncBoardWithGameTree()
+        default:                   break
+        }
+    }
+
+    /// Open a PGN file into the current game (menu: Open PGN…).
+    private func openPGNFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if let t = UTType(filenameExtension: "pgn") { panel.allowedContentTypes = [t, .plainText] }
+        panel.message = "Choose a PGN file to open"
+        guard panel.runModal() == .OK, let url = panel.url,
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        loadGameFromPGN(text)
+        activeScreen = .analysis
+    }
+
+    /// Write the current game to a .pgn file (menu: Save PGN…).
+    private func savePGNToFile() {
+        let panel = NSSavePanel()
+        if let t = UTType(filenameExtension: "pgn") { panel.allowedContentTypes = [t] }
+        panel.nameFieldStringValue = "game.pgn"
+        panel.message = "Save the current game as PGN"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        var headers: [String: String] = [:]
+        if !whiteName.isEmpty { headers["White"] = whiteName }
+        if !blackName.isEmpty { headers["Black"] = blackName }
+        try? gameTree.toPGN(headers: headers).write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Load a FEN from the clipboard as a fresh game (menu: Paste FEN).
+    private func pasteFEN() {
+        guard let fen = NSPasteboard.general.string(forType: .string)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !fen.isEmpty,
+              ChessBoard().loadFEN(fen) else { return }   // validate before applying
+        let fresh = GameTree(fen: fen)
+        gameTree.root = fresh.root
+        gameTree.currentNode = fresh.root
+        gameTree.rebuildMainLine()
+        currentGameId = nil
+        gameAnalyzer.reset()
+        gameTree.goToStart()
+        syncBoardWithGameTree()
+        activeScreen = .analysis
     }
 
     private func loadGameFromPGN(_ pgn: String) {
