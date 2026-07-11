@@ -94,18 +94,32 @@ final class DatabaseIndex: ObservableObject {
                 try? FileManager.default.removeItem(atPath: base + suffix)
             }
 
+            // Stream the games through a temp PGN file so peak memory stays flat on big databases:
+            // we never hold the whole concatenated PGN (or all parsed games) in memory at once.
+            let tmpURL = URL(fileURLWithPath: base + ".import.pgn")
+            try? FileManager.default.removeItem(at: tmpURL)
+            FileManager.default.createFile(atPath: tmpURL.path, contents: nil)
+            if let handle = try? FileHandle(forWritingTo: tmpURL) {
+                let sep = Data("\n\n".utf8)
+                for pgn in pgns {
+                    handle.write(Data(pgn.utf8))
+                    handle.write(sep)
+                }
+                try? handle.close()
+            }
+
             do {
                 let store = try GameStore(path: base)
                 let ingestor = Ingestor(store: store)
                 ingestor.maxIndexPly = self.maxIndexPly
-                let games = PGNParser().parse(string: pgns.joined(separator: "\n\n"))
-                ingestor.ingest(games: games, flushEvery: 500) { done in
+                _ = ingestor.ingest(streamingFileURL: tmpURL, flushEvery: 5000) { done in
                     DispatchQueue.main.async { self.indexProgress = min(done, self.indexTotal) }
                 }
                 store.createIndexes()
             } catch {
                 // A failed build just leaves the folder unindexed.
             }
+            try? FileManager.default.removeItem(at: tmpURL)
 
             DispatchQueue.main.async {
                 self.indexProgress = self.indexTotal
@@ -114,6 +128,29 @@ final class DatabaseIndex: ObservableObject {
                 self.revision += 1
                 completion?()
             }
+        }
+    }
+
+    // MARK: - Queued builds (index several databases back-to-back, e.g. from the explorer)
+
+    private var buildQueue: [(folderId: UUID, pgns: [String], sourceCount: Int)] = []
+
+    /// Number of databases still waiting in the build queue (excludes the one building now).
+    var queuedCount: Int { buildQueue.count }
+
+    /// Queue a build; if nothing is building, it starts immediately, otherwise it runs after the
+    /// current one finishes. Skips folders already queued or building.
+    func enqueueBuild(folderId: UUID, pgns: [String], sourceCount: Int) {
+        guard folderId != indexingFolderId, !buildQueue.contains(where: { $0.folderId == folderId }) else { return }
+        buildQueue.append((folderId, pgns, sourceCount))
+        startNextQueuedBuild()
+    }
+
+    private func startNextQueuedBuild() {
+        guard indexingFolderId == nil, !buildQueue.isEmpty else { return }
+        let job = buildQueue.removeFirst()
+        buildIndex(folderId: job.folderId, pgns: job.pgns, sourceCount: job.sourceCount) { [weak self] in
+            self?.startNextQueuedBuild()
         }
     }
 

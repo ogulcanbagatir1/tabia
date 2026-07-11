@@ -100,6 +100,10 @@ struct LibraryExplorerView: View {
                 .fill(DS.glassSeparator)
                 .frame(height: 1)
 
+            if searchText.isEmpty && (!unindexedSelectedFolders.isEmpty || dbIndex.isIndexing || dbIndex.queuedCount > 0) {
+                unindexedHint
+            }
+
             if !searchText.isEmpty {
                 OpeningSearchResultsList(
                     openingBook: openingBook,
@@ -110,6 +114,52 @@ struct LibraryExplorerView: View {
             } else {
                 libraryBody
             }
+        }
+    }
+
+    /// Selected databases (real folders) that have games but no opening index yet.
+    private var unindexedSelectedFolders: [GameFolder] {
+        let ids = Set(selectedFolderIds.compactMap { $0 })
+        return database.folders.filter {
+            ids.contains($0.id) && !dbIndex.isIndexed($0.id) && database.gamesInFolderCount($0.id) > 0
+        }
+    }
+
+    /// A quiet nudge that selected databases aren't indexed (so search is capped + recomputed),
+    /// with a one-tap build that queues them through the shared index pipeline.
+    private var unindexedHint: some View {
+        let folders = unindexedSelectedFolders
+        let building = dbIndex.isIndexing || dbIndex.queuedCount > 0
+        return HStack(spacing: 10) {
+            Image(systemName: building ? "hourglass" : "bolt.badge.clock")
+                .font(.system(size: 13)).foregroundColor(DS.redAccent)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(building ? "INDEXING DATABASES"
+                     : "\(folders.count) DATABASE\(folders.count == 1 ? "" : "S") NOT INDEXED")
+                    .font(AnnFont.label(9.5)).tracking(9.5 * 0.12).foregroundColor(DS.ink60)
+                Text(building ? "\(dbIndex.queuedCount) queued — the explorer updates as each finishes."
+                     : "Build an index to search them instantly, with no game cap.")
+                    .font(AnnFont.voice(11.5)).foregroundColor(DS.ink40).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            if building {
+                ProgressView().controlSize(.small).tint(DS.redAccent)
+            } else {
+                Button(action: buildSelectedIndexes) { Text("Build") }
+                    .buttonStyle(GlassButtonStyle())
+            }
+        }
+        .padding(.horizontal, DS.spacingMD).padding(.vertical, 8)
+        .background(DS.redAccent.opacity(0.06))
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    private func buildSelectedIndexes() {
+        for folder in unindexedSelectedFolders {
+            let games = database.gamesInFolder(folder.id)
+            let pgns = games.map(\.pgn).filter { !$0.isEmpty }
+            guard !pgns.isEmpty else { continue }
+            dbIndex.enqueueBuild(folderId: folder.id, pgns: pgns, sourceCount: games.count)
         }
     }
 
