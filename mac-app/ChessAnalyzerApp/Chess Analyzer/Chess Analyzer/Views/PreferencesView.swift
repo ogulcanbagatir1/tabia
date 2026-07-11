@@ -676,7 +676,7 @@ struct SettingsScreenView: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var selectedTab = 0
 
-    private let tabLabels = ["Appearance", "Engine", "Import"]
+    private let tabLabels = ["Appearance", "Engine", "About"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

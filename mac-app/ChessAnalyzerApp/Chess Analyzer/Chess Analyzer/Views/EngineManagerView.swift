@@ -434,46 +434,6 @@ struct EngineManagerView: View {
         )
     }
 
-    private func depthSlider(_ engine: EngineConfig) -> some View {
-        let lo = Double(EngineSettings.depthRange.lowerBound)
-        let hi = Double(EngineSettings.depthRange.upperBound)
-
-        return VStack(spacing: 6) {
-            HStack {
-                Text("Analysis Depth")
-                    .font(AnnFont.serif(12, .medium))
-                    .foregroundColor(DS.textPrimary)
-                Spacer()
-                Text("\(engine.settings.depth)")
-                    .font(AnnFont.mono(12, bold: true))
-                    .foregroundColor(DS.accent)
-            }
-
-            DesignSlider(
-                value: Double(engine.settings.depth),
-                range: lo...hi,
-                step: 1,
-                onChange: { val in
-                    var s = engine.settings
-                    s.depth = Int(val)
-                    settings.updateEngineSettings(id: engine.id, settings: s)
-                }
-            )
-
-            HStack {
-                Text("fast")
-                    .font(AnnFont.label(10))
-                    .tracking(10 * 0.1)
-                    .foregroundColor(DS.textMuted)
-                Spacer()
-                Text("deep")
-                    .font(AnnFont.label(10))
-                    .tracking(10 * 0.1)
-                    .foregroundColor(DS.textMuted)
-            }
-        }
-    }
-
     private func settingsSlider(label: String, value: Int, range: ClosedRange<Int>, onChange: @escaping (Int) -> Void) -> some View {
         VStack(spacing: 6) {
             if !label.isEmpty {
@@ -584,8 +544,6 @@ struct AddEngineSheet: View {
     var onEngineAdded: (EngineConfig) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    enum Tab { case download, local }
-    @State private var activeTab: Tab = .download
     @State private var selectedEntryId: String? = "stockfish"
     @State private var downloadedEntries: Set<String> = []
     @State private var downloadingEntryId: String?
@@ -671,22 +629,7 @@ struct AddEngineSheet: View {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
-            // Tab bar
-            HStack(spacing: 0) {
-                tabButton(label: "Download", icon: "arrow.down.circle", tab: .download)
-                tabButton(label: "Local", icon: "folder", tab: .local)
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-
-            if activeTab == .download {
-                downloadTabContent
-            } else {
-                localTabContent
-            }
+            downloadTabContent
 
             // Status bar
             if downloadService.isDownloading && !downloadService.statusText.isEmpty {
@@ -742,19 +685,16 @@ struct AddEngineSheet: View {
                 }
                 .buttonStyle(GlassButtonStyle())
 
-                if activeTab == .download {
-                    Button(action: downloadSelected) {
-                        Text("Download & Install")
-                    }
-                    .buttonStyle(GlassPrimaryButtonStyle())
-                    .disabled(selectedEntryId == nil || downloadService.isDownloading)
-                } else {
-                    Button(action: addLocalEngine) {
-                        Text("Add Engine")
-                    }
-                    .buttonStyle(GlassPrimaryButtonStyle())
-                    .disabled(localEnginePath.isEmpty)
+                if !localEnginePath.isEmpty {
+                    Button(action: addLocalEngine) { Text("Add Local Engine") }
+                        .buttonStyle(GlassButtonStyle())
                 }
+
+                Button(action: downloadSelected) {
+                    Text("Download & Install")
+                }
+                .buttonStyle(GlassPrimaryButtonStyle())
+                .disabled(selectedEntryId == nil || downloadService.isDownloading)
             }
             .padding(.horizontal, 24)
             .padding(.top, 16)
@@ -835,32 +775,6 @@ struct AddEngineSheet: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 12)
-    }
-
-    // MARK: - Tab Button
-
-    private func tabButton(label: String, icon: String, tab: Tab) -> some View {
-        Button(action: { activeTab = tab }) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                Text(label)
-                    .font(AnnFont.label(13))
-                    .tracking(13 * 0.1)
-            }
-            .foregroundColor(activeTab == tab ? DS.redAccent : DS.ink40)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-                if activeTab == tab {
-                    Rectangle()
-                        .fill(DS.redAccent)
-                        .frame(height: 2)
-                }
-            }
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Download Tab
@@ -953,69 +867,6 @@ struct AddEngineSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Local Tab
-
-    private var localTabContent: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Add a local engine")
-                    .font(AnnFont.serif(13, .medium))
-                    .foregroundColor(DS.textPrimary)
-
-                Text("Point to a UCI-compatible engine binary on your machine.")
-                    .font(AnnFont.serif(11))
-                    .foregroundColor(DS.textTertiary)
-
-                HStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "folder")
-                            .font(.system(size: 14))
-                            .foregroundColor(DS.textTertiary)
-
-                        if localEnginePath.isEmpty {
-                            Text("/usr/local/bin/stockfish")
-                                .font(AnnFont.mono(12))
-                                .foregroundColor(DS.textTertiary)
-                        } else {
-                            Text(localEnginePath)
-                                .font(AnnFont.mono(12))
-                                .foregroundColor(DS.textPrimary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 36)
-                    .frame(maxWidth: .infinity)
-                    .background(DS.bgElevated)
-                    .cornerRadius(6)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(DS.border, lineWidth: 1)
-                    )
-
-                    Button(action: browseForEngine) {
-                        Text("Browse...")
-                            .font(AnnFont.label(13))
-                            .tracking(13 * 0.1)
-                            .foregroundColor(DS.textPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(DS.bgTertiary)
-                            .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-
-            Spacer(minLength: 0)
-        }
     }
 
     // MARK: - Actions

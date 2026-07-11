@@ -62,7 +62,7 @@ BoardView (user click) → MoveGenerator (validate) → ChessBoard (update state
 - `GameRecord` — defined in `GameDatabase.swift`, contains headers, PGN, result, ECO code, tags
 
 ## Known Incomplete Areas
-- `StockfishEngine.start()`: Process execution is commented out
-- `MoveGenerator.leavesKingInCheck()`: Simplified stub
-- Menu commands in `TabiaApp.swift` (formerly `ChessAnalyzerApp.swift`): File I/O handlers are TODOs
-- Sliding piece attack detection is incomplete
+- Sliding-piece attack detection in `MoveGenerator` may still have gaps — audit before relying on check/pin edge cases.
+- No automated tests, linters, or formatters are configured.
+
+(Previously listed here but now implemented: `StockfishEngine.start()` launches the UCI process for real; `MoveGenerator.leavesKingInCheck()` is a full copy-board-and-test implementation; the macOS menu-bar commands in `ChessAnalyzerApp.swift` are wired to the window via `NotificationCenter` — see `Utils/AppCommands.swift`. There is no mock/piece-value evaluation fallback anymore — a missing engine just reports unavailable.)
