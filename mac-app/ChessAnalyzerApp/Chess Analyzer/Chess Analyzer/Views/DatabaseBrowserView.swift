@@ -1923,24 +1923,29 @@ struct NewDatabaseSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Text("Create New Database")
-                    .font(AnnFont.serif(16, .semibold))
-                    .foregroundColor(DS.textPrimary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    (Text("New ").font(AnnFont.serif(18, .semibold))
+                     + Text("Database").font(AnnFont.voice(18)))
+                        .foregroundColor(DS.ink)
+                    Text("Download the master reference, or start your own from PGN files.")
+                        .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
+                }
 
                 Spacer()
 
                 Button(action: { onCancel() }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DS.textTertiary)
-                        .frame(width: 28, height: 28)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(DS.ink40)
+                        .frame(width: 26, height: 26)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 20)
+            .padding(.top, 22)
+            .padding(.bottom, 18)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
@@ -1997,10 +2002,10 @@ struct NewDatabaseSheet: View {
                 }
 
                 // Name field
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Database Name")
-                        .font(AnnFont.serif(13, .medium))
-                        .foregroundColor(DS.textPrimary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("DATABASE NAME")
+                        .font(AnnFont.label(10)).tracking(10 * 0.14)
+                        .foregroundColor(DS.ink40)
 
                     TextField("My Tournament Games", text: $name)
                         .textFieldStyle(.plain)
@@ -2016,10 +2021,10 @@ struct NewDatabaseSheet: View {
                 }
 
                 // Import PGN section
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Import PGN")
-                        .font(AnnFont.serif(13, .medium))
-                        .foregroundColor(DS.textPrimary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("IMPORT PGN  ·  OPTIONAL")
+                        .font(AnnFont.label(10)).tracking(10 * 0.14)
+                        .foregroundColor(DS.ink40)
 
                     if pgnURLs.isEmpty {
                         // Drop zone
@@ -2099,36 +2104,20 @@ struct NewDatabaseSheet: View {
             Spacer()
 
             // Footer
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Spacer()
 
-                Button(action: { onCancel() }) {
-                    Text("Cancel")
-                        .font(AnnFont.label(12))
-                        .tracking(12 * 0.1)
-                        .foregroundColor(DS.textSecondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(DS.bgTertiary)
-                        .cornerRadius(DS.radiusSM)
-                }
-                .buttonStyle(.plain)
+                Button(action: { onCancel() }) { Text("Cancel") }
+                    .buttonStyle(GlassButtonStyle())
 
                 Button(action: {
                     let trimmed = name.trimmingCharacters(in: .whitespaces)
                     let finalName = trimmed.isEmpty ? "Untitled" : trimmed
                     onCreate(finalName, pgnURLs)
                 }) {
-                    Text(pgnURLs.isEmpty ? "Create" : "Create & Import")
-                        .font(AnnFont.label(12))
-                        .tracking(12 * 0.1)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(name.trimmingCharacters(in: .whitespaces).isEmpty ? DS.accent.opacity(0.5) : DS.accent)
-                        .cornerRadius(DS.radiusSM)
+                    Text(pgnURLs.isEmpty ? "Create Database" : "Create & Import")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(.horizontal, 24)
@@ -2140,11 +2129,11 @@ struct NewDatabaseSheet: View {
             }  // end else (form section)
         }
         .frame(width: 480)
-        .background(DS.bgElevated)
-        .clipShape(RoundedRectangle(cornerRadius: DS.radiusLG))
+        .background(DS.paper)
+        .clipShape(RoundedRectangle(cornerRadius: DS.rWindow, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: DS.radiusLG)
-                .strokeBorder(DS.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: DS.rWindow, style: .continuous)
+                .strokeBorder(DS.borderStrong, lineWidth: 1)
         )
         .fileImporter(
             isPresented: $showingFilePicker,
