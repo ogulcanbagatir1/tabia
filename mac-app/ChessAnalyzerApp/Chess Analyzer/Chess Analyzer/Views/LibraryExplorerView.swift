@@ -36,6 +36,11 @@ struct LibraryExplorerView: View {
     @State private var referenceResult = ReferenceExplorerResult()
     @State private var showingIndexing = false
 
+    // Selected databases that have a built opening index are served by the SQL explorer (fast,
+    // uncapped, transposition-aware) instead of the in-memory aggregation.
+    @ObservedObject private var dbIndex = DatabaseIndex.shared
+    @State private var databaseIndexResult = ReferenceExplorerResult()
+
     // The modifier chain is split across `body`/`baseView` so each `some View` expression stays
     // small enough for the SwiftUI type-checker (a long single chain trips its timeout).
     var body: some View {
@@ -45,6 +50,11 @@ struct LibraryExplorerView: View {
             }
             .onChange(of: referenceDatabase.indexedGameCount) { _, _ in
                 queryReference()
+            }
+            .onChange(of: dbIndex.revision) { _, _ in
+                // A database finished (re)indexing — re-aggregate so it appears/updates in the explorer.
+                queryDatabaseIndex()
+                prepareAndAnalyze()
             }
             .sheet(isPresented: $showingIndexing) {
                 IndexingSheet(referenceDB: referenceDatabase) { showingIndexing = false }
@@ -68,13 +78,16 @@ struct LibraryExplorerView: View {
                     analyzeCurrentPosition()
                 }
                 queryReference()
+                queryDatabaseIndex()
             }
             .onChange(of: currentSANs) { _, _ in
                 analyzeCurrentPosition()
                 queryReference()
+                queryDatabaseIndex()
             }
             .onChange(of: selectedFolderIds) { _, _ in
                 prepareAndAnalyze()
+                queryDatabaseIndex()
             }
     }
 
@@ -301,12 +314,31 @@ struct LibraryExplorerView: View {
             let remaining = cap - games.count
             guard remaining > 0 else { break }
             if let folderId = id {
+                // Indexed databases are served by the SQL opening index, not the in-memory path.
+                if dbIndex.isIndexed(folderId) { continue }
                 games.append(contentsOf: database.gamesInFolder(folderId, limit: remaining))
             } else {
                 games.append(contentsOf: database.unfiledGames(limit: remaining))
             }
         }
         return games
+    }
+
+    /// Selected databases that have a built opening index (queried via SQL, like the reference DB).
+    private var indexedSelectedFolderIds: [UUID] {
+        selectedFolderIds.compactMap { $0 }.filter { dbIndex.isIndexed($0) }
+    }
+
+    /// Re-query the indexed databases' opening index for the current position (transposition-aware).
+    private func queryDatabaseIndex() {
+        let ids = indexedSelectedFolderIds
+        guard !ids.isEmpty else {
+            if databaseIndexResult.total != 0 || !databaseIndexResult.moves.isEmpty {
+                databaseIndexResult = ReferenceExplorerResult()
+            }
+            return
+        }
+        databaseIndexResult = dbIndex.explorer(folderIds: ids, board: board)
     }
 
     // MARK: - Reference DB merge
@@ -336,7 +368,11 @@ struct LibraryExplorerView: View {
         // stale library count with the fresh reference result would show wrong cross-position
         // totals, so drop the library side until it catches up (reference-only, always current).
         // The library-only path keeps its original behaviour (brief stale data while loading).
-        let libraryValid = !(includeReference && explorerService.isLoading)
+        // Both the reference DB and any indexed databases are always-current SQL sides. While the
+        // in-memory library is re-aggregating, summing its stale counts with a fresh SQL side would
+        // show wrong cross-position totals, so drop the library side until it catches up.
+        let hasSqlSide = includeReference || !indexedSelectedFolderIds.isEmpty
+        let libraryValid = !(hasSqlSide && explorerService.isLoading)
         if libraryValid, let r = explorerService.response {
             m.white = r.whiteWins
             m.draw = r.draws
@@ -344,28 +380,36 @@ struct LibraryExplorerView: View {
             m.moves = r.moves
             m.sampleGames = r.sampleGames
         }
-        guard includeReference, referenceResult.total > 0 else { return m }
 
-        // NOTE: the two sides count games slightly differently — the reference index only stores
-        // a row *before* each move, so a game that ENDS exactly at this position isn't in the
-        // reference totals, whereas the library counts it. The gap is games terminating on the
-        // current position (≈0 for openings), so the merged header can marginally undercount the
-        // reference side. Reconciling would require re-indexing the reference DB, so we accept it.
-        m.white += referenceResult.white
-        m.draw += referenceResult.draw
-        m.black += referenceResult.black
+        if includeReference { mergeResult(referenceResult, into: &m) }
+        mergeResult(databaseIndexResult, into: &m)
 
-        // Sum reference per-move counts into the library moves, then append reference-only moves.
+        m.moves.sort { $0.totalGames > $1.totalGames }
+        return m
+    }
+
+    /// Fold a SQL explorer result (reference DB or an indexed database) into the merged view.
+    ///
+    /// NOTE: the two sides count games slightly differently — the position index only stores a row
+    /// *before* each move, so a game that ENDS exactly at this position isn't in the SQL totals,
+    /// whereas the in-memory library counts it. The gap is games terminating on the current position
+    /// (≈0 for openings), so the merged header can marginally undercount the SQL side. We accept it.
+    private func mergeResult(_ result: ReferenceExplorerResult, into m: inout MergedExplorer) {
+        guard result.total > 0 else { return }
+        m.white += result.white
+        m.draw += result.draw
+        m.black += result.black
+
         // Match by UCI first; fall back to normalized SAN because the library stores a raw SAN as
         // the "uci" when NotationEngine can't parse it (e.g. nonstandard castling) — that bogus key
-        // would never equal the reference's real UCI, splitting one move across two rows.
+        // would never equal the real UCI, splitting one move across two rows.
         var indexByUci: [String: Int] = [:]
         var indexBySan: [String: Int] = [:]
         for (i, mv) in m.moves.enumerated() {
             indexByUci[mv.uci] = i
             indexBySan[Self.normalizedSAN(mv.san)] = i
         }
-        for e in referenceResult.moves {
+        for e in result.moves {
             if let i = indexByUci[e.uci] ?? indexBySan[Self.normalizedSAN(e.san)] {
                 m.moves[i].whiteWins += e.white
                 m.moves[i].draws += e.draw
@@ -381,8 +425,6 @@ struct LibraryExplorerView: View {
                 m.moves.append(nm)
             }
         }
-        m.moves.sort { $0.totalGames > $1.totalGames }
-        return m
     }
 
     /// Canonicalize a SAN for cross-source matching: drop check/mate marks and unify castling

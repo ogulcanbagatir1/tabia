@@ -368,7 +368,7 @@ final class ReferenceDatabase: ObservableObject {
     // MARK: - Helpers
 
     /// Decode a 16-bit move code (from|to<<6|promo<<12) back to a UCI string.
-    private static func uci(from code: Int32) -> String {
+    static func uci(from code: Int32) -> String {
         let c = Int(code)
         let from = c & 0x3F, to = (c >> 6) & 0x3F
         let promo = (c >> 12) & 0x7

@@ -3,9 +3,11 @@ import SwiftUI
 struct DatabaseBrowserView: View {
     @EnvironmentObject var database: GameDatabase
     @EnvironmentObject var referenceDatabase: ReferenceDatabase
+    @ObservedObject private var dbIndex = DatabaseIndex.shared
     var onGameSelected: (GameRecord) -> Void
     var onReferenceGameSelected: (String) -> Void = { _ in }
 
+    @State private var indexingFolder: GameFolder?
     @State private var navigation: Navigation = .allGames
     @State private var selectedGameIds: Set<UUID> = []
     @State private var selectedGame: GameRecord?
@@ -196,6 +198,7 @@ struct DatabaseBrowserView: View {
         .alert("Delete Database", isPresented: $showingDeleteFolderAlert) {
             Button("Delete", role: .destructive) {
                 if let folder = folderToDelete {
+                    dbIndex.removeIndex(folderId: folder.id)
                     database.deleteFolder(folder, deleteGames: true)
                     navigation = .allGames
                 }
@@ -204,6 +207,9 @@ struct DatabaseBrowserView: View {
             Button("Cancel", role: .cancel) { folderToDelete = nil }
         } message: {
             Text("This will permanently delete this database and all its games.")
+        }
+        .sheet(item: $indexingFolder) { folder in
+            DatabaseIndexProgressSheet(folderName: folder.name) { indexingFolder = nil }
         }
         .confirmationDialog(
             "Export \"\(exportingFolder?.name ?? "")\"",
@@ -271,8 +277,13 @@ struct DatabaseBrowserView: View {
 
                     ForEach(database.folders.sorted { $0.name < $1.name }, id: \.id) { folder in
                         sidebarRow(icon: "cylinder", name: folder.name, count: database.gamesInFolderCount(folder.id),
+                                   subtitle: folderIndexSubtitle(folder),
                                    isSelected: navigation == .folder(folder.id)) { navigation = .folder(folder.id) }
                             .contextMenu {
+                                Button(dbIndex.isIndexed(folder.id) ? "Rebuild Opening Index" : "Build Opening Index") {
+                                    startIndexing(folder)
+                                }
+                                .disabled(dbIndex.isIndexing)
                                 Button("Rename…") { newFolderName = folder.name; renamingFolder = folder }
                                 Button("Export…") { exportingFolder = folder; showingExportFormatPicker = true }
                                 Divider()
@@ -787,6 +798,45 @@ struct DatabaseBrowserView: View {
         case whitePlayer, blackPlayer, event, opening
     }
 
+    // MARK: - Opening index (per-database)
+
+    private func folderIndexSubtitle(_ folder: GameFolder) -> String? {
+        if dbIndex.indexingFolderId == folder.id { return "indexing…" }
+        return dbIndex.isIndexed(folder.id) ? "indexed" : nil
+    }
+
+    @ViewBuilder
+    private func indexToolbarButton(_ folder: GameFolder) -> some View {
+        let building = dbIndex.indexingFolderId == folder.id
+        let indexed = dbIndex.isIndexed(folder.id)
+        Button(action: { startIndexing(folder) }) {
+            HStack(spacing: 6) {
+                if building {
+                    ProgressView().controlSize(.small).tint(DS.redAccent)
+                } else {
+                    Image(systemName: indexed ? "checkmark.seal" : "square.stack.3d.up").font(.system(size: 14))
+                }
+                Text(building ? "Indexing…" : (indexed ? "Reindex" : "Build Index"))
+                    .font(AnnFont.label(12)).tracking(12 * 0.1)
+            }
+            .foregroundColor(indexed ? DS.ink60 : DS.ink)
+            .padding(.vertical, 6).padding(.horizontal, 14)
+            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(dbIndex.isIndexing)
+        .help(indexed ? "Rebuild the opening index for this database" : "Index this database so it's searchable in the Opening Explorer")
+    }
+
+    private func startIndexing(_ folder: GameFolder) {
+        guard !dbIndex.isIndexing else { return }
+        let pgns = database.gamesInFolder(folder.id).map(\.pgn).filter { !$0.isEmpty }
+        guard !pgns.isEmpty else { return }
+        indexingFolder = folder
+        dbIndex.buildIndex(folderId: folder.id, pgns: pgns)
+    }
+
     // MARK: - Table Header Bar
 
     private var tableHeaderBar: some View {
@@ -797,6 +847,8 @@ struct DatabaseBrowserView: View {
             HStack(spacing: 8) {
                 if case .folder(let id) = navigation,
                    let folder = database.folders.first(where: { $0.id == id }) {
+                    indexToolbarButton(folder)
+
                     Button(action: {
                         folderToDelete = folder
                         showingDeleteFolderAlert = true
@@ -2191,4 +2243,67 @@ struct NewDatabaseSheet: View {
         .environmentObject(GameDatabase.preview())
         .environmentObject(ReferenceDatabase())
         .frame(width: 900, height: 600)
+}
+
+// MARK: - Opening Index Progress Sheet
+
+/// Progress while a database's opening index is built. Reuses the reference-DB pipeline per folder.
+struct DatabaseIndexProgressSheet: View {
+    let folderName: String
+    let onDone: () -> Void
+
+    @ObservedObject private var dbIndex = DatabaseIndex.shared
+
+    private var done: Bool { !dbIndex.isIndexing }
+    private var fraction: Double {
+        dbIndex.indexTotal > 0 ? min(1, Double(dbIndex.indexProgress) / Double(dbIndex.indexTotal)) : 0
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            VStack(alignment: .leading, spacing: 3) {
+                (Text("Opening ").font(AnnFont.serif(18, .semibold))
+                 + Text("Index").font(AnnFont.voice(18)))
+                    .foregroundColor(DS.ink)
+                Text(folderName).font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
+            }
+            .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 18)
+            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+            // Body
+            VStack(alignment: .leading, spacing: 14) {
+                Text(done
+                     ? "This database is now searchable in the Opening Explorer."
+                     : "Replaying games and hashing opening positions…")
+                    .font(AnnFont.voice(13.5)).foregroundColor(DS.ink60)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Progress track
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(DS.trackBg)
+                        Capsule().fill(DS.redInk)
+                            .frame(width: max(4, geo.size.width * (done ? 1 : fraction)))
+                    }
+                }
+                .frame(height: 6)
+
+                Text("\(dbIndex.indexProgress) / \(dbIndex.indexTotal) games")
+                    .font(AnnFont.mono(10)).foregroundColor(DS.ink40)
+            }
+            .padding(24)
+
+            // Footer
+            HStack {
+                Spacer()
+                Button(action: onDone) { Text(done ? "Done" : "Run in Background") }
+                    .buttonStyle(GlassPrimaryButtonStyle())
+            }
+            .padding(.horizontal, 24).padding(.vertical, 16)
+            .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
+        }
+        .frame(width: 440)
+        .background(DS.paper)
+    }
 }
