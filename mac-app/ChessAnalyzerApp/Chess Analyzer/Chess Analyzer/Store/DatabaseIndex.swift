@@ -46,10 +46,24 @@ final class DatabaseIndex: ObservableObject {
     /// True once a folder has a built index with at least one game.
     func isIndexed(_ folderId: UUID) -> Bool { indexedGameCount(folderId) > 0 }
 
-    /// Games present in the folder's opening index (0 = not indexed).
+    /// Games present in the folder's opening index (0 = not indexed). This is post-dedup, so it can
+    /// be lower than the source database's game count — use `isStale` for freshness, not this.
     func indexedGameCount(_ folderId: UUID) -> Int {
         guard fileExists(for: folderId) else { return 0 }
         return (try? readOnlyStore(folderId))?.gameCount ?? 0
+    }
+
+    /// Number of source games fed to the index when it was built (persisted). Compared against the
+    /// database's current game count to detect that games were added/removed since indexing.
+    private var sourceCounts: [String: Int] {
+        get { (UserDefaults.standard.dictionary(forKey: "dbIndexSourceCounts") as? [String: Int]) ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "dbIndexSourceCounts") }
+    }
+
+    /// True when the database has games added/removed since its index was built (index out of date).
+    func isStale(_ folderId: UUID, currentCount: Int) -> Bool {
+        guard isIndexed(folderId), let built = sourceCounts[folderId.uuidString] else { return false }
+        return built != currentCount
     }
 
     private func readOnlyStore(_ folderId: UUID) throws -> GameStore {
@@ -65,7 +79,7 @@ final class DatabaseIndex: ObservableObject {
 
     /// Build (or rebuild) the opening index for `folderId` from each game's full PGN string.
     /// Runs off the main thread; progress and completion are published on the main thread.
-    func buildIndex(folderId: UUID, pgns: [String], completion: (() -> Void)? = nil) {
+    func buildIndex(folderId: UUID, pgns: [String], sourceCount: Int, completion: (() -> Void)? = nil) {
         guard indexingFolderId == nil else { return }
         indexingFolderId = folderId
         indexProgress = 0
@@ -95,6 +109,7 @@ final class DatabaseIndex: ObservableObject {
 
             DispatchQueue.main.async {
                 self.indexProgress = self.indexTotal
+                self.sourceCounts[folderId.uuidString] = sourceCount
                 self.indexingFolderId = nil
                 self.revision += 1
                 completion?()
@@ -109,6 +124,9 @@ final class DatabaseIndex: ObservableObject {
         for suffix in ["", "-wal", "-shm"] {
             try? FileManager.default.removeItem(atPath: base + suffix)
         }
+        var counts = sourceCounts
+        counts[folderId.uuidString] = nil
+        sourceCounts = counts
         revision += 1
     }
 

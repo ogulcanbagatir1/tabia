@@ -800,41 +800,52 @@ struct DatabaseBrowserView: View {
 
     // MARK: - Opening index (per-database)
 
+    private func folderIsStale(_ folder: GameFolder) -> Bool {
+        dbIndex.isStale(folder.id, currentCount: database.gamesInFolderCount(folder.id))
+    }
+
     private func folderIndexSubtitle(_ folder: GameFolder) -> String? {
         if dbIndex.indexingFolderId == folder.id { return "indexing…" }
-        return dbIndex.isIndexed(folder.id) ? "indexed" : nil
+        guard dbIndex.isIndexed(folder.id) else { return nil }
+        return folderIsStale(folder) ? "index out of date" : "indexed"
     }
 
     @ViewBuilder
     private func indexToolbarButton(_ folder: GameFolder) -> some View {
         let building = dbIndex.indexingFolderId == folder.id
         let indexed = dbIndex.isIndexed(folder.id)
+        let stale = indexed && folderIsStale(folder)
         Button(action: { startIndexing(folder) }) {
             HStack(spacing: 6) {
                 if building {
                     ProgressView().controlSize(.small).tint(DS.redAccent)
                 } else {
-                    Image(systemName: indexed ? "checkmark.seal" : "square.stack.3d.up").font(.system(size: 14))
+                    Image(systemName: stale ? "exclamationmark.arrow.triangle.2.circlepath"
+                          : (indexed ? "checkmark.seal" : "square.stack.3d.up")).font(.system(size: 14))
                 }
-                Text(building ? "Indexing…" : (indexed ? "Reindex" : "Build Index"))
+                Text(building ? "Indexing…" : (stale ? "Update Index" : (indexed ? "Reindex" : "Build Index")))
                     .font(AnnFont.label(12)).tracking(12 * 0.1)
             }
-            .foregroundColor(indexed ? DS.ink60 : DS.ink)
+            .foregroundColor(stale ? DS.redAccent : (indexed ? DS.ink60 : DS.ink))
             .padding(.vertical, 6).padding(.horizontal, 14)
             .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(stale ? DS.redAccent.opacity(0.45) : DS.borderChip, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(dbIndex.isIndexing)
-        .help(indexed ? "Rebuild the opening index for this database" : "Index this database so it's searchable in the Opening Explorer")
+        .help(stale ? "This database changed since it was indexed — rebuild to include the new games"
+              : (indexed ? "Rebuild the opening index for this database"
+                 : "Index this database so it's searchable in the Opening Explorer"))
     }
 
     private func startIndexing(_ folder: GameFolder) {
         guard !dbIndex.isIndexing else { return }
-        let pgns = database.gamesInFolder(folder.id).map(\.pgn).filter { !$0.isEmpty }
+        let games = database.gamesInFolder(folder.id)
+        let pgns = games.map(\.pgn).filter { !$0.isEmpty }
         guard !pgns.isEmpty else { return }
         indexingFolder = folder
-        dbIndex.buildIndex(folderId: folder.id, pgns: pgns)
+        dbIndex.buildIndex(folderId: folder.id, pgns: pgns, sourceCount: games.count)
     }
 
     // MARK: - Table Header Bar
