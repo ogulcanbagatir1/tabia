@@ -402,6 +402,16 @@ struct MainWindowView: View {
                 .background(GlassBoardAreaBackground())
                 .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
                 .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                // Floating board controls — overlaid (absolute) so they never shift the board.
+                .overlay(alignment: .topTrailing) {
+                    HStack(spacing: 8) {
+                        boardIconButton("arrow.up.arrow.down", "Flip Board (⇧⌘F)") { isBoardFlipped.toggle() }
+                        boardIconButton("arrow.counterclockwise", "Reset Board (⌘N)") { resetGame() }
+                        boardIconButton("square.and.arrow.down", "Save Game (⌘S)") { showingSaveSheet = true }
+                    }
+                    .padding(.top, 16)
+                    .padding(.trailing, 20)
+                }
 
                 // Right sidebar — engine source + PV + Game Review + move list (opening lives in
                 // the left explorer, per the design — no "Starting Position" panel here).
