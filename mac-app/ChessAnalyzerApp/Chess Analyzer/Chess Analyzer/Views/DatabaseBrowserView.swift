@@ -269,8 +269,22 @@ struct DatabaseBrowserView: View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    AnnLabel("Library", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
-                        .padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 8)
+                    HStack {
+                        AnnLabel("Library", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
+                        Spacer()
+                        Button(action: { showingNewDatabaseSheet = true }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(DS.ink60)
+                                .frame(width: 20, height: 20)
+                                .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("New database")
+                    }
+                    .padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 8)
 
                     sidebarRow(icon: "tray.full", name: "All Games", count: database.libraryGameCount,
                                isSelected: navigation == .allGames) { navigation = .allGames }
