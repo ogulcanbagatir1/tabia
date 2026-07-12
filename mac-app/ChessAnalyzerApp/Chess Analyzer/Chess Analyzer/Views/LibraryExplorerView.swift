@@ -585,9 +585,15 @@ struct LibraryExplorerView: View {
         }
     }
 
+    private var moveNumberPrefix: String {
+        let n = currentMoves.count / 2 + 1
+        return currentMoves.count % 2 == 0 ? "\(n). " : "\(n)… "
+    }
+
     private func moveRow(_ move: LibraryMoveStats, isAlternate: Bool) -> some View {
         let isBook = openingBook.findNode(moves: currentMoves + [move.uci]) != nil
         return ExplorerMoveRow(
+            movePrefix: moveNumberPrefix,
             san: move.san,
             totalGames: move.totalGames,
             whitePercent: move.whitePercent,

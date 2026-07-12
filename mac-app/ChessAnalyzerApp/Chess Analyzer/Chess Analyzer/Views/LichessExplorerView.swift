@@ -82,11 +82,8 @@ struct LichessExplorerView: View {
                     stats: (response.white, response.draws, response.black)
                 )
 
-                // Moves table header
+                // Move rows (no column header — the section frames itself)
                 if !response.moves.isEmpty {
-                    movesTableHeader
-
-                    // Move rows
                     ForEach(Array(response.moves.enumerated()), id: \.element.id) { index, move in
                         moveRow(move, isAlternate: index % 2 == 0)
                     }
@@ -104,24 +101,15 @@ struct LichessExplorerView: View {
 
     private func openingInfoSection(totalGames: Int, stats: (white: Int, draws: Int, black: Int)) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Opening name — bold, prominent
             if let opening = resolvedOpening {
-                Text(opening.name)
-                    .font(AnnFont.serif(14, .semibold))
-                    .foregroundColor(DS.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text(formatGameCount(totalGames))
-                    .font(AnnFont.mono(11))
-                    .foregroundColor(DS.textTertiary)
-            } else {
-                Text(formatGameCount(totalGames))
-                    .font(AnnFont.mono(13, bold: true))
-                    .foregroundColor(DS.textPrimary)
+                openingTitle(opening.name, eco: opening.eco)
             }
 
-            // WDL bar
+            Text("\(formatNumber(totalGames)) games reach this tabia")
+                .font(AnnFont.voice(12))
+                .foregroundColor(DS.ink40)
+
+            // WDL bar (framed, with in-segment percentages)
             WDLStatsBar(
                 white: totalGames > 0 ? stats.white : 0,
                 draws: totalGames > 0 ? stats.draws : 0,
@@ -132,28 +120,48 @@ struct LichessExplorerView: View {
         .padding(.horizontal, 12)
     }
 
+    /// Editorial opening title: the family in serif, the specific variation in the italic voice,
+    /// plus a small ECO badge — e.g. "Ruy Lopez, Closed — *Chigorin Defence*  C98".
+    private func openingTitle(_ name: String, eco: String) -> some View {
+        let title: Text
+        if let comma = name.range(of: ",", options: .backwards) {
+            let main = String(name[..<comma.lowerBound])
+            let sub = name[comma.upperBound...].trimmingCharacters(in: .whitespaces)
+            title = Text(main).font(AnnFont.serif(15, .semibold))
+                + Text(" — ").font(AnnFont.serif(15)).foregroundColor(DS.ink40)
+                + Text(sub).font(AnnFont.voice(15))
+        } else {
+            title = Text(name).font(AnnFont.serif(15, .semibold))
+        }
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            title
+                .foregroundColor(DS.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if !eco.isEmpty {
+                Text(eco)
+                    .font(AnnFont.mono(10, bold: true)).foregroundColor(DS.ink40)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                    .fixedSize()
+            }
+        }
+    }
+
     // MARK: - Moves Table
 
-    private var movesTableHeader: some View {
-        HStack(spacing: 0) {
-            Text("Move")
-            Text("Games")
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            Text("W / D / L")
-                .frame(width: 80, alignment: .center)
-        }
-        .font(AnnFont.label(10, bold: false))
-        .foregroundColor(DS.textTertiary)
-        .kerning(0.5)
-        .textCase(.uppercase)
-        .padding(.horizontal, 12)
-        .frame(height: 26)
-        .background(DS.chrome)
+    /// "12. " for White to move, "12… " for Black — the move number the explorer's moves belong to.
+    private var moveNumberPrefix: String {
+        let n = currentMoves.count / 2 + 1
+        return currentMoves.count % 2 == 0 ? "\(n). " : "\(n)… "
     }
 
     private func moveRow(_ move: LichessMove, isAlternate: Bool) -> some View {
         let isBook = openingBook.findNode(moves: currentMoves + [move.uci]) != nil
         return ExplorerMoveRow(
+            movePrefix: moveNumberPrefix,
             san: move.san,
             totalGames: move.totalGames,
             whitePercent: move.whitePercent,
