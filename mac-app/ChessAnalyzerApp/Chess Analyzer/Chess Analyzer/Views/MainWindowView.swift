@@ -117,6 +117,8 @@ struct MainWindowView: View {
                     }, onReferenceGameSelected: { pgn in
                         loadGameFromPGN(pgn)
                         activeScreen = .analysis
+                    }, onReviewGame: { game in
+                        reviewGame(game)
                     })
                 case .repertoire:
                     RepertoireBrowserView()

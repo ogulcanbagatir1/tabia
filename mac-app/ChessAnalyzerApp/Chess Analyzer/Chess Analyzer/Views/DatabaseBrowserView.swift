@@ -6,6 +6,8 @@ struct DatabaseBrowserView: View {
     @ObservedObject private var dbIndex = DatabaseIndex.shared
     var onGameSelected: (GameRecord) -> Void
     var onReferenceGameSelected: (String) -> Void = { _ in }
+    /// Load the game into Analysis and immediately run a full game review.
+    var onReviewGame: (GameRecord) -> Void = { _ in }
 
     @State private var indexingFolder: GameFolder?
     @State private var navigation: Navigation = .allGames
@@ -1209,6 +1211,7 @@ struct DatabaseBrowserView: View {
                                 }
                                 .contextMenu {
                                     Button("Open") { onGameSelected(game) }
+                                    Button("Review Game") { onReviewGame(game) }
                                     Divider()
                                     moveToFolderMenu(gameIds: selectedGameIds.count > 1 ? selectedGameIds : [game.id])
                                     Divider()
@@ -1266,6 +1269,12 @@ struct DatabaseBrowserView: View {
     // Fixed columns: .frame(width: X, alignment: .leading)
     // Flex columns:  .frame(maxWidth: .infinity, alignment: .leading)
 
+    /// White accuracy for a reviewed library game (these games have no "you"), or "—".
+    private func libraryAccuracy(_ game: GameRecord) -> String {
+        guard let d = game.analysisData, d.whiteAccuracy > 0 else { return "—" }
+        return String(format: "%.1f", d.whiteAccuracy)
+    }
+
     private var tableHeader: some View {
         HStack(spacing: 0) {
             HStack(spacing: 4) { Text("White").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.white) }
@@ -1292,6 +1301,10 @@ struct DatabaseBrowserView: View {
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.event) }
+
+            Text("Acc").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary)
+                .padding(.horizontal, 8)
+                .frame(width: 70, alignment: .trailing)
 
             HStack(spacing: 4) { Text("Date").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.date) }
                 .padding(.horizontal, 8)
@@ -1339,6 +1352,26 @@ struct DatabaseBrowserView: View {
                 .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Accuracy — reviewed White accuracy, or a Review button to compute it
+            Group {
+                if game.analysisData != nil {
+                    Text(libraryAccuracy(game))
+                        .font(AnnFont.mono(11)).foregroundColor(DS.ink)
+                } else {
+                    Button(action: { onReviewGame(game) }) {
+                        Text("Review")
+                            .font(AnnFont.label(9)).tracking(0.3)
+                            .foregroundColor(DS.redAccent)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(width: 70, alignment: .trailing)
 
             Text(game.date.isEmpty ? formatDate(game.dateAdded) : game.date)
                 .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary).lineLimit(1)
