@@ -419,13 +419,34 @@ struct ChessComBrowserView: View {
         }
     }
 
+    /// The account owner's handle with its real display casing. Chess.com's public archive API
+    /// lowercases the handle (so the stored/typed name can be "bidiboy1"), but each game's PGN keeps
+    /// the true casing ("BidiBoy1") — recover it from a synced game where sourceUsername matches a side.
+    private var displayUsername: String {
+        let fallback = !savedUsername.isEmpty ? savedUsername : lichessUsername
+        for g in cachedGames.prefix(120) {
+            guard let src = g.sourceUsername?.lowercased(), !src.isEmpty else { continue }
+            if g.white.lowercased() == src { return g.white }
+            if g.black.lowercased() == src { return g.black }
+        }
+        // No sourceUsername match — try matching the stored handle directly.
+        let key = fallback.lowercased()
+        if !key.isEmpty {
+            for g in cachedGames.prefix(120) {
+                if g.white.lowercased() == key { return g.white }
+                if g.black.lowercased() == key { return g.black }
+            }
+        }
+        return fallback
+    }
+
     private var normalConnectedContent: some View {
         VStack(spacing: 0) {
             // Profile Header
             HStack(spacing: 14) {
                 // Avatar
                 HStack(spacing: 14) {
-                    let displayName = !savedUsername.isEmpty ? savedUsername : lichessUsername
+                    let displayName = displayUsername
                     ZStack {
                         Circle()
                             .fill(DS.paperRaised)
