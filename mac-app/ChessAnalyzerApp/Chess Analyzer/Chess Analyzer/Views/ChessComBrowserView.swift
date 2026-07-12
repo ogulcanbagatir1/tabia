@@ -109,6 +109,10 @@ struct ChessComBrowserView: View {
             }
             loadRatings()
         }
+        // Ratings are keyed off the games' account handle — (re)load once the games are in.
+        .onChange(of: cachedGames.count) { _, n in
+            if n > 0 && cachedRatings.isEmpty { loadRatings() }
+        }
         .onChange(of: filterTimeControl) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterResult) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterColor) { _, _ in scheduleReload(debounce: false) }
@@ -754,10 +758,21 @@ struct ChessComBrowserView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// The handle the chess.com games were actually synced under — the authoritative key for stats /
+    /// rating lookups. The stored/typed @AppStorage handle can drift (e.g. "bidiboy" vs the real
+    /// "bidiboy1"), so prefer the games' sourceUsername; fall back to the stored handle pre-load.
+    private var accountHandle: String {
+        for g in cachedGames.prefix(120) where !(g.sourceUsername ?? "").isEmpty {
+            return g.sourceUsername!
+        }
+        return !savedUsername.isEmpty ? savedUsername : lichessUsername
+    }
+
     private func loadRatings() {
+        let username = accountHandle
+        guard !username.isEmpty else { return }
         Task.detached {
             let db = database
-            let username = savedUsername
             guard let cached = db.fetchAllCachedStats(for: username) else { return }
             var ratings: [String: Int] = [:]
             for tc in ["bullet", "blitz", "rapid"] {
