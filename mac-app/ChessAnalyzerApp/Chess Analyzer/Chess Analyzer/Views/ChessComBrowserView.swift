@@ -448,35 +448,21 @@ struct ChessComBrowserView: View {
         VStack(spacing: 0) {
             // Profile Header
             HStack(spacing: 14) {
-                // Avatar
-                HStack(spacing: 14) {
-                    let displayName = displayUsername
-                    ZStack {
-                        Circle()
-                            .fill(DS.paperRaised)
-                            .frame(width: 44, height: 44)
-                            .overlay(
-                                Circle().strokeBorder(
-                                    DS.hairline,
-                                    lineWidth: 1
-                                )
-                            )
-                        Text(String(displayName.prefix(1)).uppercased())
-                            .font(AnnFont.serif(18, .semibold))
-                            .foregroundColor(DS.ink)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(displayName)
-                            .font(AnnFont.serif(16, .semibold))
-                            .foregroundColor(DS.ink)
-                        Text("Last synced \(lastSyncString)")
-                            .font(AnnFont.mono(11))
-                            .foregroundColor(DS.ink25)
-                    }
+                // Identity — name, "last synced" in the voice, and a source/count meta line
+                VStack(alignment: .leading, spacing: 3) {
+                    (Text(displayUsername).font(AnnFont.serif(19, .semibold)).foregroundColor(DS.ink)
+                     + Text("  — last synced \(lastSyncString)").font(AnnFont.voice(15)).foregroundColor(DS.ink40))
+                        .lineLimit(1)
+                    Text(headerMeta)
+                        .font(AnnFont.mono(9.5)).tracking(0.5).foregroundColor(DS.ink40)
                 }
 
-                Spacer()
+                Spacer(minLength: 12)
+
+                // Compact rating chips
+                ratingChip("Bullet", cachedRatings["bullet"], dot: DS.qInaccuracy)
+                ratingChip("Blitz", cachedRatings["blitz"], dot: DS.ink40)
+                ratingChip("Rapid", cachedRatings["rapid"], dot: DS.redAccent)
 
                 // Sync button
                 Button(action: refreshGames) {
@@ -551,11 +537,6 @@ struct ChessComBrowserView: View {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
-            // Stats Cards Row
-            statsCardsRow
-                .padding(.vertical, 20)
-                .padding(.horizontal, 28)
-
             // Filter Pills
             filterPillsRow
                 .padding(.horizontal, 28)
@@ -576,6 +557,11 @@ struct ChessComBrowserView: View {
                     emptyGamesView
                 } else {
                     gamesList
+                    Text("Accuracy fills in as games are reviewed — one click from any row.")
+                        .font(AnnFont.voice(12)).foregroundColor(DS.ink40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 28).padding(.vertical, 10)
+                        .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
                 }
             }
 
@@ -748,6 +734,32 @@ struct ChessComBrowserView: View {
     }
 
     // MARK: - Stats Cards Row
+
+    /// "17,891 GAMES · CHESS.COM + LICHESS" — source + total-count meta under the name.
+    private var headerMeta: String {
+        var src: [String] = []
+        if !savedUsername.isEmpty { src.append("Chess.com") }
+        if !lichessUsername.isEmpty { src.append("Lichess") }
+        let f = NumberFormatter(); f.numberStyle = .decimal
+        let games = (f.string(from: NSNumber(value: totalGameCount)) ?? "\(totalGameCount)") + " GAMES"
+        return src.isEmpty ? games : "\(games) · \(src.joined(separator: " + ").uppercased())"
+    }
+
+    /// Compact Bullet / Blitz / Rapid rating box for the header.
+    private func ratingChip(_ label: String, _ rating: Int?, dot: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Circle().fill(dot).frame(width: 5, height: 5)
+                Text(label.uppercased()).font(AnnFont.label(8.5)).tracking(0.8).foregroundColor(DS.ink40)
+            }
+            Text(rating.map(String.init) ?? "—")
+                .font(AnnFont.mono(18, bold: true)).foregroundColor(DS.ink)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .frame(minWidth: 68, alignment: .leading)
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+    }
 
     private var statsCardsRow: some View {
         HStack(spacing: 16) {
@@ -989,13 +1001,17 @@ struct ChessComBrowserView: View {
                 .padding(.trailing, 64)
             chessComColumnHeader("Opening", column: .opening, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            Text("ACC")
+                .font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink25)
+                .frame(width: 44, alignment: .trailing)
+                .padding(.trailing, 24)
             chessComColumnHeader("Time", column: .timeControl, alignment: .center)
                 .frame(width: 60, alignment: .center)
                 .padding(.trailing, 32)
             chessComColumnHeader("Source", column: .source, alignment: .center)
                 .frame(width: 70, alignment: .center)
                 .padding(.trailing, 32)
-            chessComColumnHeader("Date", column: .date, alignment: .leading)
+            chessComColumnHeader("When", column: .date, alignment: .leading)
                 .frame(width: 130, alignment: .leading)
         }
         .padding(.horizontal, 28)
@@ -1063,12 +1079,19 @@ struct ChessComBrowserView: View {
                     .frame(width: 60, alignment: .center)
                     .padding(.trailing, 64)
 
-                // Opening
-                Text(game.opening ?? game.eco ?? "-")
-                    .font(AnnFont.serif(12))
-                    .foregroundColor(DS.textSecondary)
+                // Opening (voice italic)
+                Text(game.opening ?? game.eco ?? "—")
+                    .font(AnnFont.voice(12.5))
+                    .foregroundColor(DS.ink60)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Accuracy — the user's per-game accuracy once the game is reviewed
+                Text(gameAccuracy(game))
+                    .font(AnnFont.mono(11))
+                    .foregroundColor(gameAccuracy(game) == "—" ? DS.ink25 : DS.ink)
+                    .frame(width: 44, alignment: .trailing)
+                    .padding(.trailing, 24)
 
                 // Time control
                 Text(chessComTimeClassLabel(game.timeClass))
@@ -1088,10 +1111,10 @@ struct ChessComBrowserView: View {
                     .frame(width: 70, alignment: .center)
                     .padding(.trailing, 32)
 
-                // Date
-                Text(game.date.isEmpty ? chessComFormatDate(game.dateAdded) : game.date)
-                    .font(AnnFont.mono(11))
-                    .foregroundColor(DS.textTertiary)
+                // When (relative)
+                Text(chessComWhen(game))
+                    .font(AnnFont.mono(10))
+                    .foregroundColor(DS.ink40)
                     .lineLimit(1)
                     .frame(width: 130, alignment: .leading)
             }
@@ -1107,6 +1130,27 @@ struct ChessComBrowserView: View {
             }
             .contentShape(Rectangle())
         }
+    }
+
+    /// The account owner's accuracy for a reviewed game, or "—" if it hasn't been analyzed yet.
+    private func gameAccuracy(_ game: GameRecord) -> String {
+        guard let d = game.analysisData else { return "—" }
+        let handle = accountHandle.lowercased()
+        let userIsWhite = game.white.lowercased() == handle
+        let acc = userIsWhite ? d.whiteAccuracy : d.blackAccuracy
+        return acc > 0 ? String(format: "%.1f", acc) : "—"
+    }
+
+    /// Relative "when the game was played": TODAY / YDAY / MMM d (/ year for older games).
+    private func chessComWhen(_ game: GameRecord) -> String {
+        let inFmt = DateFormatter(); inFmt.dateFormat = "yyyy.MM.dd"
+        let date = inFmt.date(from: game.date) ?? game.dateAdded
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "TODAY" }
+        if cal.isDateInYesterday(date) { return "YDAY" }
+        let out = DateFormatter()
+        out.dateFormat = cal.isDate(date, equalTo: Date(), toGranularity: .year) ? "MMM d" : "MMM d yyyy"
+        return out.string(from: date).uppercased()
     }
 
     private func chessComResultDisplay(_ result: String) -> String {
