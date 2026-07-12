@@ -146,113 +146,148 @@ struct GameAnalysisResultsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Header
-                HStack {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chart.bar.xaxis")
-                            .font(.system(size: 16))
-                            .foregroundColor(DS.redAccent)
-                        Text("Game Review")
-                            .font(AnnFont.serif(14, .semibold))
-                            .foregroundColor(DS.ink)
-                    }
+                // Header — GAME REVIEW · N MOVES
+                HStack(alignment: .firstTextBaseline) {
+                    Text("GAME REVIEW")
+                        .font(AnnFont.label(11)).tracking(11 * 0.14)
+                        .foregroundColor(DS.ink40)
                     Spacer()
-                    Text(resultText)
-                        .font(AnnFont.mono(11))
-                        .foregroundColor(DS.ink)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 4))
+                    Text(moveCountLabel)
+                        .font(AnnFont.mono(10)).foregroundColor(DS.ink40)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.hairline).frame(height: 1)
+                .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 14)
+                .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+                // Accuracies — big serif numbers
+                HStack(spacing: 0) {
+                    accuracyBlock("White Accuracy", gameAnalyzer.whiteAccuracy, color: DS.ink)
+                    accuracyBlock("Black Accuracy", gameAnalyzer.blackAccuracy, color: DS.ink60)
                 }
+                .padding(.horizontal, 16).padding(.vertical, 16)
 
-                // Eval graph
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Evaluation")
-                        .font(AnnFont.serif(11, .medium))
-                        .foregroundColor(DS.ink60)
-
-                    EvaluationGraphView(
-                        gameAnalyzer: gameAnalyzer,
-                        gameTree: gameTree
-                    )
+                // Evaluation graph
+                EvaluationGraphView(gameAnalyzer: gameAnalyzer, gameTree: gameTree)
                     .frame(height: 120)
-                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(DS.hairline, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .padding(14)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.hairline).frame(height: 1)
-                }
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+                    .padding(.horizontal, 16).padding(.bottom, 16)
 
-                // Accuracy cards
-                HStack(spacing: 12) {
-                    PlayerAccuracyCard(
-                        side: .white,
-                        accuracy: gameAnalyzer.whiteAccuracy
-                    )
-                    PlayerAccuracyCard(
-                        side: .black,
-                        accuracy: gameAnalyzer.blackAccuracy
-                    )
-                }
-                .padding(14)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.hairline).frame(height: 1)
-                }
+                // Grade table (grades across the top; White / Black rows)
+                gradeTable
+                    .padding(.horizontal, 16).padding(.bottom, 16)
 
-                // Move Classification
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Move Classification")
-                        .font(AnnFont.serif(11, .medium))
-                        .foregroundColor(DS.ink60)
-
-                    // Column headers
-                    HStack(spacing: 8) {
-                        Color.clear.frame(width: 8)
-                        Text("Type")
-                            .font(AnnFont.label(10))
-                            .tracking(10 * 0.1)
-                            .foregroundColor(DS.ink40)
-                        Spacer()
-                        Text("White")
-                            .font(AnnFont.label(10))
-                            .tracking(10 * 0.1)
-                            .foregroundColor(DS.ink40)
-                            .frame(width: 40, alignment: .trailing)
-                        Text("Black")
-                            .font(AnnFont.label(10))
-                            .tracking(10 * 0.1)
-                            .foregroundColor(DS.ink40)
-                            .frame(width: 40, alignment: .trailing)
-                    }
-                    .padding(.bottom, 4)
-
-                    let whiteCounts = gameAnalyzer.classificationCounts(forWhite: true)
-                    let blackCounts = gameAnalyzer.classificationCounts(forWhite: false)
-
-                    ForEach(MoveQuality.allCases.filter { $0 != .neutral }, id: \.rawValue) { quality in
-                        ClassificationRow(
-                            quality: quality,
-                            whiteCount: whiteCounts[quality] ?? 0,
-                            blackCount: blackCounts[quality] ?? 0
-                        )
-                    }
-                }
-                .padding(14)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.hairline).frame(height: 1)
+                // Move of the game
+                if let motg = moveOfTheGame {
+                    moveOfGameCallout(motg)
+                        .padding(.horizontal, 16).padding(.bottom, 18)
                 }
             }
         }
+    }
+
+    private var moveCountLabel: String {
+        let plies = max(0, gameAnalyzer.totalMoves - 1)
+        let full = (plies + 1) / 2
+        return "\(full) MOVE\(full == 1 ? "" : "S")"
+    }
+
+    private func accuracyBlock(_ label: String, _ value: Double, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(String(format: "%.1f", value))
+                .font(AnnFont.serif(30, .semibold)).foregroundColor(color)
+            Text(label.uppercased())
+                .font(AnnFont.label(9.5)).tracking(9.5 * 0.12).foregroundColor(DS.ink40)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Grade table
+
+    private struct GradeCol { let sym: String; let qualities: [MoveQuality]; let color: Color }
+    private var gradeCols: [GradeCol] {
+        [
+            GradeCol(sym: "‼", qualities: [.brilliant], color: DS.moveBrilliant),
+            GradeCol(sym: "!", qualities: [.great, .best, .good, .okay], color: DS.moveGood),
+            GradeCol(sym: "□", qualities: [.book, .neutral], color: DS.ink40),
+            GradeCol(sym: "?!", qualities: [.inaccuracy], color: DS.moveInaccuracy),
+            GradeCol(sym: "?", qualities: [.mistake], color: DS.moveMistake),
+            GradeCol(sym: "??", qualities: [.blunder], color: DS.moveBlunder),
+        ]
+    }
+
+    private func gradeSum(_ counts: [MoveQuality: Int], _ qs: [MoveQuality]) -> Int {
+        qs.reduce(0) { $0 + (counts[$1] ?? 0) }
+    }
+
+    private var gradeTable: some View {
+        let w = gameAnalyzer.classificationCounts(forWhite: true)
+        let b = gameAnalyzer.classificationCounts(forWhite: false)
+        return VStack(spacing: 11) {
+            HStack(spacing: 0) {
+                Text("GRADE").font(AnnFont.label(8.5)).tracking(0.5).foregroundColor(DS.ink40)
+                    .frame(width: 52, alignment: .leading)
+                ForEach(gradeCols, id: \.sym) { c in
+                    Text(c.sym).font(AnnFont.mono(12, bold: true)).foregroundColor(c.color)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            gradeRow(label: "WHITE", filled: false, counts: w)
+            gradeRow(label: "BLACK", filled: true, counts: b)
+        }
+        .padding(.vertical, 14).padding(.horizontal, 12)
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+    }
+
+    private func gradeRow(label: String, filled: Bool, counts: [MoveQuality: Int]) -> some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Circle().fill(filled ? DS.ink : DS.onRed).frame(width: 8, height: 8)
+                    .overlay(Circle().strokeBorder(DS.ink40, lineWidth: 1))
+                Text(label).font(AnnFont.label(9.5)).tracking(0.5).foregroundColor(DS.ink60)
+            }
+            .frame(width: 52, alignment: .leading)
+            ForEach(gradeCols, id: \.sym) { c in
+                let n = gradeSum(counts, c.qualities)
+                Text("\(n)")
+                    .font(AnnFont.mono(13, bold: n > 0))
+                    .foregroundColor(n > 0 ? DS.ink : DS.ink25)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    // MARK: - Move of the game
+
+    private var moveOfTheGame: (label: String, sym: String, color: Color, note: String)? {
+        let cls = gameAnalyzer.moveClassifications
+        func swing(_ c: MoveClassification) -> Double { c.isWhiteMove ? c.evalAfter - c.evalBefore : c.evalBefore - c.evalAfter }
+        let picks = cls.filter { $0.quality == .brilliant || $0.quality == .great }
+        guard let top = picks.max(by: { a, b in
+            if a.quality == b.quality { return swing(a) < swing(b) }
+            return a.quality == .great   // brilliant outranks great
+        }) else { return nil }
+
+        let nodes = gameTree.mainLine
+        guard top.moveIndex >= 0, top.moveIndex < nodes.count,
+              let san = nodes[top.moveIndex].cachedNotation, !san.isEmpty else { return nil }
+
+        let num = (top.moveIndex + 1) / 2
+        let sym = top.quality == .brilliant ? "‼" : "!"
+        let color = top.quality == .brilliant ? DS.moveBrilliant : DS.moveGood
+        let s = swing(top)
+        let note = s >= 0.5
+            ? "move of the game — the review's standout, swinging \(String(format: "%+.1f", s))."
+            : "move of the game — the review's standout."
+        return (label: "\(num).\(san)", sym: sym, color: color, note: note)
+    }
+
+    private func moveOfGameCallout(_ m: (label: String, sym: String, color: Color, note: String)) -> some View {
+        (Text("\(m.label)\(m.sym)  ").font(AnnFont.mono(12.5, bold: true)).foregroundColor(m.color)
+         + Text(m.note).font(AnnFont.voice(13)).foregroundColor(DS.ink60))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

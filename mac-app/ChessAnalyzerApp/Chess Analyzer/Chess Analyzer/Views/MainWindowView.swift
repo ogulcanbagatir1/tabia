@@ -234,15 +234,10 @@ struct MainWindowView: View {
 
     // MARK: - Masthead & status bar
 
+    // The engine panel's "Analyze" button already runs the full game review, so the masthead
+    // carries no per-screen action here.
     @ViewBuilder private var mastheadActions: some View {
-        switch activeScreen {
-        case .analysis:
-            Button("Run Review") { startGameAnalysis() }
-                .buttonStyle(AnnButtonStyle(kind: multiEngine.anyEngineAvailable ? .primary : .disabled))
-                .disabled(!multiEngine.anyEngineAvailable || gameAnalyzer.isAnalyzing)
-        default:
-            EmptyView()
-        }
+        EmptyView()
     }
 
     private var statusLeft: String {
@@ -336,7 +331,6 @@ struct MainWindowView: View {
                             options: ExplorerSource.allCases.map { ($0, $0.rawValue) },
                             selection: $explorerSource
                         )
-                        AnnSearchField(text: $explorerSearchText, placeholder: "Search openings…")
                     }
                     .padding(16)
                     .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
