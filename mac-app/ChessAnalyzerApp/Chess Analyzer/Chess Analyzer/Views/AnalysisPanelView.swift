@@ -173,12 +173,12 @@ struct AnalysisPanelView: View {
                 if let line = selectedEngine.analysisLines.first(where: { $0.id == lineId }) {
                     AnalysisLineRow(line: line, moveNumber: currentMoveNumber, sideToMove: currentTurn, isTopLine: lineId == 1)
                         .padding(.horizontal, 10)
-                        .frame(height: 30)
+                        .frame(height: 34)
                         .background(lineId % 2 != 0 ? DS.hoverWash : Color.clear)
                 } else {
                     AnalysisLinePlaceholder(isLoading: selectedEngine.isThinking)
                         .padding(.horizontal, 10)
-                        .frame(height: 30)
+                        .frame(height: 34)
                 }
             }
         }
@@ -399,19 +399,19 @@ struct AnalysisLineRow: View {
         HStack(alignment: .center, spacing: 8) {
             // Eval text
             Text(line.evaluationText)
-                .font(AnnFont.mono(11, bold: true))
+                .font(AnnFont.mono(13, bold: true))
                 .foregroundColor(DS.ink)
 
             // PV text
             if !line.isGameOver {
                 Text(formattedPV)
-                    .font(AnnFont.mono(11))
+                    .font(AnnFont.mono(13))
                     .foregroundColor(DS.inkPV)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(line.isPositive ? "White wins by checkmate" : "Black wins by checkmate")
-                    .font(AnnFont.serif(11, .regular))
+                    .font(AnnFont.serif(13, .regular))
                     .foregroundColor(DS.ink60)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -429,16 +429,16 @@ struct AnalysisLinePlaceholder: View {
         HStack(alignment: .center, spacing: 8) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(DS.glassSeparator)
-                .frame(width: 36, height: 18)
+                .frame(width: 40, height: 20)
 
             if isLoading {
                 Text("...")
-                    .font(AnnFont.mono(11))
+                    .font(AnnFont.mono(13))
                     .foregroundColor(DS.textTertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(" ")
-                    .font(AnnFont.mono(11))
+                    .font(AnnFont.mono(13))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
