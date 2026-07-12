@@ -427,16 +427,7 @@ struct MainWindowView: View {
                         Rectangle().fill(DS.hairline).frame(height: 1)
                     }
 
-                    if gameAnalyzer.isCompleted {
-                        GameAnalysisResultsView(
-                            gameAnalyzer: gameAnalyzer,
-                            gameTree: gameTree
-                        )
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.hairline).frame(height: 1)
-                        }
-                    }
-
+                    // Moves on top (fills the space), the game review below it.
                     MoveListView(
                         gameTree: gameTree,
                         whiteName: whiteName,
@@ -446,6 +437,16 @@ struct MainWindowView: View {
                         eco: currentOpeningECO ?? "",
                         result: currentResult
                     )
+
+                    if gameAnalyzer.isCompleted {
+                        GameAnalysisResultsView(
+                            gameAnalyzer: gameAnalyzer,
+                            gameTree: gameTree
+                        )
+                        .overlay(alignment: .top) {
+                            Rectangle().fill(DS.hairline).frame(height: 1)
+                        }
+                    }
                 }
                 .frame(width: finalRightSidebarWidth)
                 .background(GlassPanelBackground())

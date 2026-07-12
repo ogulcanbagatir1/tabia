@@ -144,8 +144,7 @@ struct GameAnalysisResultsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 // Header — GAME REVIEW · N MOVES
                 HStack(alignment: .firstTextBaseline) {
                     Text("GAME REVIEW")
@@ -183,7 +182,6 @@ struct GameAnalysisResultsView: View {
                         .padding(.horizontal, 16).padding(.bottom, 18)
                 }
             }
-        }
     }
 
     private var moveCountLabel: String {
@@ -207,9 +205,9 @@ struct GameAnalysisResultsView: View {
     private struct GradeCol { let sym: String; let qualities: [MoveQuality]; let color: Color }
     private var gradeCols: [GradeCol] {
         [
-            GradeCol(sym: "‼", qualities: [.brilliant], color: DS.moveBrilliant),
-            GradeCol(sym: "!", qualities: [.great, .best, .good, .okay], color: DS.moveGood),
-            GradeCol(sym: "□", qualities: [.book, .neutral], color: DS.ink40),
+            GradeCol(sym: "‼", qualities: [.brilliant, .great], color: DS.moveBrilliant),
+            GradeCol(sym: "!", qualities: [.best, .good, .okay], color: DS.moveBest),
+            GradeCol(sym: "□", qualities: [.book, .neutral], color: DS.moveBook),
             GradeCol(sym: "?!", qualities: [.inaccuracy], color: DS.moveInaccuracy),
             GradeCol(sym: "?", qualities: [.mistake], color: DS.moveMistake),
             GradeCol(sym: "??", qualities: [.blunder], color: DS.moveBlunder),
