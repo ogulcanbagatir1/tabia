@@ -69,7 +69,9 @@ struct AnnBoardArea: View {
             .clipShape(RoundedRectangle(cornerRadius: DS.rBar))
             .overlay(RoundedRectangle(cornerRadius: DS.rBar).strokeBorder(DS.borderStrong, lineWidth: 1))
 
+            // Fixed width so a leading +/- sign never widens the column and shifts the board.
             Text(evalText).font(AnnFont.mono(10.5, bold: true)).foregroundColor(DS.inkData)
+                .frame(width: 44)
         }
     }
 

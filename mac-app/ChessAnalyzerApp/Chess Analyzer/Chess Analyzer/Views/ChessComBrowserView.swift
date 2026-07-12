@@ -24,7 +24,6 @@ struct ChessComBrowserView: View {
     private let pageSize = 50
     private let dbBatchSize = 200
 
-    @State private var showStats = false
     @State private var cachedRatings: [String: Int] = [:]
     @State private var showingImportSheet = false
     @State private var selectedGameIds: Set<UUID> = []
@@ -455,12 +454,12 @@ struct ChessComBrowserView: View {
             // Profile Header
             HStack(spacing: 14) {
                 // Identity — name, "last synced" in the voice, and a source/count meta line
-                VStack(alignment: .leading, spacing: 3) {
-                    (Text(displayUsername).font(AnnFont.serif(19, .semibold)).foregroundColor(DS.ink)
-                     + Text("  — last synced \(lastSyncString)").font(AnnFont.voice(15)).foregroundColor(DS.ink40))
+                VStack(alignment: .leading, spacing: 4) {
+                    (Text(displayUsername).font(AnnFont.serif(23, .semibold)).foregroundColor(DS.ink)
+                     + Text("  — last synced \(lastSyncString)").font(AnnFont.voice(17)).foregroundColor(DS.ink40))
                         .lineLimit(1)
                     Text(headerMeta)
-                        .font(AnnFont.mono(9.5)).tracking(0.5).foregroundColor(DS.ink40)
+                        .font(AnnFont.mono(10)).tracking(0.5).foregroundColor(DS.ink40)
                 }
 
                 Spacer(minLength: 12)
@@ -525,27 +524,20 @@ struct ChessComBrowserView: View {
                 .padding(.horizontal, 28)
                 .padding(.bottom, 12)
 
-            if showStats {
-                ChessComStatsView(
-                    username: savedUsername,
-                    selectedTimeClass: filterTimeControl == "All" ? "all" : filterTimeControl.lowercased()
-                )
-            } else {
-                if showingFilters {
-                    chessComFilterPanel
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
+            if showingFilters {
+                chessComFilterPanel
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
-                if cachedGames.isEmpty {
-                    emptyGamesView
-                } else {
-                    gamesList
-                    Text("Accuracy fills in as games are reviewed — one click from any row.")
-                        .font(AnnFont.voice(12)).foregroundColor(DS.ink40)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 28).padding(.vertical, 10)
-                        .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
-                }
+            if cachedGames.isEmpty {
+                emptyGamesView
+            } else {
+                gamesList
+                Text("Accuracy fills in as games are reviewed — one click from any row.")
+                    .font(AnnFont.voice(12)).foregroundColor(DS.ink40)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 28).padding(.vertical, 10)
+                    .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
             }
 
             statusBar
@@ -728,18 +720,18 @@ struct ChessComBrowserView: View {
         return src.isEmpty ? games : "\(games) · \(src.joined(separator: " + ").uppercased())"
     }
 
-    /// Compact Bullet / Blitz / Rapid rating box for the header.
+    /// Bullet / Blitz / Rapid rating card for the header.
     private func ratingChip(_ label: String, _ rating: Int?, dot: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 5) {
                 Circle().fill(dot).frame(width: 5, height: 5)
-                Text(label.uppercased()).font(AnnFont.label(8.5)).tracking(0.8).foregroundColor(DS.ink40)
+                Text(label.uppercased()).font(AnnFont.label(9)).tracking(0.9).foregroundColor(DS.ink40)
             }
             Text(rating.map(String.init) ?? "—")
-                .font(AnnFont.mono(18, bold: true)).foregroundColor(DS.ink)
+                .font(AnnFont.serif(27, .semibold)).foregroundColor(DS.ink)
         }
-        .padding(.horizontal, 12).padding(.vertical, 7)
-        .frame(minWidth: 68, alignment: .leading)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .frame(minWidth: 96, alignment: .leading)
         .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
     }
@@ -820,72 +812,25 @@ struct ChessComBrowserView: View {
     // MARK: - Filter Pills
 
     private var filterPillsRow: some View {
-        HStack(spacing: 8) {
-            // Time control pills
-            HStack(spacing: 6) {
-                ForEach(["All", "Bullet", "Blitz", "Rapid"], id: \.self) { option in
-                    let isActive = filterTimeControl == option
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.12)) {
-                            filterTimeControl = option
-                        }
-                    }) {
-                        Text(option)
-                            .font(AnnFont.label(11))
-                            .tracking(11 * 0.1)
-                            .foregroundColor(isActive ? DS.ink : DS.ink40)
-                            .padding(.vertical, 5)
-                            .padding(.horizontal, 12)
-                            .background(
-                                isActive
-                                ? RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DS.selectedWash)
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-                                : nil
-                            )
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+        HStack(spacing: 6) {
+            ForEach(["All", "Bullet", "Blitz", "Rapid"], id: \.self) { option in
+                let isActive = filterTimeControl == option
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.12)) { filterTimeControl = option }
+                }) {
+                    Text(option)
+                        .font(AnnFont.label(11)).tracking(11 * 0.1)
+                        .foregroundColor(isActive ? DS.ink : DS.ink40)
+                        .padding(.vertical, 5).padding(.horizontal, 12)
+                        .background(isActive ? DS.selectedWash : DS.paperRaised,
+                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isActive ? DS.borderStrong : DS.borderChip, lineWidth: 1))
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
-
             Spacer()
-
-            // Games / Stats toggle
-            HStack(spacing: 2) {
-                Button(action: { withAnimation(.easeInOut(duration: 0.12)) { showStats = false } }) {
-                    Text("Games")
-                        .font(AnnFont.label(11))
-                        .tracking(11 * 0.1)
-                        .foregroundColor(showStats ? DS.ink40 : DS.ink)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(showStats ? Color.clear : DS.selectedWash)
-                        )
-                }
-                .buttonStyle(.plain)
-
-                Button(action: { withAnimation(.easeInOut(duration: 0.12)) { showStats = true } }) {
-                    Text("Stats")
-                        .font(AnnFont.label(11))
-                        .tracking(11 * 0.1)
-                        .foregroundColor(showStats ? DS.ink : DS.ink40)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(showStats ? DS.selectedWash : Color.clear)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(3)
-            .background(DS.trackBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(DS.borderChip, lineWidth: 1)
-            )
         }
     }
 
@@ -1056,21 +1001,24 @@ struct ChessComBrowserView: View {
                 .font(AnnFont.mono(10)).foregroundColor(DS.ink40).lineLimit(1)
                 .padding(.horizontal, 8).frame(width: CCW.date, alignment: .leading)
 
-            // Review — far right; only until the game has been analyzed
-            Group {
-                if game.analysisData == nil {
-                    Button(action: { onReviewGame(game) }) {
-                        Text("Review")
-                            .font(AnnFont.label(9)).tracking(0.3)
-                            .foregroundColor(DS.redAccent)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
+            // Review — far right; a fixed-width cell (Color.clear holds it) so reviewed rows, which
+            // have no button, stay perfectly aligned with unreviewed rows.
+            Color.clear
+                .frame(width: CCW.review, height: 1)
+                .overlay(alignment: .trailing) {
+                    if game.analysisData == nil {
+                        Button(action: { onReviewGame(game) }) {
+                            Text("Review")
+                                .font(AnnFont.label(9)).tracking(0.3)
+                                .foregroundColor(DS.redAccent)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, 8).frame(width: CCW.review, alignment: .trailing)
         }
         .padding(.horizontal, 28)
         .frame(height: 40)
