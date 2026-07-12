@@ -24,12 +24,12 @@ struct MastheadView<Right: View>: View {
                 Color.clear.frame(width: 60, height: 1)
 
                 HStack(spacing: 7) {
-                    (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
-                        .font(AnnFont.serif(20, .semibold))
                     Image("TabiaMark")
                         .resizable()
                         .interpolation(.high)
                         .frame(width: 21, height: 21)
+                    (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
+                        .font(AnnFont.serif(20, .semibold))
                 }
                 .fixedSize()
 
