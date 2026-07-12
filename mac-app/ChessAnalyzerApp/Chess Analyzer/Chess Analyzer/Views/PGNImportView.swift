@@ -123,6 +123,7 @@ struct PGNImportView: View {
 
     @State private var editableGames: [EditablePGNGame] = []
     @State private var selectedFolderId: UUID?
+    @State private var newFolderName: String = ""
     @State private var isLoading = true
     @State private var parseError: String?
     @State private var expandedGameId: UUID?
@@ -582,6 +583,17 @@ struct PGNImportView: View {
                     }
                     .pickerStyle(.menu)
                     .frame(width: 150)
+                    .disabled(!newFolderName.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                    Text("or new:")
+                        .font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink40)
+
+                    TextField("New database name", text: $newFolderName)
+                        .textFieldStyle(.plain)
+                        .font(AnnFont.serif(13))
+                        .padding(.horizontal, 10).frame(width: 200, height: 30)
+                        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.border, lineWidth: 1))
 
                     Spacer()
                 }
@@ -778,11 +790,17 @@ struct PGNImportView: View {
 
             // Insert into database on main thread (SwiftData requirement)
             DispatchQueue.main.async {
-                let targetFolder = database.folder(withId: folderId)
+                // A typed name creates a fresh database; otherwise use the picked/preselected one.
+                var targetFolderId = folderId
+                let newName = newFolderName.trimmingCharacters(in: .whitespaces)
+                if targetFolderId == nil, !newName.isEmpty {
+                    targetFolderId = database.createFolder(name: newName).id
+                }
+                let targetFolder = database.folder(withId: targetFolderId)
                 database.addGamesBatched(records, folder: targetFolder, batchSize: 50) { completed in
                     importProgress = completed
                 }
-                onImport(folderId)
+                onImport(targetFolderId)
             }
         }
     }

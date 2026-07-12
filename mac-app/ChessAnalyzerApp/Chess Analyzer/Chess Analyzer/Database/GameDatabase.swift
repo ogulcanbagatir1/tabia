@@ -896,6 +896,21 @@ class GameDatabase: ObservableObject {
         moveGamesByIds(gameIds, toFolder: folderId)
     }
 
+    /// Library games that were imported without a database (unfiled).
+    func unfiledLibraryGameCount() -> Int {
+        let d = FetchDescriptor<GameRecord>(predicate: #Predicate { $0.sourceUsername == nil && $0.folder == nil })
+        return (try? modelContext.fetchCount(d)) ?? 0
+    }
+
+    /// File every unfiled library game into a database (recovers imports that landed without one).
+    func moveAllUnfiledLibraryGames(toFolder folderId: UUID) {
+        let target = folder(withId: folderId)
+        let d = FetchDescriptor<GameRecord>(predicate: #Predicate { $0.sourceUsername == nil && $0.folder == nil })
+        let games = (try? modelContext.fetch(d)) ?? []
+        for g in games { g.folder = target }
+        save()
+    }
+
     /// Move any games (including Chess.com games) to a folder by their IDs, in a single batched fetch.
     func moveGamesByIds(_ gameIds: Set<UUID>, toFolder folderId: UUID?) {
         guard !gameIds.isEmpty else { return }

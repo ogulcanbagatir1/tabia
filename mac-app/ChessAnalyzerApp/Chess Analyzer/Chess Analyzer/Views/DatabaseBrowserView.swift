@@ -19,6 +19,10 @@ struct DatabaseBrowserView: View {
     @State private var pendingImportFolderId: UUID? = nil
     @State private var importAlert: ImportAlertInfo?
     @State private var showingNewDatabaseSheet = false
+    @State private var showingNewDatabaseForGames = false
+    @State private var newDatabaseGameIds: Set<UUID> = []
+    @State private var newDatabaseName = ""
+    @State private var fileUnfiledIntoNew = false
     @State private var newFolderName = ""
     @State private var renamingFolder: GameFolder?
     @State private var showingDeleteFolderAlert = false
@@ -209,6 +213,27 @@ struct DatabaseBrowserView: View {
             Button("Cancel", role: .cancel) { folderToDelete = nil }
         } message: {
             Text("This will permanently delete this database and all its games.")
+        }
+        .alert("New Database", isPresented: $showingNewDatabaseForGames) {
+            TextField("Database name", text: $newDatabaseName)
+            Button("Cancel", role: .cancel) { newDatabaseGameIds = []; fileUnfiledIntoNew = false }
+            Button("Create") {
+                let name = newDatabaseName.trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty {
+                    let folder = database.createFolder(name: name)
+                    if fileUnfiledIntoNew {
+                        database.moveAllUnfiledLibraryGames(toFolder: folder.id)
+                    } else if !newDatabaseGameIds.isEmpty {
+                        database.moveGames(newDatabaseGameIds, toFolder: folder.id)
+                    }
+                    selectedGameIds.removeAll()
+                    navigation = .folder(folder.id)
+                }
+                newDatabaseGameIds = []; fileUnfiledIntoNew = false
+            }
+        } message: {
+            let n = fileUnfiledIntoNew ? database.unfiledLibraryGameCount() : newDatabaseGameIds.count
+            Text("Move \(n) game\(n == 1 ? "" : "s") into a new database.")
         }
         .sheet(item: $indexingFolder) { folder in
             DatabaseIndexProgressSheet(folderName: folder.name) { indexingFolder = nil }
@@ -856,6 +881,25 @@ struct DatabaseBrowserView: View {
 
             // Delete (only when a specific database is selected) + Filter + Import buttons
             HStack(spacing: 8) {
+                if case .allGames = navigation, database.unfiledLibraryGameCount() > 0 {
+                    Button(action: {
+                        fileUnfiledIntoNew = true
+                        newDatabaseName = ""
+                        showingNewDatabaseForGames = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "tray.and.arrow.down").font(.system(size: 14))
+                            Text("File Unfiled").font(AnnFont.label(12)).tracking(12 * 0.1)
+                        }
+                        .foregroundColor(DS.redAccent)
+                        .padding(.vertical, 6).padding(.horizontal, 14)
+                        .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.redAccent.opacity(0.4), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Move imported games that have no database into a new one")
+                }
+
                 if case .folder(let id) = navigation,
                    let folder = database.folders.first(where: { $0.id == id }) {
                     indexToolbarButton(folder)
@@ -1396,8 +1440,10 @@ struct DatabaseBrowserView: View {
                 }
             }
             Divider()
-            Button("New Database...") {
-                showingNewDatabaseSheet = true
+            Button("New Database…") {
+                newDatabaseGameIds = gameIds
+                newDatabaseName = ""
+                showingNewDatabaseForGames = true
             }
         }
     }
