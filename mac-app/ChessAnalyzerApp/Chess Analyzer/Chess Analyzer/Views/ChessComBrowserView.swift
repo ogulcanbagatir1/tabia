@@ -3,6 +3,8 @@ import SwiftUI
 struct ChessComBrowserView: View {
     @EnvironmentObject var database: GameDatabase
     var onGameSelected: (GameRecord) -> Void
+    /// Load the game into Analysis and immediately run a full game review.
+    var onReviewGame: (GameRecord) -> Void = { _ in }
 
     @StateObject private var service = ChessComService()
     @StateObject private var lichessService = LichessGameService()
@@ -956,6 +958,7 @@ struct ChessComBrowserView: View {
                             }
                             .contextMenu {
                                 Button("Open Game") { onGameSelected(game) }
+                                Button("Review Game") { onReviewGame(game) }
                                 Divider()
                                 if selectedGameIds.count > 1 {
                                     moveToFolderMenu(gameIds: selectedGameIds, label: "Move \(selectedGameIds.count) Games to...")
@@ -1003,7 +1006,7 @@ struct ChessComBrowserView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("ACC")
                 .font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink25)
-                .frame(width: 44, alignment: .trailing)
+                .frame(width: 66, alignment: .trailing)
                 .padding(.trailing, 24)
             chessComColumnHeader("Time", column: .timeControl, alignment: .center)
                 .frame(width: 60, alignment: .center)
@@ -1011,7 +1014,7 @@ struct ChessComBrowserView: View {
             chessComColumnHeader("Source", column: .source, alignment: .center)
                 .frame(width: 70, alignment: .center)
                 .padding(.trailing, 32)
-            chessComColumnHeader("When", column: .date, alignment: .leading)
+            chessComColumnHeader("Date", column: .date, alignment: .leading)
                 .frame(width: 130, alignment: .leading)
         }
         .padding(.horizontal, 28)
@@ -1086,12 +1089,25 @@ struct ChessComBrowserView: View {
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Accuracy — the user's per-game accuracy once the game is reviewed
-                Text(gameAccuracy(game))
-                    .font(AnnFont.mono(11))
-                    .foregroundColor(gameAccuracy(game) == "—" ? DS.ink25 : DS.ink)
-                    .frame(width: 44, alignment: .trailing)
-                    .padding(.trailing, 24)
+                // Accuracy — the reviewed score, or a Review button to compute it
+                Group {
+                    if game.analysisData != nil {
+                        Text(gameAccuracy(game))
+                            .font(AnnFont.mono(11)).foregroundColor(DS.ink)
+                    } else {
+                        Button(action: { onReviewGame(game) }) {
+                            Text("Review")
+                                .font(AnnFont.label(9)).tracking(0.3)
+                                .foregroundColor(DS.redAccent)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(width: 66, alignment: .trailing)
+                .padding(.trailing, 24)
 
                 // Time control
                 Text(chessComTimeClassLabel(game.timeClass))

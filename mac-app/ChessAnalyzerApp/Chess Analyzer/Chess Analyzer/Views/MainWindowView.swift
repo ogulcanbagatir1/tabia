@@ -124,6 +124,8 @@ struct MainWindowView: View {
                     ChessComBrowserView(onGameSelected: { game in
                         loadGame(game)
                         activeScreen = .analysis
+                    }, onReviewGame: { game in
+                        reviewGame(game)
                     })
                 case .engine:
                     EngineManagerView()
@@ -638,6 +640,17 @@ struct MainWindowView: View {
     }
 
     /// Open a PGN file into the current game (menu: Open PGN…).
+    /// Load a game into Analysis and kick off a full engine review of it. The analyzer saves the
+    /// per-move quality + accuracies back to the game record on completion, so the row's accuracy fills in.
+    private func reviewGame(_ game: GameRecord) {
+        loadGame(game)
+        activeScreen = .analysis
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            guard multiEngine.anyEngineAvailable, !gameAnalyzer.isAnalyzing else { return }
+            startGameAnalysis()
+        }
+    }
+
     private func openPGNFromPanel() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
