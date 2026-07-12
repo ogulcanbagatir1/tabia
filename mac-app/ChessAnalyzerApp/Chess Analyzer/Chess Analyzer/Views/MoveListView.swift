@@ -2,16 +2,52 @@ import SwiftUI
 
 struct MoveListView: View {
     @ObservedObject var gameTree: GameTree
+    // Optional game metadata — shown as an editorial header above the moves when a game is loaded.
+    var whiteName: String = ""
+    var blackName: String = ""
+    var event: String = ""
+    var openingName: String = ""
+    var eco: String = ""
+    var result: String = ""
+
+    private var hasGameInfo: Bool { !whiteName.isEmpty || !blackName.isEmpty }
+
+    private func surname(_ name: String) -> String {
+        let s = name.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces) ?? name
+        return s.isEmpty ? name : s
+    }
+
+    private var gameInfoHeader: some View {
+        let meta = [event, [openingName, eco].filter { !$0.isEmpty }.joined(separator: " ")]
+            .filter { !$0.isEmpty }.joined(separator: " · ")
+        return HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(surname(whiteName)) – \(surname(blackName))")
+                    .font(AnnFont.serif(14, .semibold)).foregroundColor(DS.ink).lineLimit(1)
+                if !meta.isEmpty {
+                    Text(meta.uppercased())
+                        .font(AnnFont.mono(9)).tracking(0.5).foregroundColor(DS.ink40).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            if !result.isEmpty && result != "*" {
+                Text(result)
+                    .font(AnnFont.mono(11, bold: true)).foregroundColor(DS.ink60)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with section label and navigation
-            HStack {
-                Text("MOVES")
-                    .font(AnnFont.label(10))
-                    .foregroundColor(DS.ink25)
-                    .kerning(0.8)
+            if hasGameInfo { gameInfoHeader }
 
+            // Navigation row — no "MOVES" label; the game header above already frames it.
+            HStack {
                 Spacer()
 
                 HStack(spacing: 2) {

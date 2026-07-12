@@ -30,6 +30,10 @@ struct MainWindowView: View {
     @State private var currentOpeningName: String? = nil
     @State private var currentOpeningECO: String? = nil
 
+    // Loaded-game metadata for the move-list header (event + result).
+    @State private var currentEvent: String = ""
+    @State private var currentResult: String = ""
+
     // Current loaded game (for saving analysis back)
     @State private var currentGameId: UUID? = nil
 
@@ -439,7 +443,15 @@ struct MainWindowView: View {
                         }
                     }
 
-                    MoveListView(gameTree: gameTree)
+                    MoveListView(
+                        gameTree: gameTree,
+                        whiteName: whiteName,
+                        blackName: blackName,
+                        event: currentEvent,
+                        openingName: currentOpeningName ?? "",
+                        eco: currentOpeningECO ?? "",
+                        result: currentResult
+                    )
                 }
                 .frame(width: finalRightSidebarWidth)
                 .background(GlassPanelBackground())
@@ -535,6 +547,8 @@ struct MainWindowView: View {
         blackName = ""
         whiteRating = ""
         blackRating = ""
+        currentEvent = ""
+        currentResult = ""
         currentGameId = nil
 
         // Use debounced evaluation — onChange may also trigger it,
@@ -580,6 +594,9 @@ struct MainWindowView: View {
         } else if let eco = game.eco, !eco.isEmpty {
             currentOpeningName = openingBook.findByECO(eco)
         }
+
+        currentEvent = game.event == "?" ? "" : game.event
+        currentResult = game.result == "*" ? "" : game.result
 
         // Restore analysis from database if available, otherwise reset
         if let analysisData = game.analysisData {
@@ -697,6 +714,11 @@ struct MainWindowView: View {
         // Set opening from PGN headers if available
         currentOpeningECO = pgnGame.headers["ECO"]
         currentOpeningName = pgnGame.headers["Opening"]
+
+        let ev = pgnGame.headers["Event"] ?? ""
+        currentEvent = ev == "?" ? "" : ev
+        let res = pgnGame.headers["Result"] ?? ""
+        currentResult = res == "*" ? "" : res
 
         // Reset analysis
         gameAnalyzer.reset()
