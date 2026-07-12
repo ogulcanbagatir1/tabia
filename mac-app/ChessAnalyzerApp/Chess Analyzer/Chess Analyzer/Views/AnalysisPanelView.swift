@@ -59,8 +59,8 @@ struct AnalysisPanelView: View {
             return "\(eval > 0 ? "+" : "-")M\(mateIn)"
         }
         let pv = eval / 100.0
-        if abs(pv) < 0.05 { return "0.0" }
-        return String(format: "%+.1f", pv)
+        if abs(pv) < 0.05 { return "0.00" }
+        return String(format: "%+.2f", pv)
     }
 
     private var headerEvalColor: Color {
