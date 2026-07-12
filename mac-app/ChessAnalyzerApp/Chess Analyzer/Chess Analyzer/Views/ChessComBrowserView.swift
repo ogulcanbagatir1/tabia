@@ -115,6 +115,10 @@ struct ChessComBrowserView: View {
         .onChange(of: cachedGames.count) { _, n in
             if n > 0 && cachedRatings.isEmpty { loadRatings() }
         }
+        // The masthead "Sync Now" button drives the sync from here.
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaSyncGames)) { _ in
+            if hasAnyAccount && !(service.isLoading || lichessService.isLoading) { refreshGames() }
+        }
         .onChange(of: filterTimeControl) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterResult) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterColor) { _, _ in scheduleReload(debounce: false) }
@@ -461,33 +465,10 @@ struct ChessComBrowserView: View {
 
                 Spacer(minLength: 12)
 
-                // Compact rating chips
+                // Compact rating chips (Sync lives in the masthead now)
                 ratingChip("Bullet", cachedRatings["bullet"], dot: DS.qInaccuracy)
                 ratingChip("Blitz", cachedRatings["blitz"], dot: DS.ink40)
                 ratingChip("Rapid", cachedRatings["rapid"], dot: DS.redAccent)
-
-                // Sync button
-                Button(action: refreshGames) {
-                    if service.isLoading || lichessService.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(DS.redAccent)
-                    } else {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                            Text("Sync Games")
-                                .font(AnnFont.label(12))
-                                .tracking(12 * 0.1)
-                        }
-                        .foregroundColor(DS.onRed)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(DS.redInk, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(service.isLoading || lichessService.isLoading)
 
                 Menu {
                     if !savedUsername.isEmpty {
@@ -991,31 +972,23 @@ struct ChessComBrowserView: View {
         }
     }
 
-    // Columns: White(150) Black(150) Result(60, center) Opening(fill) Time(60, center) Date(100, right)
+    // Shared column widths — the header and rows use these same values so they line up exactly.
+    // (Opening is the flexible column; the trailing Review column holds the per-row review action.)
+    private enum CCW {
+        static let white: CGFloat = 220, black: CGFloat = 220, result: CGFloat = 64
+        static let time: CGFloat = 100, source: CGFloat = 100, date: CGFloat = 110, review: CGFloat = 92
+    }
 
     private var chessComTableHeader: some View {
         HStack(spacing: 0) {
-            chessComColumnHeader("White", column: .white, alignment: .leading)
-                .frame(width: 200, alignment: .leading)
-            chessComColumnHeader("Black", column: .black, alignment: .leading)
-                .frame(width: 200, alignment: .leading)
-            chessComColumnHeader("Result", column: .result, alignment: .center)
-                .frame(width: 60, alignment: .center)
-                .padding(.trailing, 64)
-            chessComColumnHeader("Opening", column: .opening, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text("ACC")
-                .font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink25)
-                .frame(width: 66, alignment: .trailing)
-                .padding(.trailing, 24)
-            chessComColumnHeader("Time", column: .timeControl, alignment: .center)
-                .frame(width: 60, alignment: .center)
-                .padding(.trailing, 32)
-            chessComColumnHeader("Source", column: .source, alignment: .center)
-                .frame(width: 70, alignment: .center)
-                .padding(.trailing, 32)
-            chessComColumnHeader("Date", column: .date, alignment: .leading)
-                .frame(width: 130, alignment: .leading)
+            ccHeader("White", .white, width: CCW.white)
+            ccHeader("Black", .black, width: CCW.black)
+            ccHeader("Result", .result, width: CCW.result)
+            ccHeader("Opening", .opening, width: nil)
+            ccHeader("Time", .timeControl, width: CCW.time)
+            ccHeader("Source", .source, width: CCW.source)
+            ccHeader("Date", .date, width: CCW.date)
+            Color.clear.frame(width: CCW.review)
         }
         .padding(.horizontal, 28)
         .frame(height: 36)
@@ -1025,127 +998,91 @@ struct ChessComBrowserView: View {
         }
     }
 
-    private func chessComColumnHeader(_ title: String, column: SortColumn, alignment: Alignment) -> some View {
-        Button(action: {
-            if sortColumn == column {
-                sortAscending.toggle()
-            } else {
-                sortColumn = column
-                sortAscending = column != .date
-            }
+    @ViewBuilder
+    private func ccHeader(_ title: String, _ column: SortColumn, width: CGFloat?) -> some View {
+        let btn = Button(action: {
+            if sortColumn == column { sortAscending.toggle() }
+            else { sortColumn = column; sortAscending = column != .date }
         }) {
             HStack(spacing: 4) {
-                if alignment == .trailing, sortColumn == column {
+                Text(title).font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink25)
+                if sortColumn == column {
                     Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(DS.ink25)
-                }
-
-                Text(title)
-                    .font(AnnFont.label(11))
-                    .tracking(11 * 0.1)
-                    .foregroundColor(DS.ink25)
-
-                if alignment != .trailing, sortColumn == column {
-                    Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(DS.ink25)
+                        .font(.system(size: 8, weight: .bold)).foregroundColor(DS.ink25)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: alignment == .trailing ? .trailing : (alignment == .center ? .center : .leading))
+            .padding(.horizontal, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+
+        if let width { btn.frame(width: width, alignment: .leading) }
+        else { btn.frame(maxWidth: .infinity, alignment: .leading) }
+    }
+
+    /// Player name with the reviewed accuracy in parentheses, e.g. "BidiBoy1 (91.4)".
+    private func ccNameCell(_ name: String, acc: Double?, primary: Bool, width: CGFloat) -> some View {
+        (Text(name).font(AnnFont.serif(13, primary ? .medium : .regular)).foregroundColor(primary ? DS.ink : DS.ink60)
+         + ((acc ?? 0) > 0
+            ? Text("  (\(String(format: "%.1f", acc!)))").font(AnnFont.mono(10)).foregroundColor(DS.ink40)
+            : Text("")))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(width: width, alignment: .leading)
     }
 
     private func chessComTableRow(_ game: GameRecord, isAlternate: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                // White
-                Text(game.white)
-                    .font(AnnFont.serif(13, .medium))
-                    .foregroundColor(DS.textPrimary)
-                    .lineLimit(1)
-                    .frame(width: 200, alignment: .leading)
+        HStack(spacing: 0) {
+            ccNameCell(game.white, acc: game.analysisData?.whiteAccuracy, primary: true, width: CCW.white)
+            ccNameCell(game.black, acc: game.analysisData?.blackAccuracy, primary: false, width: CCW.black)
 
-                // Black
-                Text(game.black)
-                    .font(AnnFont.serif(13))
-                    .foregroundColor(DS.textSecondary)
-                    .lineLimit(1)
-                    .frame(width: 200, alignment: .leading)
+            Text(chessComResultDisplay(game.result))
+                .font(AnnFont.mono(12, bold: true)).foregroundColor(chessComResultColor(game))
+                .padding(.horizontal, 8).frame(width: CCW.result, alignment: .leading)
 
-                // Result
-                Text(chessComResultDisplay(game.result))
-                    .font(AnnFont.mono(12, bold: true))
-                    .foregroundColor(chessComResultColor(game))
-                    .frame(width: 60, alignment: .center)
-                    .padding(.trailing, 64)
+            Text(game.opening ?? game.eco ?? "—")
+                .font(AnnFont.voice(12.5)).foregroundColor(DS.ink60).lineLimit(1)
+                .padding(.horizontal, 8).frame(maxWidth: .infinity, alignment: .leading)
 
-                // Opening (voice italic)
-                Text(game.opening ?? game.eco ?? "—")
-                    .font(AnnFont.voice(12.5))
-                    .foregroundColor(DS.ink60)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            Text(chessComTimeClassLabel(game.timeClass))
+                .font(AnnFont.label(11)).tracking(0.5).foregroundColor(DS.ink60).lineLimit(1)
+                .padding(.horizontal, 8).frame(width: CCW.time, alignment: .leading)
 
-                // Accuracy — the reviewed score, or a Review button to compute it
-                Group {
-                    if game.analysisData != nil {
-                        Text(gameAccuracy(game))
-                            .font(AnnFont.mono(11)).foregroundColor(DS.ink)
-                    } else {
-                        Button(action: { onReviewGame(game) }) {
-                            Text("Review")
-                                .font(AnnFont.label(9)).tracking(0.3)
-                                .foregroundColor(DS.redAccent)
-                                .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
+            Text(game.sourcePlatform == "lichess" ? "Lichess" : "Chess.com")
+                .font(AnnFont.label(10)).tracking(0.5).foregroundColor(DS.ink40).lineLimit(1)
+                .padding(.horizontal, 8).frame(width: CCW.source, alignment: .leading)
+
+            Text(chessComWhen(game))
+                .font(AnnFont.mono(10)).foregroundColor(DS.ink40).lineLimit(1)
+                .padding(.horizontal, 8).frame(width: CCW.date, alignment: .leading)
+
+            // Review — far right; only until the game has been analyzed
+            Group {
+                if game.analysisData == nil {
+                    Button(action: { onReviewGame(game) }) {
+                        Text("Review")
+                            .font(AnnFont.label(9)).tracking(0.3)
+                            .foregroundColor(DS.redAccent)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
                     }
+                    .buttonStyle(.plain)
                 }
-                .frame(width: 66, alignment: .trailing)
-                .padding(.trailing, 24)
-
-                // Time control
-                Text(chessComTimeClassLabel(game.timeClass))
-                    .font(AnnFont.label(11))
-                    .tracking(11 * 0.1)
-                    .foregroundColor(DS.ink60)
-                    .lineLimit(1)
-                    .frame(width: 60, alignment: .center)
-                    .padding(.trailing, 32)
-
-                // Source
-                Text(game.sourcePlatform == "lichess" ? "Lichess" : "Chess.com")
-                    .font(AnnFont.label(10))
-                    .tracking(10 * 0.1)
-                    .foregroundColor(game.sourcePlatform == "lichess" ? DS.textSecondary : chessComGreen)
-                    .lineLimit(1)
-                    .frame(width: 70, alignment: .center)
-                    .padding(.trailing, 32)
-
-                // When (relative)
-                Text(chessComWhen(game))
-                    .font(AnnFont.mono(10))
-                    .foregroundColor(DS.ink40)
-                    .lineLimit(1)
-                    .frame(width: 130, alignment: .leading)
             }
-            .padding(.horizontal, 28)
-            .frame(height: 40)
-            .background(
-                selectedGameIds.contains(game.id)
-                ? DS.selectedWash
-                : (isAlternate ? DS.hoverWash : Color.clear)
-            )
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-            .contentShape(Rectangle())
+            .padding(.horizontal, 8).frame(width: CCW.review, alignment: .trailing)
         }
+        .padding(.horizontal, 28)
+        .frame(height: 40)
+        .background(
+            selectedGameIds.contains(game.id)
+            ? DS.selectedWash
+            : (isAlternate ? DS.hoverWash : Color.clear)
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DS.hairline).frame(height: 1)
+        }
+        .contentShape(Rectangle())
     }
 
     /// The account owner's accuracy for a reviewed game, or "—" if it hasn't been analyzed yet.

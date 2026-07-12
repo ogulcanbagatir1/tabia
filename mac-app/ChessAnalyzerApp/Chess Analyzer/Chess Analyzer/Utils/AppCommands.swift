@@ -19,4 +19,5 @@ extension Notification.Name {
     static let tabiaPreviousMove  = Notification.Name("tabia.previousMove")
     static let tabiaNextMove      = Notification.Name("tabia.nextMove")
     static let tabiaGoToEnd       = Notification.Name("tabia.goToEnd")
+    static let tabiaSyncGames     = Notification.Name("tabia.syncGames")
 }

@@ -238,10 +238,15 @@ struct MainWindowView: View {
 
     // MARK: - Masthead & status bar
 
-    // The engine panel's "Analyze" button already runs the full game review, so the masthead
-    // carries no per-screen action here.
     @ViewBuilder private var mastheadActions: some View {
-        EmptyView()
+        switch activeScreen {
+        case .chesscom:
+            // Sync lives in the masthead on My Games (handled inside ChessComBrowserView).
+            Button("Sync Now") { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) }
+                .buttonStyle(GlassButtonStyle())
+        default:
+            EmptyView()
+        }
     }
 
     private var statusLeft: String {
