@@ -14,7 +14,7 @@ need the certificate + credentials below.
 ## One-time setup
 
 ### 1. Apple Developer Program
-You already have a team (`67U3MGM2PW`). Notarization requires an active **Apple Developer
+You already have a team (`4NRG5R2K23`). Notarization requires an active **Apple Developer
 Program** membership ($99/year). No separate service or account beyond that is needed —
 notarization itself is free and unlimited.
 
@@ -39,7 +39,7 @@ Notary submissions authenticate with an **app-specific password** (not your Appl
 ```sh
 xcrun notarytool store-credentials TabiaNotary \
   --apple-id "YOUR_APPLE_ID_EMAIL" \
-  --team-id 67U3MGM2PW \
+  --team-id 4NRG5R2K23 \
   --password "xxxx-xxxx-xxxx-xxxx"
 ```
 `TabiaNotary` is the profile name the script expects. That's it for setup.

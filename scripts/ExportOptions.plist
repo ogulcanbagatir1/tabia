@@ -7,9 +7,12 @@
     <key>method</key>
     <string>developer-id</string>
     <key>teamID</key>
-    <string>67U3MGM2PW</string>
+    <string>4NRG5R2K23</string>
     <key>signingStyle</key>
-    <string>automatic</string>
-    <!-- Hardened Runtime is already enabled in the target build settings. -->
+    <string>manual</string>
+    <!-- Team 4NRG5R2K23 has a "Developer ID Application" cert (no "Mac Development" one), so the
+         Release config signs manually with Developer ID; export re-signs the same way. Developer ID
+         distribution needs no provisioning profiles. Hardened Runtime is enabled in build settings. -->
+
 </dict>
 </plist>

@@ -3,11 +3,11 @@
 # Build → sign (Developer ID) → notarize → staple Tabia for direct distribution.
 #
 # One-time setup (see NOTARIZE.md):
-#   1. Apple Developer Program membership (team 67U3MGM2PW is already set).
+#   1. Apple Developer Program membership (team 4NRG5R2K23 is already set).
 #   2. A "Developer ID Application" certificate installed in your login keychain.
 #   3. Stored notary credentials:
 #        xcrun notarytool store-credentials TabiaNotary \
-#          --apple-id "you@example.com" --team-id 67U3MGM2PW --password "APP-SPECIFIC-PW"
+#          --apple-id "you@example.com" --team-id 4NRG5R2K23 --password "APP-SPECIFIC-PW"
 #
 # Then just run:  ./scripts/notarize.sh
 #
