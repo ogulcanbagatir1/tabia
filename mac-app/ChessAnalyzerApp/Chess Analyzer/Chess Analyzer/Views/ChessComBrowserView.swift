@@ -6,14 +6,14 @@ struct ChessComBrowserView: View {
     /// Load the game into Analysis and immediately run a full game review.
     var onReviewGame: (GameRecord) -> Void = { _ in }
 
-    @StateObject private var service = ChessComService()
-    @StateObject private var lichessService = LichessGameService()
+    @StateObject var service = ChessComService()
+    @StateObject var lichessService = LichessGameService()
     @ObservedObject private var lichessAuth = LichessAuthService.shared
-    @ObservedObject private var settings = AppSettings.shared
-    @AppStorage("chesscom_username") private var savedUsername: String = ""
-    @AppStorage("chesscom_last_sync") private var lastSyncTimestamp: Double = 0
-    @AppStorage("lichess_username") private var lichessUsername: String = ""
-    @AppStorage("lichess_last_sync") private var lichessLastSync: Double = 0
+    @ObservedObject var settings = AppSettings.shared
+    @AppStorage("chesscom_username") var savedUsername: String = ""
+    @AppStorage("chesscom_last_sync") var lastSyncTimestamp: Double = 0
+    @AppStorage("lichess_username") var lichessUsername: String = ""
+    @AppStorage("lichess_last_sync") var lichessLastSync: Double = 0
 
     @State private var cachedGames: [GameRecord] = []
     @State private var totalGameCount: Int = 0
@@ -32,11 +32,11 @@ struct ChessComBrowserView: View {
     @State private var newFolderName = ""
 
     // Syncing state
-    @State private var isSyncing = false
-    @State private var importedCount = 0
-    @State private var syncTimeClassCounts: [String: Int] = [:]
-    @State private var recentlyImportedGames: [GameRecord] = []
-    @State private var syncTask: Task<Void, Never>?
+    @State var isSyncing = false
+    @State var importedCount = 0
+    @State var syncTimeClassCounts: [String: Int] = [:]
+    @State var recentlyImportedGames: [GameRecord] = []
+    @State var syncTask: Task<Void, Never>?
 
     // Sorting
     @State private var sortColumn: SortColumn = .date
@@ -56,9 +56,9 @@ struct ChessComBrowserView: View {
     @State private var filterSource: String = "All"
 
     // Lichess sync state
-    @State private var isLichessSyncing = false
-    @State private var lichessImportedCount = 0
-    @State private var lichessSyncTask: Task<Void, Never>?
+    @State var isLichessSyncing = false
+    @State var lichessImportedCount = 0
+    @State var lichessSyncTask: Task<Void, Never>?
 
     // The Annotator has one accent (the red pen); "brand green" is gone. Neutral ink for the
     // places that were tinted green; explicit DS.redAccent where a real accent is wanted.
@@ -146,7 +146,7 @@ struct ChessComBrowserView: View {
         }
     }
 
-    private func reloadGames() {
+    func reloadGames() {
         guard hasAnyAccount else { return }
         cachedGames = []
         dbOffset = 0
@@ -1525,281 +1525,6 @@ struct ChessComBrowserView: View {
         .overlay(alignment: .top) {
             Rectangle().fill(DS.glassSeparator).frame(height: 1)
         }
-    }
-
-    // MARK: - Progressive Sync
-
-    private func startProgressiveSync(fullImport: Bool) {
-        isSyncing = true
-        importedCount = 0
-        syncTimeClassCounts = [:]
-        recentlyImportedGames = []
-
-        let username = savedUsername
-
-        syncTask = Task {
-            if fullImport {
-                service.clearHistory(for: username)
-                await service.fetchAllGamesProgressive(username: username) { archiveGames in
-                    await self.importArchiveGames(archiveGames, username: username)
-                }
-            } else {
-                await service.fetchNewGamesProgressive(username: username) { archiveGames in
-                    await self.importArchiveGames(archiveGames, username: username)
-                }
-            }
-
-            guard !Task.isCancelled else {
-                await MainActor.run { self.isSyncing = false }
-                return
-            }
-
-            await MainActor.run {
-                self.recomputeAndCacheStats(for: username)
-                self.lastSyncTimestamp = Date().timeIntervalSince1970
-                self.isSyncing = false
-                self.reloadGames()
-            }
-        }
-    }
-
-    private func startImportFromSheet(games: [ChessComGame], username: String) {
-        isSyncing = true
-        importedCount = 0
-        syncTimeClassCounts = [:]
-        recentlyImportedGames = []
-
-        syncTask = Task {
-            // Import games in batches to avoid blocking
-            let batchSize = 200
-            for batchStart in stride(from: 0, to: games.count, by: batchSize) {
-                guard !Task.isCancelled else { break }
-                let end = min(batchStart + batchSize, games.count)
-                let batch = Array(games[batchStart..<end])
-                await self.importArchiveGames(batch, username: username)
-            }
-
-            guard !Task.isCancelled else {
-                await MainActor.run { self.isSyncing = false }
-                return
-            }
-
-            await MainActor.run {
-                self.recomputeAndCacheStats(for: username)
-                self.lastSyncTimestamp = Date().timeIntervalSince1970
-                self.isSyncing = false
-                self.reloadGames()
-            }
-        }
-    }
-
-    private func importArchiveGames(_ games: [ChessComGame], username: String) async {
-        // Parse PGN (runs on background thread in async context)
-        let records = parseChessComGames(games, username: username)
-
-        guard !Task.isCancelled else { return }
-
-        // Save to DB on main thread
-        await MainActor.run {
-            // Dedup: filter out games already in DB
-            let newRecords = records.filter { record in
-                guard let sourceUrl = record.sourceUrl else { return true }
-                return !database.sourceUrlExists(sourceUrl)
-            }
-
-            if !newRecords.isEmpty {
-                database.addGames(newRecords, isChessComImport: true)
-                importedCount += newRecords.count
-
-                // Update time class counts
-                for record in newRecords {
-                    if let tc = record.timeClass {
-                        syncTimeClassCounts[tc, default: 0] += 1
-                    }
-                }
-
-                // Update recently imported (keep latest 4)
-                recentlyImportedGames.insert(contentsOf: Array(newRecords.prefix(4)), at: 0)
-                if recentlyImportedGames.count > 4 {
-                    recentlyImportedGames = Array(recentlyImportedGames.prefix(4))
-                }
-            }
-        }
-    }
-
-    private func cancelSync() {
-        syncTask?.cancel()
-        lichessSyncTask?.cancel()
-        isSyncing = false
-        isLichessSyncing = false
-    }
-
-    // MARK: - Lichess Sync
-
-    private func startLichessSync(fullImport: Bool) {
-        isLichessSyncing = true
-        if !isSyncing {
-            isSyncing = true
-            importedCount = 0
-            syncTimeClassCounts = [:]
-            recentlyImportedGames = []
-        }
-
-        let username = lichessUsername
-        let token = settings.lichessToken.isEmpty ? nil : settings.lichessToken
-        let since: Date? = fullImport ? nil : (lichessLastSync > 0 ? Date(timeIntervalSince1970: lichessLastSync) : nil)
-
-        lichessSyncTask = Task {
-            await lichessService.fetchGamesProgressive(
-                username: username,
-                token: token,
-                since: since
-            ) { batch in
-                await self.importLichessGames(batch, username: username)
-            }
-
-            guard !Task.isCancelled else {
-                await MainActor.run {
-                    self.isLichessSyncing = false
-                    if !self.service.isLoading { self.isSyncing = false }
-                }
-                return
-            }
-
-            await MainActor.run {
-                self.lichessLastSync = Date().timeIntervalSince1970
-                self.isLichessSyncing = false
-                if !self.service.isLoading { self.isSyncing = false }
-                self.reloadGames()
-            }
-        }
-    }
-
-    private func importLichessGames(_ games: [LichessGameData], username: String) async {
-        let records = parseLichessGames(games, username: username)
-
-        guard !Task.isCancelled else { return }
-
-        await MainActor.run {
-            let newRecords = records.filter { record in
-                guard let sourceUrl = record.sourceUrl else { return true }
-                return !database.sourceUrlExists(sourceUrl)
-            }
-
-            if !newRecords.isEmpty {
-                database.addGames(newRecords, isChessComImport: true)
-                importedCount += newRecords.count
-                lichessImportedCount += newRecords.count
-
-                for record in newRecords {
-                    if let tc = record.timeClass {
-                        syncTimeClassCounts[tc, default: 0] += 1
-                    }
-                }
-
-                recentlyImportedGames.insert(contentsOf: Array(newRecords.prefix(4)), at: 0)
-                if recentlyImportedGames.count > 4 {
-                    recentlyImportedGames = Array(recentlyImportedGames.prefix(4))
-                }
-            }
-        }
-    }
-
-    // MARK: - Lichess PGN Parsing
-
-    private func parseLichessGames(_ games: [LichessGameData], username: String) -> [GameRecord] {
-        var records: [GameRecord] = []
-
-        for game in games {
-            let whitePlayer = game.players.white.username
-            let blackPlayer = game.players.black.username
-
-            var openingName = game.opening?.name
-            let eco = game.opening?.eco
-
-            // Parse PGN if available for richer data
-            var pgn = game.pgn ?? ""
-            if pgn.isEmpty {
-                // Construct minimal PGN from game data
-                pgn = "[Event \"Lichess \(game.timeClass)\"]\n[White \"\(whitePlayer)\"]\n[Black \"\(blackPlayer)\"]\n[Result \"\(game.result)\"]\n"
-            }
-
-            let record = GameRecord(
-                event: "Lichess \(game.timeClass.capitalized)",
-                date: game.formattedDate,
-                white: whitePlayer,
-                black: blackPlayer,
-                result: game.result,
-                eco: eco,
-                opening: openingName,
-                pgn: pgn,
-                dateAdded: game.endDate ?? Date(),
-                timeClass: game.timeClass,
-                sourceUsername: username.lowercased(),
-                sourceUrl: game.url,
-                whiteElo: game.players.white.rating,
-                blackElo: game.players.black.rating
-            )
-            records.append(record)
-        }
-
-        return records
-    }
-
-    // MARK: - PGN Parsing (pure function, safe to call from background)
-
-    private func parseChessComGames(_ games: [ChessComGame], username: String) -> [GameRecord] {
-        var records: [GameRecord] = []
-
-        for game in games {
-            guard let pgn = game.pgn else { continue }
-
-            let parser = PGNParser()
-            let parsedGames = parser.parse(string: pgn)
-            let parsedGame = parsedGames.first
-
-            var openingName = parsedGame?.headers["Opening"]
-            if (openingName == nil || openingName!.isEmpty),
-               let ecoUrl = parsedGame?.headers["ECOUrl"],
-               let lastSlash = ecoUrl.lastIndex(of: "/") {
-                let slug = String(ecoUrl[ecoUrl.index(after: lastSlash)...])
-                let cleaned = slug
-                    .replacingOccurrences(of: "-\\d+\\..*$", with: "", options: .regularExpression)
-                    .replacingOccurrences(of: "-", with: " ")
-                if !cleaned.isEmpty { openingName = cleaned }
-            }
-
-            let record = GameRecord(
-                event: parsedGame?.headers["Event"] ?? "Chess.com \(game.timeClassDisplay)",
-                date: game.formattedDate,
-                white: game.white.username,
-                black: game.black.username,
-                result: game.result,
-                eco: parsedGame?.headers["ECO"],
-                opening: openingName,
-                pgn: pgn,
-                dateAdded: game.endDate ?? Date(),
-                timeClass: game.timeClass,
-                sourceUsername: username.lowercased(),
-                sourceUrl: game.url,
-                whiteElo: game.white.rating,
-                blackElo: game.black.rating
-            )
-            records.append(record)
-        }
-
-        return records
-    }
-
-    private func recomputeAndCacheStats(for username: String) {
-        let allGames = database.fetchChessComGames(for: username)
-        let allVariants = ChessComStatsComputer.computeAllVariants(games: allGames, username: username)
-        let cached = ChessComCachedStats(
-            username: username.lowercased(),
-            statsData: allVariants,
-            gameCount: allGames.count
-        )
-        database.saveCachedStats(cached)
     }
 }
 
