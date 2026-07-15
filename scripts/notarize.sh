@@ -42,9 +42,11 @@ xcodebuild -exportArchive -archivePath "$ARCHIVE" \
 
 echo "▸ [3/6] Verifying signature + Hardened Runtime…"
 codesign --verify --deep --strict --verbose=2 "$APP"
-codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "hardened" || true
-# The runtime flag must be present for notarization to pass:
-if ! codesign -dvvv "$APP" 2>&1 | grep -q "flags=.*runtime"; then
+# The runtime flag must be present for notarization to pass. Capture codesign's output to a
+# variable first — piping straight into `grep -q` makes grep close the pipe early, codesign dies
+# with SIGPIPE, and `set -o pipefail` then reports the whole check as failed even on a match.
+CS_INFO="$(codesign -dvvv "$APP" 2>&1 || true)"
+if ! printf '%s' "$CS_INFO" | grep -q "flags=.*runtime"; then
     echo "  ✗ Hardened Runtime flag not found on the signed app. Aborting." >&2
     exit 1
 fi
