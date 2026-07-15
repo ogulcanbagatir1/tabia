@@ -8,6 +8,7 @@ DerivedData/
 build/
 *.moved-aside
 *.hmap
+*.profraw
 
 # Swift Package Manager
 /.build

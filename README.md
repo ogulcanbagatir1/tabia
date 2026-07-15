@@ -10,7 +10,7 @@ A native **macOS** chess studio for analyzing your games and building an opening
 - **Opening Explorer** — browse any position against the **Lichess Masters** database, your own **game library**, or a bundled **reference database** (build a local opening index over ~200k master games).
 - **Repertoire trainer** — build opening lines as trees and **drill them with spaced repetition**; see coverage gaps and where you deviate from your own lines; per-repertoire knowledge stats.
 - **Games, unified** — sync **Chess.com** and **Lichess**, import PGN databases, organize games in folders, and explore rich stats (rating charts, W/D/L, streaks, top openings).
-- **Make it yours** — 38 board themes, 32 piece sets, light/dark.
+- **Make it yours** — 37 piece sets, wood & stone board themes, light/dark.
 
 ## Requirements
 
@@ -34,13 +34,15 @@ xcodebuild -project "mac-app/ChessAnalyzerApp/Chess Analyzer/Chess Analyzer.xcod
 
 ## Distribution
 
-Tabia is distributed directly as a **notarized Developer ID DMG** (not the Mac App Store — the local UCI engine is downloaded/run at runtime, which the App Store sandbox disallows). The reproducible signing/notarization pipeline lives in [`dist/`](dist/):
+Tabia is distributed directly as a **notarized Developer ID DMG** (not the Mac App Store — the local UCI engine is downloaded/run at runtime, which the App Store sandbox disallows). The reproducible signing/notarization pipeline lives in [`scripts/`](scripts/):
 
 ```
-dist/build_developerid.sh   # Developer ID + Hardened Runtime release build
-dist/resign.sh              # sign nested binaries + strip get-task-allow
-dist/notarize_dmg.sh        # notarize, staple, package the DMG
+scripts/notarize.sh   # archive → Developer ID sign → notarize → staple → generate appcast
+scripts/NOTARIZE.md   # one-time Developer ID certificate + notary credential setup
+scripts/UPDATES.md    # Sparkle auto-update release flow
 ```
+
+Updates are delivered via [Sparkle](https://sparkle-project.org); see `scripts/UPDATES.md`.
 
 ## Project layout
 
@@ -53,5 +55,9 @@ mac-app/ChessAnalyzerApp/Chess Analyzer/   # the Xcode project (Tabia)
     Database/    # game & repertoire persistence
     Utils/       # settings, opening book, ECO database, design system
     Resources/   # bundled boards, pieces, openings
-dist/            # build & notarization scripts
+scripts/         # signing, notarization & release scripts
 ```
+
+## License
+
+Tabia's own source is licensed under the **GNU General Public License v3.0** — see [`LICENSE`](LICENSE). GPL is required because the app bundles GPL/AGPL-licensed engines (Stockfish, Leela) and other copyleft assets. Bundled third-party licenses live under [`Resources/Licenses`](mac-app/ChessAnalyzerApp/Chess%20Analyzer/Chess%20Analyzer/Resources/Licenses) and are listed in the in-app **Acknowledgements** screen. Note: some bundled piece sets are **CC BY-NC-SA** (non-commercial) — a distributed build that includes them may not be sold.
