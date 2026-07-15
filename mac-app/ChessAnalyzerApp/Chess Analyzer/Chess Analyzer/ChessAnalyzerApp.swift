@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct TabiaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var shortcuts = ShortcutStore.shared
 
     let container: ModelContainer
     let database: GameDatabase
@@ -38,11 +39,31 @@ struct TabiaApp: App {
             config = ModelConfiguration(url: storeDir.appendingPathComponent("default.store"))
         }
 
-        let container = try! ModelContainer(
-            for: GameRecord.self, GameFolder.self, ChessComCachedStats.self, CachedName.self,
-                 Repertoire.self, RepertoireFolder.self, RepertoireNode.self, PositionSchedule.self,
-            configurations: config
-        )
+        let schema = Schema([
+            GameRecord.self, GameFolder.self, ChessComCachedStats.self, CachedName.self,
+            Repertoire.self, RepertoireFolder.self, RepertoireNode.self, PositionSchedule.self,
+        ])
+        let container: ModelContainer
+        do {
+            container = try ModelContainer(for: schema, configurations: config)
+        } catch {
+            // The on-disk store failed to open — a store corrupted by an interrupted write, or an
+            // incompatible schema from a downgrade. Rather than a hard launch crash (try!), move the
+            // store aside so the app opens fresh; fall back to in-memory as a last resort so it always
+            // launches. (A proper SchemaMigrationPlan is still needed before the first model change.)
+            NSLog("Tabia: ModelContainer open failed (\(error)); attempting recovery.")
+            if !ephemeral {
+                let fm = FileManager.default
+                for suffix in ["", "-wal", "-shm"] {
+                    let live = URL(fileURLWithPath: config.url.path + suffix)
+                    let quarantine = URL(fileURLWithPath: config.url.path + suffix + ".corrupt")
+                    try? fm.removeItem(at: quarantine)
+                    try? fm.moveItem(at: live, to: quarantine)
+                }
+            }
+            container = (try? ModelContainer(for: schema, configurations: config))
+                ?? (try! ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        }
         self.container = container
         self.database = GameDatabase(modelContext: container.mainContext, container: container)
         self.repertoireDatabase = RepertoireDatabase(modelContext: container.mainContext, container: container)
@@ -78,21 +99,14 @@ struct TabiaApp: App {
         .commands {
             EngineRoomCommands()
 
-            // File menu
             CommandGroup(replacing: .newItem) {
-                Button("New Game") { NotificationCenter.default.post(name: .tabiaNewGame, object: nil) }
-                .keyboardShortcut("n", modifiers: .command)
+                menuItem("game.new")
             }
 
             CommandMenu("File") {
-                Button("Open PGN...") { NotificationCenter.default.post(name: .tabiaOpenPGN, object: nil) }
-                .keyboardShortcut("o", modifiers: .command)
-
-                Button("Save PGN...") { NotificationCenter.default.post(name: .tabiaSavePGN, object: nil) }
-                .keyboardShortcut("s", modifiers: .command)
-
+                menuItem("game.open")
+                menuItem("game.save")
                 Divider()
-
                 Button("Import PGN Database...") {
                     let panel = NSOpenPanel()
                     panel.allowsMultipleSelection = false
@@ -105,57 +119,58 @@ struct TabiaApp: App {
                         referenceDatabase.importPGN(url: url)
                     }
                 }
-                .keyboardShortcut("i", modifiers: [.command, .shift])
-
-                Button("Export Game...") { NotificationCenter.default.post(name: .tabiaExportGame, object: nil) }
+                .keyboardShortcut(shortcuts.keyEquivalent("game.importDb"), modifiers: shortcuts.modifiers("game.importDb"))
+                menuItem("game.export")
             }
 
-            // Edit menu
-            CommandMenu("Edit") {
-                Button("Copy FEN") { NotificationCenter.default.post(name: .tabiaCopyFEN, object: nil) }
-                .keyboardShortcut("c", modifiers: [.command, .shift])
-
-                Button("Paste FEN") { NotificationCenter.default.post(name: .tabiaPasteFEN, object: nil) }
-                .keyboardShortcut("v", modifiers: [.command, .shift])
-
+            CommandMenu("Board") {
+                menuItem("game.setup")
                 Divider()
-
-                Button("Flip Board") { NotificationCenter.default.post(name: .tabiaFlipBoard, object: nil) }
-                .keyboardShortcut("f", modifiers: [.command, .shift])
+                menuItem("board.flip")
+                menuItem("board.copyFEN")
+                menuItem("board.pasteFEN")
             }
 
-            // Analysis menu
             CommandMenu("Analysis") {
-                // ⌘E opens the Engine Room (EngineRoomCommands); engine start/stop stay shortcut-light
-                // so they don't collide with it.
-                Button("Start Engine") { NotificationCenter.default.post(name: .tabiaStartEngine, object: nil) }
-
-                Button("Stop Engine") { NotificationCenter.default.post(name: .tabiaStopEngine, object: nil) }
-                .keyboardShortcut("e", modifiers: [.command, .shift])
-
+                menuItem("analysis.position")
+                menuItem("analysis.review")
+                menuItem("analysis.best")
                 Divider()
-
-                // ⌥⌘A, not ⌘A — a plain ⌘A menu item would hijack Select All in every text field.
-                Button("Analyze Position") { NotificationCenter.default.post(name: .tabiaAnalyzePosition, object: nil) }
-                .keyboardShortcut("a", modifiers: [.command, .option])
-
-                Button("Show Best Move") { NotificationCenter.default.post(name: .tabiaShowBestMove, object: nil) }
-                .keyboardShortcut("b", modifiers: .command)
+                menuItem("analysis.toggleEngine")
+                menuItem("analysis.autoAnalyze")
             }
 
-            // Navigation menu
             CommandMenu("Navigate") {
-                Button("Go to Start") { NotificationCenter.default.post(name: .tabiaGoToStart, object: nil) }
-                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                menuItem("nav.start")
+                menuItem("nav.prev")
+                menuItem("nav.next")
+                menuItem("nav.end")
+                Divider()
+                menuItem("screen.analysis")
+                menuItem("screen.explorer")
+                menuItem("screen.repertoire")
+                menuItem("screen.chesscom")
+                menuItem("screen.database")
+            }
 
-                Button("Previous Move") { NotificationCenter.default.post(name: .tabiaPreviousMove, object: nil) }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
+            CommandMenu("Move") {
+                menuItem("ann.brilliant")
+                menuItem("ann.good")
+                menuItem("ann.interesting")
+                menuItem("ann.dubious")
+                menuItem("ann.mistake")
+                menuItem("ann.blunder")
+                Divider()
+                menuItem("ann.delete")
+            }
 
-                Button("Next Move") { NotificationCenter.default.post(name: .tabiaNextMove, object: nil) }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-
-                Button("Go to End") { NotificationCenter.default.post(name: .tabiaGoToEnd, object: nil) }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+            CommandMenu("Library") {
+                menuItem("lib.sync")
+                menuItem("lib.filters")
+                menuItem("lib.search")
+                Divider()
+                menuItem("lib.newDb")
+                menuItem("rep.new")
             }
         }
         
@@ -178,6 +193,15 @@ struct TabiaApp: App {
         }
         .windowResizability(.contentMinSize)
     }
+
+    /// A menu command whose key equivalent is read live from the (rebindable) shortcut store.
+    @ViewBuilder
+    private func menuItem(_ id: String) -> some View {
+        if let def = ShortcutRegistry.byId[id] {
+            Button(def.name) { NotificationCenter.default.post(name: def.notificationName, object: nil) }
+                .keyboardShortcut(shortcuts.keyEquivalent(id), modifiers: shortcuts.modifiers(id))
+        }
+    }
 }
 
 /// Stable identifiers for auxiliary windows.
@@ -188,10 +212,11 @@ enum WindowID {
 /// ⌘E → Engine Room (composed into the app's command set).
 struct EngineRoomCommands: Commands {
     @Environment(\.openWindow) private var openWindow
+    @ObservedObject private var shortcuts = ShortcutStore.shared
     var body: some Commands {
         CommandGroup(after: .toolbar) {
             Button("Engine Room") { openWindow(id: WindowID.engineRoom) }
-                .keyboardShortcut("e", modifiers: .command)
+                .keyboardShortcut(shortcuts.keyEquivalent("win.engineRoom"), modifiers: shortcuts.modifiers("win.engineRoom"))
         }
     }
 }

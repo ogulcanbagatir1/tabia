@@ -3,10 +3,15 @@ import AppKit
 
 // Arrow for annotation
 struct BoardArrow: Identifiable, Equatable {
-    let id = UUID()
     let from: Position
     let to: Position
     let color: Color
+
+    // Geometry-derived identity: the engine best-move arrow is rebuilt on every eval tick, but
+    // as long as the suggested move is unchanged the value stays fully equal — so SwiftUI's view
+    // diff skips BoardView.body instead of tearing the 64-square grid down every tick. A random
+    // UUID here would defeat that, forcing a full board re-render dozens of times per second.
+    var id: String { "\(from.file)\(from.rank)-\(to.file)\(to.rank)" }
 
     static func == (lhs: BoardArrow, rhs: BoardArrow) -> Bool {
         lhs.from == rhs.from && lhs.to == rhs.to
@@ -17,6 +22,7 @@ struct BoardView: View {
     @ObservedObject var board: ChessBoard
     @ObservedObject var gameTree: GameTree
     var explorerArrow: BoardArrow? = nil  // Optional explorer arrow to show
+    var extraArrows: [BoardArrow] = []    // Extra overlay arrows (R6 tree-children coverage)
     var isFlipped: Bool = false  // Board orientation (false = White at bottom)
     var showLabels: Bool = true  // Rank/file coordinate labels (off for the framed Annotator board)
     @ObservedObject private var settings = AppSettings.shared
@@ -55,11 +61,15 @@ struct BoardView: View {
             let squareSize = min(availableWidth, availableHeight) / 8
             let boardSize = squareSize * 8
 
+            // minLength: 0 so these centering spacers truly collapse to nothing when the board fills
+            // its frame (the default Spacer keeps an 8pt macOS gap, which pushed the grid 8pt down &
+            // right inside its frame — that's why the bottom/right sat closer to their labels). With a
+            // larger frame (e.g. labelled boards) they still split the extra space symmetrically.
             VStack(spacing: 0) {
-                Spacer()
+                Spacer(minLength: 0)
 
                 HStack(spacing: 0) {
-                    Spacer()
+                    Spacer(minLength: 0)
 
                     // Board with coordinates
                     VStack(spacing: 0) {
@@ -164,6 +174,18 @@ struct BoardView: View {
                                     .allowsHitTesting(false)
                                 }
 
+                                // Layer 4b: Extra overlay arrows (e.g. R6 tree-children: green =
+                                // answered, amber = gap). Value-typed, drawn under the user arrows.
+                                ForEach(extraArrows) { arrow in
+                                    ArrowShape(
+                                        from: squareCenter(arrow.from, squareSize: squareSize),
+                                        to: squareCenter(arrow.to, squareSize: squareSize),
+                                        headSize: squareSize * 0.35
+                                    )
+                                    .fill(arrow.color.opacity(0.85))
+                                    .allowsHitTesting(false)
+                                }
+
                                 // Layer 5: User arrows
                                 ForEach(arrows) { arrow in
                                     ArrowShape(
@@ -222,7 +244,10 @@ struct BoardView: View {
                                 RoundedRectangle(cornerRadius: DS.radiusSM)
                                     .strokeBorder(DS.border, lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+                            // Symmetric shadow (no downward bias): a y-offset made the board's shadow
+                            // fill the gap below it, so the bottom player label looked closer to the
+                            // board than the top one. Even halo → equal visual gap on both sides.
+                            .shadow(color: .black.opacity(0.13), radius: 8, x: 0, y: 0)
                         }
 
                         // Bottom file letters
@@ -239,18 +264,19 @@ struct BoardView: View {
                         }
                     }
 
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
             }
         }
         .onAppear {
             moveGenerator = MoveGenerator(board: board)
         }
         .onChange(of: board.turn) { _, _ in
-            // Board synced by MainWindowView - just update moveGenerator
-            moveGenerator = MoveGenerator(board: board)
+            // moveGenerator holds a live reference to `board` (created once in onAppear), so it never
+            // needs recreating — reassigning it here was an extra @State write that forced a second
+            // BoardView.body pass on every move and every navigation step. Just clear selection.
             selectedSquare = nil
             legalMoves = []
         }
@@ -297,8 +323,9 @@ struct BoardView: View {
     // MARK: - Tap Handling
 
     private func handleTap(position: Position, squareSize: CGFloat) {
-        if let _ = selectedSquare,
-           let move = legalMoves.first(where: { $0.to == position }) {
+        if let from = selectedSquare,
+           let move = legalMoves.first(where: { $0.to == position })
+                ?? castlingMoveForRookDrop(from: from, target: position) {
             executeMove(move)
             return
         }
@@ -354,6 +381,7 @@ struct BoardView: View {
         let targetPos = Position(targetFile, targetRank)
 
         let moveToExecute = legalMoves.first(where: { $0.to == targetPos })
+            ?? castlingMoveForRookDrop(from: fromPos, target: targetPos)
 
         clearDragState()
 
@@ -362,6 +390,15 @@ struct BoardView: View {
         if let move = moveToExecute {
             executeMove(move)
         }
+    }
+
+    /// Also castle when the king is dropped onto its own rook (h/a file) — the common expectation
+    /// on Lichess/Chess.com — not only when dropped exactly on g/c.
+    private func castlingMoveForRookDrop(from: Position, target: Position) -> Move? {
+        guard let p = board.pieceAt(from), p.type == .king, target.rank == from.rank else { return nil }
+        if target.file == 7 { return legalMoves.first { $0.isCastling && $0.to.file == 6 } }
+        if target.file == 0 { return legalMoves.first { $0.isCastling && $0.to.file == 2 } }
+        return nil
     }
 
     private func clearDragState() {
@@ -381,7 +418,9 @@ struct BoardView: View {
         _ = gameTree.addMove(move)
         lastMove = move
 
-        moveGenerator = MoveGenerator(board: board)
+        // moveGenerator already tracks `board` by reference — no need to rebuild it (that was a
+        // redundant @State write). onChange(board.turn) also clears selection, but do it here too
+        // so the highlight drops in the same frame as the move (no one-frame stale-selection flash).
         selectedSquare = nil
         legalMoves = []
     }
@@ -891,10 +930,17 @@ class RightClickMonitorView: NSView {
 
 // MARK: - Helper Functions
 
+// Decoded piece images are cached: without this every board re-render (each move, each engine
+// eval tick) re-read + re-decoded ~32 PNGs from disk — a large, constant per-render stall.
+private let pieceImageCache = NSCache<NSString, NSImage>()
+
 func loadPieceImage(_ filename: String) -> NSImage? {
+    let key = filename as NSString
+    if let cached = pieceImageCache.object(forKey: key) { return cached }
     guard let resourcePath = Bundle.main.resourcePath else { return nil }
-    let imagePath = "\(resourcePath)/\(filename)"
-    return NSImage(contentsOfFile: imagePath)
+    guard let img = NSImage(contentsOfFile: "\(resourcePath)/\(filename)") else { return nil }
+    pieceImageCache.setObject(img, forKey: key)
+    return img
 }
 
 #Preview {

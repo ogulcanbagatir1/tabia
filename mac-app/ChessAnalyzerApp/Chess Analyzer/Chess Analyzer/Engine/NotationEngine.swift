@@ -251,18 +251,28 @@ class NotationEngine {
 extension ChessBoard {
     func copy() -> ChessBoard {
         let newBoard = ChessBoard()
-        newBoard.squares = self.squares
-        newBoard.turn = self.turn
-        newBoard.enPassantTarget = self.enPassantTarget
-        newBoard.halfMoveClock = self.halfMoveClock
-        newBoard.fullMoveNumber = self.fullMoveNumber
-        newBoard.whiteCanCastleKingside = self.whiteCanCastleKingside
-        newBoard.whiteCanCastleQueenside = self.whiteCanCastleQueenside
-        newBoard.blackCanCastleKingside = self.blackCanCastleKingside
-        newBoard.blackCanCastleQueenside = self.blackCanCastleQueenside
-        newBoard.moveHistory = self.moveHistory
-        newBoard.gameOver = self.gameOver
+        newBoard.restoreState(from: self)
         return newBoard
+    }
+
+    /// Overwrite this board's ENTIRE state from `other`, in place. Use this whenever the live board
+    /// must be made to match a stored snapshot (e.g. navigating the game tree, reset, applying an
+    /// opening line). It is critical that this copies the castling-rights booleans too: the king's
+    /// `hasMoved` flag travels inside `squares`, but MoveGenerator also requires
+    /// `whiteCanCastleKingside`/etc., so if those are left stale the engine silently refuses to let
+    /// you castle again after taking a castling move back.
+    func restoreState(from other: ChessBoard) {
+        squares = other.squares
+        turn = other.turn
+        enPassantTarget = other.enPassantTarget
+        halfMoveClock = other.halfMoveClock
+        fullMoveNumber = other.fullMoveNumber
+        whiteCanCastleKingside = other.whiteCanCastleKingside
+        whiteCanCastleQueenside = other.whiteCanCastleQueenside
+        blackCanCastleKingside = other.blackCanCastleKingside
+        blackCanCastleQueenside = other.blackCanCastleQueenside
+        moveHistory = other.moveHistory
+        gameOver = other.gameOver
     }
 
     /// Convert a UCI PV to algebraic notation. Mutates a copy of self; self is untouched.

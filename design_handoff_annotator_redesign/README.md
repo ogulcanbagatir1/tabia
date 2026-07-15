@@ -1,5 +1,7 @@
 # Handoff: Tabia — "The Annotator" Full App Redesign
 
+> **Also in this folder:** `TABS-AND-RAIL.md` (parallel boards as titlebar tabs + left-rail nav — supersedes the masthead nav described below) · `R2-REPERTOIRE-EDITOR.md` (editor tree view, deep spec) · `R6-BOARD-INPUT.md` (how repertoire moves are authored on a board). The two functional specs are mandatory reading — they change behavior, not just paint.
+
 ## Overview
 This package restyles **Tabia**, a native macOS chess studio (analysis, opening explorer, repertoire trainer, games database with Chess.com/Lichess sync), into a new design language called **The Annotator**: an editorial, chess-press aesthetic — warm paper, ink, typewriter data, a serif voice, and one red pen. It replaces the current dark/glassy look entirely, in **both light and dark mode**.
 
@@ -42,6 +44,12 @@ Fallback if bundling is impossible: New York / SF Pro / SF Mono — but the char
 - **Titlebar/masthead, 47px**: traffic lights · wordmark `Tabia.` (Newsreader 600 20px; the period in red) · centered nav tabs (ANALYSIS · EXPLORER · REPERTOIRE · GAMES · DATABASE — active tab has a 2px red underline) · right-side actions (max one red-filled button).
 - **Content**: column layouts with 1px hairline dividers. Analysis: `300 | fluid | 372`. Repertoire editor: `292 | fluid | 396`. Database: `280 | fluid`. Explorer: `448 | fluid`.
 - **Status bar, 28px**: mono 9.5px, two ends — left = context truth (FEN, counts, filters), right = system truth (sync time, engine depth, clock).
+
+## Navigation & entry points
+- The main nav has exactly **5 tabs**: ANALYSIS · EXPLORER · REPERTOIRE · GAMES · DATABASE. Engines and Settings are NOT tabs.
+- **Settings** is reachable from inside the app: a **gear button (⚙) at the far right of every main screen's masthead** opens the Settings window (compact, 3 tabs: S1 Appearance / S2 Engines / S3 Accounts & Import). The standard macOS routes also work: app menu → Settings… and `⌘,`. Drill mode (R3) intentionally hides the gear — focused chrome.
+- **Engine Room (N1)** is a management window, not a main screen. Entry points: `⌘E` · Settings → Engines → "OPEN ENGINE ROOM →" (row exists in S2) · clicking the active engine chip in the Analysis engine panel opens a menu listing installed engines plus "Manage Engines…" · the A1/ES4 empty-state buttons route here. Its masthead shows an ENGINE ROOM title instead of the main nav.
+- **Sheets** (R5, D3–D5, N2) attach to the window that spawned them; the **Filters drawer (D2)** slides from the right edge of Database.
 
 ## Screens / Views
 

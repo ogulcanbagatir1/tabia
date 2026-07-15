@@ -117,68 +117,27 @@ struct BoardTheme: Identifiable, Equatable {
             ),
         ]
 
-        // Image-based themes from Boards/ resources
+        // Textured full-board images in Resources/Boards — original generated art (no third-party
+        // license). The 8x8 pattern is baked in; the squares render .clear over the image.
         let imageThemes: [BoardTheme] = [
-            BoardTheme(id: "img_8_bit", name: "8 Bit", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_8_bit.png"),
-            BoardTheme(id: "img_bases", name: "Bases", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_bases.png"),
-            BoardTheme(id: "img_blue", name: "Blue Board", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.30, green: 0.69, blue: 0.31), lastMoveColor: Color(red: 0.56, green: 0.73, blue: 0.87), imageName: "board_blue.png"),
-            BoardTheme(id: "img_brown", name: "Brown Board", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.80, green: 0.60, blue: 0.20), lastMoveColor: Color(red: 0.85, green: 0.75, blue: 0.55), imageName: "board_brown.png"),
-            BoardTheme(id: "img_bubblegum", name: "Bubblegum", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.90, green: 0.50, blue: 0.70), lastMoveColor: Color(red: 0.95, green: 0.70, blue: 0.80), imageName: "board_bubblegum.png"),
-            BoardTheme(id: "img_burled_wood", name: "Burled Wood", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.75, green: 0.55, blue: 0.30), lastMoveColor: Color(red: 0.80, green: 0.70, blue: 0.50), imageName: "board_burled_wood.png"),
-            BoardTheme(id: "img_dark_wood", name: "Dark Wood", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.75, green: 0.55, blue: 0.30), lastMoveColor: Color(red: 0.80, green: 0.70, blue: 0.50), imageName: "board_dark_wood.png"),
-            BoardTheme(id: "img_dash", name: "Dash", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_dash.png"),
-            BoardTheme(id: "img_glass", name: "Glass", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.40, green: 0.70, blue: 0.80), lastMoveColor: Color(red: 0.60, green: 0.80, blue: 0.90), imageName: "board_glass.png"),
-            BoardTheme(id: "img_graffiti", name: "Graffiti", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_graffiti.png"),
-            BoardTheme(id: "img_green", name: "Green Board", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_green.png"),
-            BoardTheme(id: "img_icy_sea", name: "Icy Sea", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.20, green: 0.70, blue: 0.70), lastMoveColor: Color(red: 0.50, green: 0.75, blue: 0.85), imageName: "board_icy_sea.png"),
-            BoardTheme(id: "img_light", name: "Light", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_light.png"),
-            BoardTheme(id: "img_lolz", name: "Lolz", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_lolz.png"),
-            BoardTheme(id: "img_marble", name: "Marble", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.40, green: 0.70, blue: 0.40), lastMoveColor: Color(red: 0.70, green: 0.70, blue: 0.50), imageName: "board_marble.png"),
-            BoardTheme(id: "img_metal", name: "Metal", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.40, green: 0.70, blue: 0.40), lastMoveColor: Color(red: 0.70, green: 0.70, blue: 0.50), imageName: "board_metal.png"),
-            BoardTheme(id: "img_neon", name: "Neon", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.20, green: 0.90, blue: 0.50), lastMoveColor: Color(red: 0.50, green: 0.90, blue: 0.70), imageName: "board_neon.png"),
-            BoardTheme(id: "img_newspaper", name: "Newspaper", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.40, green: 0.70, blue: 0.40), lastMoveColor: Color(red: 0.70, green: 0.70, blue: 0.50), imageName: "board_newspaper.png"),
-            BoardTheme(id: "img_orange", name: "Orange", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.90, green: 0.60, blue: 0.20), lastMoveColor: Color(red: 0.95, green: 0.75, blue: 0.50), imageName: "board_orange.png"),
-            BoardTheme(id: "img_overlay", name: "Overlay", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_overlay.png"),
-            BoardTheme(id: "img_parchment", name: "Parchment", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.75, green: 0.55, blue: 0.30), lastMoveColor: Color(red: 0.80, green: 0.70, blue: 0.50), imageName: "board_parchment.png"),
-            BoardTheme(id: "img_purple", name: "Purple Board", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.70, green: 0.50, blue: 0.80), lastMoveColor: Color(red: 0.75, green: 0.65, blue: 0.85), imageName: "board_purple.png"),
-            BoardTheme(id: "img_red", name: "Red", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.90, green: 0.40, blue: 0.30), lastMoveColor: Color(red: 0.95, green: 0.60, blue: 0.50), imageName: "board_red.png"),
-            BoardTheme(id: "img_sand", name: "Sand", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.80, green: 0.60, blue: 0.20), lastMoveColor: Color(red: 0.85, green: 0.75, blue: 0.55), imageName: "board_sand.png"),
-            BoardTheme(id: "img_sky", name: "Sky", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.30, green: 0.69, blue: 0.31), lastMoveColor: Color(red: 0.56, green: 0.73, blue: 0.87), imageName: "board_sky.png"),
-            BoardTheme(id: "img_stone", name: "Stone", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.40, green: 0.70, blue: 0.40), lastMoveColor: Color(red: 0.70, green: 0.70, blue: 0.50), imageName: "board_stone.png"),
-            BoardTheme(id: "img_tan", name: "Tan", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.80, green: 0.60, blue: 0.20), lastMoveColor: Color(red: 0.85, green: 0.75, blue: 0.55), imageName: "board_tan.png"),
-            BoardTheme(id: "img_tournament", name: "Tournament", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.49, green: 0.75, blue: 0.54), lastMoveColor: Color(red: 0.80, green: 0.78, blue: 0.42), imageName: "board_tournament.png"),
-            BoardTheme(id: "img_translucent", name: "Translucent", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.40, green: 0.70, blue: 0.80), lastMoveColor: Color(red: 0.60, green: 0.80, blue: 0.90), imageName: "board_translucent.png"),
             BoardTheme(id: "img_walnut", name: "Walnut", lightSquare: .clear, darkSquare: .clear,
-                       selectedColor: Color(red: 0.75, green: 0.55, blue: 0.30), lastMoveColor: Color(red: 0.80, green: 0.70, blue: 0.50), imageName: "board_walnut.png"),
+                       selectedColor: Color(hex: 0xC3A566), lastMoveColor: Color(hex: 0xE7CF8E), imageName: "board_walnut.png"),
+            BoardTheme(id: "img_oak", name: "Oak", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0xC3A566), lastMoveColor: Color(hex: 0xE7CF8E), imageName: "board_oak.png"),
+            BoardTheme(id: "img_maple", name: "Maple", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0xC3A566), lastMoveColor: Color(hex: 0xE7CF8E), imageName: "board_maple.png"),
+            BoardTheme(id: "img_rosewood", name: "Rosewood", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0xD08A50), lastMoveColor: Color(hex: 0xE0A060), imageName: "board_rosewood.png"),
+            BoardTheme(id: "img_marble", name: "Marble", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0x9EC1D0), lastMoveColor: Color(hex: 0xBFD9E4), imageName: "board_marble.png"),
+            BoardTheme(id: "img_slate", name: "Slate", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0x7FA8C0), lastMoveColor: Color(hex: 0xA8C6D8), imageName: "board_slate.png"),
+            BoardTheme(id: "img_graphite", name: "Graphite", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0x8A8F98), lastMoveColor: Color(hex: 0xAEB3BC), imageName: "board_graphite.png"),
+            BoardTheme(id: "img_emerald", name: "Emerald", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0x86B47A), lastMoveColor: Color(hex: 0xACCF9E), imageName: "board_emerald.png"),
+            BoardTheme(id: "img_sandstone", name: "Sandstone", lightSquare: .clear, darkSquare: .clear,
+                       selectedColor: Color(hex: 0xD0A85A), lastMoveColor: Color(hex: 0xE0C080), imageName: "board_sandstone.png"),
         ]
 
         return colorThemes + imageThemes
@@ -188,13 +147,19 @@ struct BoardTheme: Identifiable, Equatable {
         allThemes.first { $0.id == id } ?? allThemes[0]
     }
 
-    /// Load the board image from the app bundle
+    /// Load the board image from the app bundle (cached — the raw decode was re-run every render).
     func loadBoardImage() -> NSImage? {
         guard let imageName = imageName,
               let resourcePath = Bundle.main.resourcePath else { return nil }
-        return NSImage(contentsOfFile: "\(resourcePath)/\(imageName)")
+        let key = imageName as NSString
+        if let cached = boardImageCache.object(forKey: key) { return cached }
+        guard let img = NSImage(contentsOfFile: "\(resourcePath)/\(imageName)") else { return nil }
+        boardImageCache.setObject(img, forKey: key)
+        return img
     }
 }
+
+private let boardImageCache = NSCache<NSString, NSImage>()
 
 // MARK: - Piece Style
 
@@ -202,6 +167,9 @@ struct PieceStyle: Identifiable, Equatable {
     let id: String
     let name: String
     let folder: String
+    /// CC BY-NC-SA sets — legal to bundle only while the app is distributed free of charge.
+    /// If the app ever adds ads / IAP / a paid tier, filter these out (`allStyles.filter { !$0.isNonCommercial }`).
+    var isNonCommercial: Bool = false
 
     func imageFileName(for piece: Piece) -> String {
         let colorLetter = piece.color == .white ? "w" : "b"
@@ -217,40 +185,48 @@ struct PieceStyle: Identifiable, Equatable {
         return "\(folder)_\(colorLetter)\(pieceLetter).png"
     }
 
+    // Freely-licensed piece sets from Lichess (lila/public/piece) — see AcknowledgementsView for the
+    // per-set author + license. The previous Chess.com-derived sets were proprietary and removed.
     static let allStyles: [PieceStyle] = [
-        PieceStyle(id: "classic", name: "Classic", folder: "classic"),
-        PieceStyle(id: "neo", name: "Neo", folder: "neo"),
-        PieceStyle(id: "modern", name: "Modern", folder: "modern"),
-        PieceStyle(id: "alpha", name: "Alpha", folder: "alpha"),
-        PieceStyle(id: "8_bit", name: "8 Bit", folder: "8_bit"),
-        PieceStyle(id: "bases", name: "Bases", folder: "bases"),
-        PieceStyle(id: "book", name: "Book", folder: "book"),
-        PieceStyle(id: "bubblegum", name: "Bubblegum", folder: "bubblegum"),
-        PieceStyle(id: "cases", name: "Cases", folder: "cases"),
-        PieceStyle(id: "club", name: "Club", folder: "club"),
-        PieceStyle(id: "condal", name: "Condal", folder: "condal"),
-        PieceStyle(id: "dash", name: "Dash", folder: "dash"),
-        PieceStyle(id: "game_room", name: "Game Room", folder: "game_room"),
-        PieceStyle(id: "glass", name: "Glass", folder: "glass"),
-        PieceStyle(id: "gothic", name: "Gothic", folder: "gothic"),
-        PieceStyle(id: "graffiti", name: "Graffiti", folder: "graffiti"),
-        PieceStyle(id: "icy_sea", name: "Icy Sea", folder: "icy_sea"),
-        PieceStyle(id: "light", name: "Light", folder: "light"),
-        PieceStyle(id: "lolz", name: "Lolz", folder: "lolz"),
-        PieceStyle(id: "marble", name: "Marble", folder: "marble"),
-        PieceStyle(id: "maya", name: "Maya", folder: "maya"),
-        PieceStyle(id: "metal", name: "Metal", folder: "metal"),
-        PieceStyle(id: "nature", name: "Nature", folder: "nature"),
-        PieceStyle(id: "neo_wood", name: "Neo Wood", folder: "neo_wood"),
-        PieceStyle(id: "neon", name: "Neon", folder: "neon"),
-        PieceStyle(id: "newspaper", name: "Newspaper", folder: "newspaper"),
-        PieceStyle(id: "ocean", name: "Ocean", folder: "ocean"),
-        PieceStyle(id: "sky", name: "Sky", folder: "sky"),
-        PieceStyle(id: "space", name: "Space", folder: "space"),
-        PieceStyle(id: "tigers", name: "Tigers", folder: "tigers"),
-        PieceStyle(id: "tournament", name: "Tournament", folder: "tournament"),
-        PieceStyle(id: "vintage", name: "Vintage", folder: "vintage"),
-        PieceStyle(id: "wood", name: "Wood", folder: "wood"),
+        PieceStyle(id: "cburnett",   name: "Cburnett",   folder: "cburnett"),
+        PieceStyle(id: "merida",     name: "Merida",     folder: "merida"),
+        PieceStyle(id: "fantasy",    name: "Fantasy",    folder: "fantasy"),
+        PieceStyle(id: "chessnut",   name: "Chessnut",   folder: "chessnut"),
+        PieceStyle(id: "celtic",     name: "Celtic",     folder: "celtic"),
+        PieceStyle(id: "spatial",    name: "Spatial",    folder: "spatial"),
+        PieceStyle(id: "pirouetti",  name: "Pirouetti",  folder: "pirouetti"),
+        PieceStyle(id: "kiwen-suwi", name: "Kiwen Suwi", folder: "kiwen-suwi"),
+        PieceStyle(id: "totoy",      name: "Totoy",      folder: "totoy"),
+        PieceStyle(id: "papercut",   name: "Papercut",   folder: "papercut"),
+        PieceStyle(id: "letter",     name: "Letter",     folder: "letter"),
+        PieceStyle(id: "shapes",     name: "Shapes",     folder: "shapes"),
+        PieceStyle(id: "pixel",      name: "Pixel",      folder: "pixel"),
+        PieceStyle(id: "rhosgfx",    name: "RhosGFX",    folder: "rhosgfx"),
+        PieceStyle(id: "mpchess",    name: "MPChess",    folder: "mpchess"),
+        // Non-Lichess free sets (see AcknowledgementsView for authors + licenses).
+        PieceStyle(id: "kaneo",          name: "Kaneo",          folder: "kaneo"),
+        PieceStyle(id: "kaneo_midnight", name: "Kaneo Midnight", folder: "kaneo_midnight"),
+        PieceStyle(id: "kbyte",          name: "1 Kbyte Gambit", folder: "kbyte"),
+        PieceStyle(id: "buch",           name: "Buch",           folder: "buch"),
+        PieceStyle(id: "openmoji",       name: "OpenMoji",       folder: "openmoji"),
+        PieceStyle(id: "firi",           name: "Firi",           folder: "firi"),
+        // CC BY-NC-SA sets from Lichess (lila) — free-app only; see isNonCommercial above.
+        PieceStyle(id: "maestro",   name: "Maestro",    folder: "maestro",   isNonCommercial: true),
+        PieceStyle(id: "staunty",   name: "Staunty",    folder: "staunty",   isNonCommercial: true),
+        PieceStyle(id: "caliente",  name: "Caliente",   folder: "caliente",  isNonCommercial: true),
+        PieceStyle(id: "california", name: "California", folder: "california", isNonCommercial: true),
+        PieceStyle(id: "cooke",     name: "Cooke",      folder: "cooke",     isNonCommercial: true),
+        PieceStyle(id: "gioco",     name: "Gioco",      folder: "gioco",     isNonCommercial: true),
+        PieceStyle(id: "horsey",    name: "Horsey",     folder: "horsey",    isNonCommercial: true),
+        PieceStyle(id: "dubrovny",  name: "Dubrovny",   folder: "dubrovny",  isNonCommercial: true),
+        PieceStyle(id: "fresca",    name: "Fresca",     folder: "fresca",    isNonCommercial: true),
+        PieceStyle(id: "tatiana",   name: "Tatiana",    folder: "tatiana",   isNonCommercial: true),
+        PieceStyle(id: "cardinal",  name: "Cardinal",   folder: "cardinal",  isNonCommercial: true),
+        PieceStyle(id: "icpieces",  name: "IC Pieces",  folder: "icpieces",  isNonCommercial: true),
+        PieceStyle(id: "anarcandy", name: "Anarcandy",  folder: "anarcandy", isNonCommercial: true),
+        PieceStyle(id: "monarchy",  name: "Monarchy",   folder: "monarchy",  isNonCommercial: true),
+        PieceStyle(id: "disguised", name: "Disguised",  folder: "disguised", isNonCommercial: true),
+        PieceStyle(id: "xkcd",      name: "xkcd",       folder: "xkcd",      isNonCommercial: true),
     ]
 
     static func style(for id: String) -> PieceStyle {
@@ -293,7 +269,7 @@ class AppSettings: ObservableObject {
         didSet { objectWillChange.send() }
     }
     
-    @AppStorage("pieceStyleId") var pieceStyleId: String = "classic" {
+    @AppStorage("pieceStyleId") var pieceStyleId: String = "cburnett" {
         didSet { objectWillChange.send() }
     }
     
@@ -313,6 +289,21 @@ class AppSettings: ObservableObject {
     @AppStorage("highlightLegalMoves") var highlightLegalMoves: Bool = true
     @AppStorage("showBestMoveArrow") var showBestMoveArrow: Bool = true
     @AppStorage("lichessToken") var lichessToken: String = ""
+
+    // MARK: - Accounts & Import
+    @AppStorage("autoSyncEnabled") var autoSyncEnabled: Bool = true
+    @AppStorage("syncInterval") var syncIntervalRaw: String = "1h"      // 15m · 1h · 6h · daily
+    @AppStorage("skipDuplicatesOnImport") var skipDuplicatesOnImport: Bool = true
+    @AppStorage("classifyOpeningsOnImport") var classifyOpeningsOnImport: Bool = true
+
+    // MARK: - Engine preferences (Settings › Engines)
+    @AppStorage("reviewDepth") var reviewDepthRaw: String = "balanced"   // fast · balanced · deep
+    @AppStorage("cloudFallbackEnabled") var cloudFallbackEnabled: Bool = false
+    // Cached account summaries written by My Games so Settings can render them without the DB.
+    @AppStorage("chesscom_game_count") var chessComGameCount: Int = 0
+    @AppStorage("lichess_game_count") var lichessGameCount: Int = 0
+    @AppStorage("chesscom_last_synced") var chessComLastSynced: Double = 0
+    @AppStorage("lichess_last_synced") var lichessLastSynced: Double = 0
 
     // MARK: - Engine Configurations
 

@@ -502,31 +502,34 @@ struct LibraryExplorerView: View {
 
     @ViewBuilder
     private func explorerContent(_ data: MergedExplorer) -> some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                // Reference selected but not searchable yet — surface the index builder inline.
-                if referenceCheckedButUnindexed {
-                    referenceIndexBanner
-                }
-
-                // Opening info — always show opening name + ECO when available
-                openingInfoSection(
-                    totalGames: data.total,
-                    stats: (data.white, data.draw, data.black)
-                )
-
-                // Moves table
-                if !data.moves.isEmpty {
-                    movesTableHeader
-
-                    ForEach(Array(data.moves.enumerated()), id: \.element.id) { index, move in
-                        moveRow(move, isAlternate: index % 2 == 0)
+        GeometryReader { geo in
+            let compact = geo.size.width < ExplorerCols.compactThreshold
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    // Reference selected but not searchable yet — surface the index builder inline.
+                    if referenceCheckedButUnindexed {
+                        referenceIndexBanner
                     }
-                }
 
-                // Sample games
-                if !data.sampleGames.isEmpty {
-                    sampleGamesSection(data.sampleGames)
+                    // Opening info — always show opening name + ECO when available
+                    openingInfoSection(
+                        totalGames: data.total,
+                        stats: (data.white, data.draw, data.black)
+                    )
+
+                    // Column header + move rows
+                    if !data.moves.isEmpty {
+                        ExplorerColumnHeader(compact: compact)
+                        ForEach(Array(data.moves.enumerated()), id: \.element.id) { index, move in
+                            moveRow(move, isAlternate: index % 2 == 0, compact: compact,
+                                    positionTotal: data.total)
+                        }
+                    }
+
+                    // Sample games
+                    if !data.sampleGames.isEmpty {
+                        sampleGamesSection(data.sampleGames)
+                    }
                 }
             }
         }
@@ -567,43 +570,48 @@ struct LibraryExplorerView: View {
 
     // MARK: - Moves Table
 
-    private var movesTableHeader: some View {
-        HStack(spacing: 0) {
-            Text("Move")
-            Text("Games")
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            Text("W / D / L")
-                .frame(width: 90, alignment: .center)
-        }
-        .font(AnnFont.label(10))
-        .tracking(10 * 0.1)
-        .foregroundColor(DS.textTertiary)
-        .padding(.horizontal, 12)
-        .frame(height: 24)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.glassSeparator).frame(height: 1)
-        }
-    }
-
     private var moveNumberPrefix: String {
         let n = currentMoves.count / 2 + 1
         return currentMoves.count % 2 == 0 ? "\(n). " : "\(n)… "
     }
 
-    private func moveRow(_ move: LibraryMoveStats, isAlternate: Bool) -> some View {
+    private func moveRow(_ move: LibraryMoveStats, isAlternate: Bool, compact: Bool, positionTotal: Int) -> some View {
         let isBook = openingBook.findNode(moves: currentMoves + [move.uci]) != nil
+        let cont = compact ? "" : continuationName(for: move.uci)
+        let share = positionTotal > 0 ? Double(move.totalGames) / Double(positionTotal) * 100 : 0
         return ExplorerMoveRow(
             movePrefix: moveNumberPrefix,
             san: move.san,
+            continuation: cont,
             totalGames: move.totalGames,
             whitePercent: move.whitePercent,
             drawPercent: move.drawPercent,
             blackPercent: move.blackPercent,
+            share: share,
             isBookMove: isBook,
-            isAlternate: isAlternate
+            isAlternate: isAlternate,
+            compact: compact
         ) {
             onMovePlayed(move.uci)
         }
+    }
+
+    /// The named variation this candidate move leads to — the specific tail of the opening name.
+    private func continuationName(for uci: String) -> String {
+        let seq = currentMoves + [uci]
+        let name = openingBook.findNode(moves: seq)?.name ?? openingBook.findOpening(moves: seq)?.name
+        return shortOpening(name)
+    }
+
+    private func shortOpening(_ full: String?) -> String {
+        guard let full, !full.isEmpty else { return "" }
+        if let c = full.range(of: ",", options: .backwards) {
+            return String(full[c.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
+        if let c = full.range(of: ":", options: .backwards) {
+            return String(full[c.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
+        return full
     }
 
     // MARK: - Sample Games Section

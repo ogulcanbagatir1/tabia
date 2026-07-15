@@ -20,4 +20,30 @@ extension Notification.Name {
     static let tabiaNextMove      = Notification.Name("tabia.nextMove")
     static let tabiaGoToEnd       = Notification.Name("tabia.goToEnd")
     static let tabiaSyncGames     = Notification.Name("tabia.syncGames")
+    static let tabiaLibraryToggleFilters = Notification.Name("tabia.libraryToggleFilters")
+    static let tabiaLibraryImportPGN     = Notification.Name("tabia.libraryImportPGN")
+    static let tabiaOpenMyGames          = Notification.Name("tabia.openMyGames")
+
+    // Screen switching
+    static let tabiaScreenAnalysis   = Notification.Name("tabia.screen.analysis")
+    static let tabiaScreenExplorer   = Notification.Name("tabia.screen.explorer")
+    static let tabiaScreenRepertoire = Notification.Name("tabia.screen.repertoire")
+    static let tabiaScreenMyGames    = Notification.Name("tabia.screen.chesscom")
+    static let tabiaScreenLibrary    = Notification.Name("tabia.screen.database")
+
+    // Actions added with the rebindable-shortcut system
+    static let tabiaSetUpPosition     = Notification.Name("tabia.setUpPosition")
+    static let tabiaFullReview        = Notification.Name("tabia.fullReview")
+    static let tabiaToggleEngine      = Notification.Name("tabia.toggleEngine")
+    static let tabiaToggleAutoAnalyze = Notification.Name("tabia.toggleAutoAnalyze")
+    static let tabiaDeleteMove        = Notification.Name("tabia.deleteMove")
+    static let tabiaFocusSearch       = Notification.Name("tabia.focusSearch")
+    static let tabiaNewDatabase       = Notification.Name("tabia.newDatabase")
+    static let tabiaNewRepertoire     = Notification.Name("tabia.newRepertoire")
+    static let tabiaAnnBrilliant      = Notification.Name("tabia.ann.brilliant")
+    static let tabiaAnnGood           = Notification.Name("tabia.ann.good")
+    static let tabiaAnnInteresting    = Notification.Name("tabia.ann.interesting")
+    static let tabiaAnnDubious        = Notification.Name("tabia.ann.dubious")
+    static let tabiaAnnMistake        = Notification.Name("tabia.ann.mistake")
+    static let tabiaAnnBlunder        = Notification.Name("tabia.ann.blunder")
 }

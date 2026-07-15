@@ -65,6 +65,13 @@ class GameTree: ObservableObject {
     @Published var currentNode: GameNode
     @Published var mainLine: [GameNode] = []
 
+    /// Bumped on every structural change to the tree (a move added, a variation created/deleted,
+    /// a line promoted/demoted). The move list uses this as an `.equatable()` barrier key so it
+    /// rebuilds its row segments ONLY when the tree actually changed — not on every engine eval
+    /// tick that re-renders the parent window. Navigation and per-node annotation/comment edits do
+    /// NOT bump it (those are handled by currentNode identity and each GameNode's own observation).
+    @Published var structureVersion: Int = 0
+
     // Navigation lock to prevent concurrent modifications
     private var isNavigating = false
 
@@ -77,8 +84,7 @@ class GameTree: ObservableObject {
     }
 
     init(fen: String) {
-        let board = ChessBoard()
-        // TODO: Load FEN
+        let board = ChessBoard(fen: fen) ?? ChessBoard()
         let rootNode = GameNode(move: nil, parent: nil, boardState: board)
         self.root = rootNode
         self.currentNode = rootNode
@@ -122,6 +128,7 @@ class GameTree: ObservableObject {
             mainLine.append(newNode)
         }
 
+        structureVersion &+= 1
         return true
     }
     
@@ -142,9 +149,10 @@ class GameTree: ObservableObject {
         let newNode = parent.addChild(move: move, boardState: newBoard, notation: notation)
         currentNode = newNode
 
+        structureVersion &+= 1
         return true
     }
-    
+
     /// Delete current variation
     func deleteCurrentVariation() {
         guard let parent = currentNode.parent,
@@ -154,6 +162,7 @@ class GameTree: ObservableObject {
 
         parent.children.removeAll { $0 === currentNode }
         currentNode = parent
+        structureVersion &+= 1
     }
 
     /// Delete a specific node and all moves after it.
@@ -294,11 +303,14 @@ class GameTree: ObservableObject {
     func rebuildMainLine() {
         mainLine = [root]
         var current = root
-        
+
         while let firstChild = current.children.first {
             mainLine.append(firstChild)
             current = firstChild
         }
+        // Every caller of rebuildMainLine (delete/promote/demote, plus the load paths that
+        // reset the tree) is a structural change — keep the move-list barrier key in sync.
+        structureVersion &+= 1
     }
     
     func getVariations(at node: GameNode) -> [GameNode] {

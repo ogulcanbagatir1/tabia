@@ -149,7 +149,6 @@ struct ReferenceBrowseView: View {
         }
         .padding(.horizontal, 24)
         .frame(height: 38)
-        .background(isAlternate ? DS.bgSurface : Color.clear)
         .overlay(alignment: .bottom) { Rectangle().fill(DS.borderSubtle).frame(height: 1) }
         .contentShape(Rectangle())
     }

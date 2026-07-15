@@ -2,76 +2,230 @@ import SwiftUI
 
 struct PreferencesView: View {
     @ObservedObject private var settings = AppSettings.shared
-    @Environment(\.dismiss) private var dismiss
     @State private var selectedTab = 0
 
-    private let tabLabels = ["Appearance", "Engine", "About"]
+    private let tabLabels = ["Appearance", "Engines", "Accounts & Import", "Shortcuts"]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header + tabs
-            VStack(alignment: .leading, spacing: 16) {
+            // Header — "Settings" on the left, the three tabs on the right, both sitting on the divider.
+            HStack(alignment: .bottom, spacing: 24) {
                 Text("Settings")
                     .font(AnnFont.serif(22, .semibold))
-                    .foregroundColor(DS.textPrimary)
-
+                    .foregroundColor(DS.ink)
+                    .padding(.bottom, 15)
+                Spacer(minLength: 24)
                 settingsTabBar
             }
-            .padding(.horizontal, 40)
-            .padding(.top, 32)
+            .padding(.horizontal, 32)
+            .padding(.top, 22)
+            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
 
             // Tab content
             Group {
                 switch selectedTab {
                 case 0:  AppearanceSettingsView(settings: settings)
                 case 1:  EngineSettingsView(settings: settings)
-                case 2:  AboutView()
+                case 2:  AccountsImportView(settings: settings)
+                case 3:  ShortcutsSettingsView()
                 default: EmptyView()
                 }
             }
-
-            Rectangle().fill(DS.hairline).frame(height: 1)
-
-            HStack {
-                Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.return, modifiers: [])
-                    .buttonStyle(GlassPrimaryButtonStyle())
-            }
-            .padding(DS.spacingLG)
         }
-        .frame(width: 600, height: 700)
+        .frame(width: 920, height: 620)
         .background(DS.paper)
     }
 
     private var settingsTabBar: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach(Array(tabLabels.enumerated()), id: \.offset) { index, label in
                 Button {
                     withAnimation(DS.quickFade) { selectedTab = index }
                 } label: {
-                    Text(label)
-                        .font(AnnFont.label(13))
-                        .tracking(13 * 0.1)
-                        .foregroundColor(selectedTab == index ? DS.textPrimary : DS.textTertiary)
-                        .padding(.top, 8)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
+                    Text(label.uppercased())
+                        .font(AnnFont.label(12))
+                        .tracking(12 * 0.14)
+                        .foregroundColor(selectedTab == index ? DS.ink : DS.ink40)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 15)
                         .overlay(alignment: .bottom) {
-                            if selectedTab == index {
-                                Rectangle()
-                                    .fill(DS.accent)
-                                    .frame(height: 2)
-                            }
+                            Rectangle()
+                                .fill(selectedTab == index ? DS.redAccent : Color.clear)
+                                .frame(height: 2)
                         }
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
-            Spacer()
         }
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
+    }
+}
+
+// MARK: - Accounts & Import
+
+struct AccountsImportView: View {
+    @ObservedObject var settings: AppSettings
+    @AppStorage("chesscom_username") private var chessComUsername: String = ""
+    @AppStorage("lichess_username") private var lichessUsername: String = ""
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                accountRow(
+                    platform: "Chess.com", username: chessComUsername,
+                    count: settings.chessComGameCount, lastSynced: settings.chessComLastSynced,
+                    onSync: { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) },
+                    onDisconnect: {
+                        chessComUsername = ""
+                        settings.chessComGameCount = 0
+                        settings.chessComLastSynced = 0
+                    }
+                )
+                rowDivider
+                accountRow(
+                    platform: "Lichess", username: lichessUsername,
+                    count: settings.lichessGameCount, lastSynced: settings.lichessLastSynced,
+                    onSync: { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) },
+                    onDisconnect: {
+                        lichessUsername = ""
+                        settings.lichessToken = ""
+                        settings.lichessGameCount = 0
+                        settings.lichessLastSynced = 0
+                    }
+                )
+                rowDivider
+
+                settingRow(title: "Auto-sync", subtitle: "PULL NEW GAMES IN THE BACKGROUND") {
+                    HStack(spacing: 14) {
+                        intervalSegmented
+                        redToggle($settings.autoSyncEnabled)
+                    }
+                }
+                rowDivider
+
+                settingRow(title: "Skip duplicates", subtitle: "MATCH BY PLAYERS, DATE AND MOVES") {
+                    redToggle($settings.skipDuplicatesOnImport)
+                }
+                rowDivider
+
+                settingRow(title: "Classify openings on import", subtitle: "ECO CODE + NAME FOR EVERY GAME") {
+                    redToggle($settings.classifyOpeningsOnImport)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
         }
+    }
+
+    // MARK: Rows
+
+    @ViewBuilder
+    private func accountRow(platform: String, username: String, count: Int, lastSynced: Double,
+                            onSync: @escaping () -> Void, onDisconnect: @escaping () -> Void) -> some View {
+        HStack(spacing: 14) {
+            Circle()
+                .fill(username.isEmpty ? DS.ink25 : DS.semOnline)
+                .frame(width: 9, height: 9)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(username.isEmpty ? platform : "\(platform) — \(username)")
+                    .font(AnnFont.serif(17, .medium)).foregroundColor(DS.ink)
+                Text(username.isEmpty ? "NOT CONNECTED" : accountSubtitle(count: count, lastSynced: lastSynced))
+                    .font(AnnFont.mono(10.5)).tracking(0.5).foregroundColor(DS.ink40)
+            }
+            Spacer(minLength: 12)
+            if username.isEmpty {
+                pillButton("Connect", filled: true) {
+                    NotificationCenter.default.post(name: .tabiaOpenMyGames, object: nil)
+                    dismiss()
+                }
+            } else {
+                pillButton("Sync", filled: false, action: onSync)
+                pillButton("Disconnect", filled: false, muted: true, action: onDisconnect)
+            }
+        }
+        .padding(.vertical, 18)
+    }
+
+    @ViewBuilder
+    private func settingRow<Trailing: View>(title: String, subtitle: String,
+                                            @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(AnnFont.serif(17, .medium)).foregroundColor(DS.ink)
+                Text(subtitle).font(AnnFont.mono(10.5)).tracking(0.5).foregroundColor(DS.ink40)
+            }
+            Spacer(minLength: 12)
+            trailing()
+        }
+        .padding(.vertical, 18)
+    }
+
+    private var rowDivider: some View { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+    // MARK: Controls
+
+    private var intervalSegmented: some View {
+        let options: [(String, String)] = [("15m", "15M"), ("1h", "1H"), ("6h", "6H"), ("daily", "DAILY")]
+        return HStack(spacing: 2) {
+            ForEach(options, id: \.0) { opt in
+                let sel = settings.syncIntervalRaw == opt.0
+                Button { withAnimation(DS.quickFade) { settings.syncIntervalRaw = opt.0 } } label: {
+                    Text(opt.1).font(AnnFont.label(10)).tracking(10 * 0.1)
+                        .foregroundColor(sel ? DS.ink : DS.ink40)
+                        .padding(.vertical, 6).padding(.horizontal, 12)
+                        .background(sel ? RoundedRectangle(cornerRadius: 7, style: .continuous).fill(DS.selectedWash) : nil)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(DS.trackBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+        .opacity(settings.autoSyncEnabled ? 1 : 0.4)
+    }
+
+    private func redToggle(_ isOn: Binding<Bool>) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isOn.wrappedValue.toggle() }
+        } label: {
+            ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
+                Capsule()
+                    .fill(isOn.wrappedValue ? DS.redInk : DS.trackBg)
+                    .overlay(isOn.wrappedValue ? nil : Capsule().strokeBorder(DS.borderChip, lineWidth: 1))
+                    .frame(width: 44, height: 24)
+                Circle().fill(isOn.wrappedValue ? DS.onRed : DS.ink60)
+                    .frame(width: 20, height: 20).padding(.horizontal, 2)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pillButton(_ label: String, filled: Bool, muted: Bool = false,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label.uppercased()).font(AnnFont.label(10)).tracking(10 * 0.12)
+                .foregroundColor(filled ? DS.onRed : (muted ? DS.ink40 : DS.ink))
+                .padding(.vertical, 7).padding(.horizontal, 16)
+                .background((filled ? DS.redAccent : DS.paperRaised), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(filled ? Color.clear : DS.borderChip, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func accountSubtitle(count: Int, lastSynced: Double) -> String {
+        let games = count > 0 ? "\(count.formatted()) GAMES" : "CONNECTED"
+        let synced: String
+        if lastSynced > 0 {
+            let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
+            synced = "SYNCED " + f.localizedString(for: Date(timeIntervalSince1970: lastSynced), relativeTo: Date()).uppercased()
+        } else {
+            synced = "NEVER SYNCED"
+        }
+        return "\(games) · \(synced)"
     }
 }
 
@@ -80,124 +234,158 @@ struct PreferencesView: View {
 struct AppearanceSettingsView: View {
     @ObservedObject var settings: AppSettings
 
-    private let gridColumns = [GridItem(.adaptive(minimum: 80, maximum: 90), spacing: 10)]
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                // Appearance Mode
-                VStack(alignment: .leading, spacing: 12) {
-                    glassSettingsLabel("APP COLOUR MODE")
-
-                    HStack(spacing: 2) {
-                        ForEach(AppAppearance.allCases, id: \.self) { mode in
-                            let isSelected = settings.appAppearance == mode
-                            Button {
-                                withAnimation(DS.quickFade) { settings.appAppearance = mode }
-                            } label: {
-                                Text(mode.displayName)
-                                    .font(AnnFont.label(11))
-                                    .tracking(11 * 0.1)
-                                    .foregroundColor(isSelected ? DS.ink : DS.ink40)
-                                    .padding(.vertical, 6)
-                                    .padding(.horizontal, 16)
-                                    .contentShape(Rectangle())
-                                    .background(
-                                        isSelected
-                                        ? RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DS.selectedWash)
-                                        : nil
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
+            VStack(alignment: .leading, spacing: 0) {
+                // App colour mode
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("APP COLOUR MODE").font(AnnFont.label(10)).tracking(0.8).foregroundColor(DS.ink40)
+                        Text("Follows macOS by default.").font(AnnFont.voice(13)).foregroundColor(DS.ink40)
                     }
-                    .padding(3)
-                    .background(DS.trackBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(DS.borderChip, lineWidth: 1)
-                    )
+                    Color.clear.frame(width: 56)
+                    modeSegmented
+                    Spacer(minLength: 0)
                 }
+                .padding(.vertical, 20)
 
-                // Board Theme
-                VStack(alignment: .leading, spacing: 12) {
-                    glassSettingsLabel("BOARD THEME")
+                sectionHeader("Board Theme", count: "\(BoardTheme.allThemes.count) THEMES")
+                    .padding(.top, 6)
+                themeGrid.padding(.top, 12)
 
-                    // Manual rows (adaptive LazyVGrid-in-ScrollView collapses on current macOS).
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(Array(chunked(BoardTheme.allThemes, 7).enumerated()), id: \.offset) { _, row in
-                            HStack(spacing: 10) {
-                                ForEach(row) { theme in
-                                    BoardThemePreview(theme: theme, isSelected: settings.boardThemeId == theme.id)
-                                        .onTapGesture {
-                                            withAnimation(DS.quickFade) { settings.boardThemeId = theme.id }
-                                        }
-                                }
-                                Spacer(minLength: 0)
-                            }
-                        }
-                    }
+                sectionHeader("Piece Style", count: "\(PieceStyle.allStyles.count) STYLES")
+                    .padding(.top, 26)
+                pieceGrid.padding(.top, 12)
+
+                Rectangle().fill(DS.hairline).frame(height: 1).padding(.top, 24)
+
+                toggleRow("Show coordinates", "RANK AND FILE LABELS ON THE BOARD EDGE", $settings.showCoordinates)
+                rowDivider
+                toggleRow("Highlight legal moves", "DOTS ON SQUARES A PIECE CAN REACH", $settings.highlightLegalMoves)
+                rowDivider
+                toggleRow("Best-move arrow", "DRAW THE ENGINE\u{2019}S CHOICE ON THE BOARD", $settings.showBestMoveArrow)
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 4)
+            .padding(.bottom, 28)
+        }
+    }
+
+    // MARK: - App colour mode
+
+    private var modeSegmented: some View {
+        HStack(spacing: 2) {
+            ForEach(AppAppearance.allCases, id: \.self) { mode in
+                let sel = settings.appAppearance == mode
+                Button { withAnimation(DS.quickFade) { settings.appAppearance = mode } } label: {
+                    Text(mode.displayName.uppercased()).font(AnnFont.label(10.5)).tracking(10.5 * 0.1)
+                        .foregroundColor(sel ? DS.paper : DS.ink40)
+                        .padding(.vertical, 8).padding(.horizontal, 16)
+                        .background(sel ? RoundedRectangle(cornerRadius: 7, style: .continuous).fill(DS.ink) : nil)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+    }
 
-                // Piece Style
-                VStack(alignment: .leading, spacing: 12) {
-                    glassSettingsLabel("PIECE STYLE")
+    // MARK: - Section header (label + total count, no "more")
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(Array(chunked(PieceStyle.allStyles, 6).enumerated()), id: \.offset) { _, row in
-                            HStack(spacing: 12) {
-                                ForEach(row) { style in
-                                    PieceStylePreview(style: style, isSelected: settings.pieceStyleId == style.id)
-                                        .onTapGesture {
-                                            withAnimation(DS.quickFade) { settings.pieceStyleId = style.id }
-                                        }
-                                }
-                                Spacer(minLength: 0)
-                            }
-                        }
+    private func sectionHeader(_ title: String, count: String) -> some View {
+        HStack {
+            Text(title.uppercased()).font(AnnFont.label(10)).tracking(0.8).foregroundColor(DS.ink40)
+            Spacer()
+            Text(count).font(AnnFont.mono(9.5)).foregroundColor(DS.ink25)
+        }
+    }
+
+    // MARK: - Board themes (all shown, wrapped)
+
+    private var themeGrid: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(Array(chunked(BoardTheme.allThemes, 10).enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 12) {
+                    ForEach(row) { theme in
+                        BoardThemePreview(theme: theme, isSelected: settings.boardThemeId == theme.id)
+                            .onTapGesture { withAnimation(DS.quickFade) { settings.boardThemeId = theme.id } }
                     }
-                }
-
-                // Display Preferences
-                VStack(alignment: .leading, spacing: 12) {
-                    glassSettingsLabel("DISPLAY PREFERENCES")
-
-                    VStack(spacing: 0) {
-                        SettingsToggleRow(
-                            label: "Show Coordinates",
-                            description: "Display rank and file labels on the board edges",
-                            isOn: $settings.showCoordinates,
-                            showBorder: true
-                        )
-                        SettingsToggleRow(
-                            label: "Highlight Legal Moves",
-                            description: "Show dots on squares where pieces can move",
-                            isOn: $settings.highlightLegalMoves,
-                            showBorder: true
-                        )
-                        SettingsToggleRow(
-                            label: "Show Best Move Arrow",
-                            description: "Display engine's recommended move as an arrow",
-                            isOn: $settings.showBestMoveArrow,
-                            showBorder: false
-                        )
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(DS.paperRaised)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(DS.hairline, lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.19), radius: 12, x: 0, y: 4)
-                    .frame(maxWidth: 600)
+                    Spacer(minLength: 0)
                 }
             }
-            .padding(.horizontal, 44)
-            .padding(.vertical, 28)
         }
+    }
+
+    // MARK: - Piece styles (all shown, wrapped, horizontal pills)
+
+    private var pieceGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(chunked(PieceStyle.allStyles, 6).enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 12) {
+                    ForEach(row) { style in
+                        pieceStylePill(style)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    private func pieceStylePill(_ style: PieceStyle) -> some View {
+        let sel = settings.pieceStyleId == style.id
+        return Button { withAnimation(DS.quickFade) { settings.pieceStyleId = style.id } } label: {
+            HStack(spacing: 10) {
+                Group {
+                    if let img = loadPieceImage(style.imageFileName(for: Piece(type: .knight, color: .black))) {
+                        Image(nsImage: img).resizable().scaledToFit()
+                    } else {
+                        Text("\u{265E}").font(.system(size: 18))
+                    }
+                }
+                .frame(width: 22, height: 22)
+                Text(style.name.uppercased()).font(AnnFont.label(11)).tracking(11 * 0.1)
+                    .foregroundColor(sel ? DS.ink : DS.ink60)
+            }
+            .padding(.vertical, 12).padding(.horizontal, 16)
+            .frame(minWidth: 120)
+            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(sel ? DS.redAccent : DS.borderChip, lineWidth: sel ? 2 : 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Toggle rows
+
+    private func toggleRow(_ title: String, _ subtitle: String, _ isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(AnnFont.serif(17, .medium)).foregroundColor(DS.ink)
+                Text(subtitle).font(AnnFont.mono(10.5)).tracking(0.5).foregroundColor(DS.ink40)
+            }
+            Spacer(minLength: 12)
+            redToggle(isOn)
+        }
+        .padding(.vertical, 18)
+    }
+
+    private var rowDivider: some View { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+    private func redToggle(_ isOn: Binding<Bool>) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isOn.wrappedValue.toggle() }
+        } label: {
+            ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
+                Capsule().fill(isOn.wrappedValue ? DS.redInk : DS.trackBg)
+                    .overlay(isOn.wrappedValue ? nil : Capsule().strokeBorder(DS.borderChip, lineWidth: 1))
+                    .frame(width: 44, height: 24)
+                Circle().fill(isOn.wrappedValue ? DS.onRed : DS.ink60)
+                    .frame(width: 20, height: 20).padding(.horizontal, 2)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -370,257 +558,133 @@ struct PieceStylePreview: View {
 struct EngineSettingsView: View {
     @ObservedObject var settings: AppSettings
     @Environment(\.openWindow) private var openWindow
-    @State private var detectedPath: String? = nil
-    @State private var engineStatus: EngineStatus = .checking
-
-    enum EngineStatus {
-        case checking
-        case found(String)
-        case notFound
-    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                // Manage engines — full add / remove / download / configure lives in the
-                // Engine Manager window. This card is the discoverable entry point from Settings.
-                VStack(alignment: .leading, spacing: 10) {
-                    settingsSectionLabel("ENGINES")
-                    engineManagerCard
+            VStack(spacing: 0) {
+                settingRow(title: "Default engine", subtitle: "USED FOR ANALYSIS AND GAME REVIEW") {
+                    defaultEnginePicker
                 }
-
-                // Stockfish Engine
-                VStack(alignment: .leading, spacing: 10) {
-                    settingsSectionLabel("STOCKFISH DETECTION")
-
-                    VStack(spacing: 0) {
-                        // Status row
-                        HStack(spacing: 10) {
-                            switch engineStatus {
-                            case .checking:
-                                ProgressView().controlSize(.small)
-                                Text("Checking for Stockfish...")
-                                    .font(AnnFont.serif(13))
-                                    .foregroundColor(DS.textSecondary)
-                            case .found(let path):
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(DS.semOnline)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Stockfish found")
-                                        .font(AnnFont.serif(13, .medium))
-                                        .foregroundColor(DS.textPrimary)
-                                    Text(path)
-                                        .font(AnnFont.mono(11))
-                                        .foregroundColor(DS.textTertiary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                }
-                            case .notFound:
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(DS.semWarning)
-                                Text("Stockfish not found")
-                                    .font(AnnFont.serif(13, .medium))
-                                    .foregroundColor(DS.textPrimary)
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 16)
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.hairline).frame(height: 1)
-                        }
-
-                        // Custom path
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Custom Engine Path")
-                                .font(AnnFont.serif(13, .medium))
-                                .foregroundColor(DS.textPrimary)
-
-                            HStack(spacing: 8) {
-                                TextField("Path to stockfish binary", text: $settings.stockfishPath)
-                                    .textFieldStyle(.plain)
-                                    .font(AnnFont.mono(12))
-                                    .padding(.horizontal, 10)
-                                    .frame(height: 32)
-                                    .background(DS.bg)
-                                    .cornerRadius(6)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .strokeBorder(DS.border, lineWidth: 1)
-                                    )
-
-                                Button("Browse...") { selectEngineFile() }
-                                    .buttonStyle(GlassButtonStyle())
-                            }
-
-                            Text("Leave empty to auto-detect from /usr/local/bin or /opt/homebrew/bin")
-                                .font(AnnFont.serif(10))
-                                .foregroundColor(DS.textTertiary)
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 16)
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(DS.hairline).frame(height: 1)
-                        }
-
-                        // Auto-analyze toggle
-                        SettingsToggleRow(
-                            label: "Auto-analyze moves",
-                            description: "Automatically analyze each move as you play",
-                            isOn: $settings.autoAnalyze,
-                            showBorder: false
-                        )
-                    }
-                    .background(DS.bgSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(DS.border, lineWidth: 1)
-                    )
-                    .frame(maxWidth: 500)
+                rowDivider
+                settingRow(title: "Review depth", subtitle: "DEEPER = SLOWER, STRICTER GRADES") {
+                    depthSegmented
                 }
-
-                // Installation Help
-                VStack(alignment: .leading, spacing: 10) {
-                    settingsSectionLabel("INSTALLATION HELP")
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("To install Stockfish via Homebrew:")
-                            .font(AnnFont.serif(12))
-                            .foregroundColor(DS.textSecondary)
-
-                        Text("brew install stockfish")
-                            .font(AnnFont.mono(12))
-                            .foregroundColor(DS.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(DS.bgTertiary)
-                            .cornerRadius(6)
-
-                        Button("Open Stockfish Website") {
-                            NSWorkspace.shared.open(URL(string: "https://stockfishchess.org/download/")!)
-                        }
-                        .font(AnnFont.label(12))
-                        .tracking(12 * 0.1)
-                        .foregroundColor(DS.accent)
-                        .buttonStyle(.plain)
+                rowDivider
+                settingRow(title: "Analyze on open", subtitle: "START THE ENGINE WHEN A GAME LOADS") {
+                    redToggle($settings.autoAnalyze)
+                }
+                rowDivider
+                settingRow(title: "Cloud fallback", subtitle: "USE LICHESS CLOUD WHEN NO LOCAL ENGINE") {
+                    redToggle($settings.cloudFallbackEnabled)
+                }
+                rowDivider
+                settingRow(title: "Engine Room", subtitle: "INSTALL, REMOVE AND TUNE ENGINES — \u{2318}E") {
+                    Button { openWindow(id: WindowID.engineRoom) } label: {
+                        Text("OPEN ENGINE ROOM \u{2192}")
+                            .font(AnnFont.label(10)).tracking(10 * 0.12)
+                            .foregroundColor(DS.redAccent)
+                            .padding(.vertical, 7).padding(.horizontal, 16)
+                            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
                     }
-                    .padding(16)
-                    .frame(maxWidth: 500, alignment: .leading)
-                    .background(DS.bgSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(DS.border, lineWidth: 1)
-                    )
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 40)
-            .padding(.vertical, 32)
+            .padding(.horizontal, 32)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
         }
-        .onAppear { checkEngineStatus() }
-        .onChange(of: settings.stockfishPath) { _, _ in checkEngineStatus() }
     }
 
-    private var engineSummaryTitle: String {
-        let n = settings.engines.count
-        if n == 0 { return "No engines configured" }
-        let def = settings.defaultEngine?.name ?? "—"
-        return "\(n) engine\(n == 1 ? "" : "s") · Default: \(def)"
+    // MARK: Controls
+
+    private var defaultEnginePicker: some View {
+        Menu {
+            if settings.engines.isEmpty {
+                Text("No engines installed")
+            } else {
+                ForEach(settings.engines) { eng in
+                    Button(eng.name) { settings.setDefaultEngine(id: eng.id) }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(settings.defaultEngine?.name ?? "None")
+                    .font(AnnFont.serif(14)).foregroundColor(DS.ink)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundColor(DS.ink40)
+            }
+            .padding(.vertical, 8).padding(.horizontal, 14)
+            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
-    private var engineManagerCard: some View {
+    private var depthSegmented: some View {
+        let opts: [(String, String)] = [("fast", "FAST"), ("balanced", "BALANCED"), ("deep", "DEEP")]
+        return HStack(spacing: 2) {
+            ForEach(opts, id: \.0) { opt in
+                let sel = settings.reviewDepthRaw == opt.0
+                Button { withAnimation(DS.quickFade) { settings.reviewDepthRaw = opt.0 } } label: {
+                    Text(opt.1).font(AnnFont.label(10.5)).tracking(10.5 * 0.1)
+                        .foregroundColor(sel ? DS.paper : DS.ink40)
+                        .padding(.vertical, 7).padding(.horizontal, 16)
+                        .background(sel ? RoundedRectangle(cornerRadius: 7, style: .continuous).fill(DS.ink) : nil)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+    }
+
+    private func redToggle(_ isOn: Binding<Bool>) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isOn.wrappedValue.toggle() }
+        } label: {
+            ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
+                Capsule()
+                    .fill(isOn.wrappedValue ? DS.redInk : DS.trackBg)
+                    .overlay(isOn.wrappedValue ? nil : Capsule().strokeBorder(DS.borderChip, lineWidth: 1))
+                    .frame(width: 44, height: 24)
+                Circle().fill(isOn.wrappedValue ? DS.onRed : DS.ink60)
+                    .frame(width: 20, height: 20).padding(.horizontal, 2)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func settingRow<Trailing: View>(title: String, subtitle: String,
+                                            @ViewBuilder trailing: () -> Trailing) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: "cpu")
-                .font(.system(size: 22))
-                .foregroundColor(DS.redAccent)
-                .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DS.redAccent.opacity(0.12)))
-
             VStack(alignment: .leading, spacing: 3) {
-                Text(engineSummaryTitle)
-                    .font(AnnFont.serif(13, .semibold))
-                    .foregroundColor(DS.textPrimary)
-                Text("Add, download, remove, and tune engines — threads, hash, lines, and depth.")
-                    .font(AnnFont.serif(11))
-                    .foregroundColor(DS.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(title).font(AnnFont.serif(17, .medium)).foregroundColor(DS.ink)
+                Text(subtitle).font(AnnFont.mono(10.5)).tracking(0.5).foregroundColor(DS.ink40)
             }
-
             Spacer(minLength: 12)
-
-            Button("Open Engine Manager") { openWindow(id: WindowID.engineRoom) }
-                .buttonStyle(GlassPrimaryButtonStyle())
+            trailing()
         }
-        .padding(16)
-        .frame(maxWidth: 500)
-        .background(DS.bgSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.border, lineWidth: 1))
+        .padding(.vertical, 18)
     }
 
-    private func checkEngineStatus() {
-        engineStatus = .checking
-        DispatchQueue.global(qos: .userInitiated).async {
-            let path = findStockfishPath()
-            DispatchQueue.main.async {
-                if let path = path {
-                    engineStatus = .found(path)
-                } else {
-                    engineStatus = .notFound
-                }
-            }
-        }
-    }
-
-    private func findStockfishPath() -> String? {
-        let fm = FileManager.default
-
-        let userPath = settings.stockfishPath
-        if !userPath.isEmpty && fm.fileExists(atPath: userPath) && fm.isExecutableFile(atPath: userPath) {
-            return userPath
-        }
-
-        if let resourcePath = Bundle.main.resourcePath {
-            let bundledPath = resourcePath + "/stockfish"
-            if fm.fileExists(atPath: bundledPath) && fm.isExecutableFile(atPath: bundledPath) {
-                return bundledPath
-            }
-        }
-
-        let commonPaths = [
-            "/usr/local/bin/stockfish",
-            "/opt/homebrew/bin/stockfish",
-            "/usr/bin/stockfish",
-            "/Applications/Stockfish.app/Contents/MacOS/stockfish"
-        ]
-
-        for path in commonPaths {
-            if fm.fileExists(atPath: path) && fm.isExecutableFile(atPath: path) {
-                return path
-            }
-        }
-
-        return nil
-    }
-
-    private func selectEngineFile() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.message = "Select the Stockfish executable"
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                settings.stockfishPath = url.path
-            }
-        }
-    }
+    private var rowDivider: some View { Rectangle().fill(DS.hairline).frame(height: 1) }
 }
 
 // MARK: - About View
 
 struct AboutView: View {
+    @State private var showingAcknowledgements = false
+
+    private var appVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+        return b.map { "Version \(v) (\($0))" } ?? "Version \(v)"
+    }
+
     var body: some View {
         VStack(spacing: DS.spacingLG) {
             Spacer()
@@ -633,7 +697,7 @@ struct AboutView: View {
                 .font(AnnFont.serif(22, .semibold))
                 .foregroundColor(DS.textPrimary)
 
-            Text("Version 1.0.0")
+            Text(appVersion)
                 .font(AnnFont.mono(12))
                 .foregroundColor(DS.textTertiary)
 
@@ -661,12 +725,23 @@ struct AboutView: View {
 
             Spacer()
 
+            Button(action: { showingAcknowledgements = true }) {
+                Text("Acknowledgements & Licenses")
+                    .font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
             Text("Built with SwiftUI")
                 .font(AnnFont.serif(11))
                 .foregroundColor(DS.textTertiary)
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 32)
+        .sheet(isPresented: $showingAcknowledgements) {
+            AcknowledgementsView(onClose: { showingAcknowledgements = false })
+        }
     }
 }
 

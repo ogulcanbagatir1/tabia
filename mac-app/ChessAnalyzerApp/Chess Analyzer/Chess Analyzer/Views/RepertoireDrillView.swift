@@ -427,11 +427,6 @@ struct RepertoireDrillView: View {
         gameTree.currentNode = gameTree.root
         gameTree.rebuildMainLine()
 
-        board.squares = newBoard.squares
-        board.turn = newBoard.turn
-        board.moveHistory = newBoard.moveHistory
-        board.enPassantTarget = newBoard.enPassantTarget
-        board.halfMoveClock = newBoard.halfMoveClock
-        board.fullMoveNumber = newBoard.fullMoveNumber
+        board.restoreState(from: newBoard)
     }
 }

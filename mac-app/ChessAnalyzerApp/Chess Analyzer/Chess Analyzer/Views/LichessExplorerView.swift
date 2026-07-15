@@ -34,9 +34,9 @@ struct LichessExplorerView: View {
                 explorerContent(response)
             } else if explorerService.isLoading {
                 loadingView
-            } else if settings.lichessToken.isEmpty {
-                authView
             } else {
+                // Lichess Masters is a PUBLIC endpoint — no token required. Don't greet first-run users
+                // with a login wall; just show the (loading→)content. A real 401 flips needsAuth above.
                 emptyView
             }
         }
@@ -74,24 +74,29 @@ struct LichessExplorerView: View {
 
     @ViewBuilder
     private func explorerContent(_ response: LichessExplorerResponse) -> some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                // Opening info section — always show opening name + ECO when available
-                openingInfoSection(
-                    totalGames: response.totalGames,
-                    stats: (response.white, response.draws, response.black)
-                )
+        GeometryReader { geo in
+            let compact = geo.size.width < ExplorerCols.compactThreshold
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    // Opening info section — always show opening name + ECO when available
+                    openingInfoSection(
+                        totalGames: response.totalGames,
+                        stats: (response.white, response.draws, response.black)
+                    )
 
-                // Move rows (no column header — the section frames itself)
-                if !response.moves.isEmpty {
-                    ForEach(Array(response.moves.enumerated()), id: \.element.id) { index, move in
-                        moveRow(move, isAlternate: index % 2 == 0)
+                    // Column header + move rows
+                    if !response.moves.isEmpty {
+                        ExplorerColumnHeader(compact: compact)
+                        ForEach(Array(response.moves.enumerated()), id: \.element.id) { index, move in
+                            moveRow(move, isAlternate: index % 2 == 0, compact: compact,
+                                    positionTotal: response.totalGames)
+                        }
                     }
-                }
 
-                // Notable games
-                if let topGames = response.topGames, !topGames.isEmpty {
-                    notableGamesSection(topGames)
+                    // Notable games
+                    if let topGames = response.topGames, !topGames.isEmpty {
+                        notableGamesSection(topGames)
+                    }
                 }
             }
         }
@@ -158,20 +163,44 @@ struct LichessExplorerView: View {
         return currentMoves.count % 2 == 0 ? "\(n). " : "\(n)… "
     }
 
-    private func moveRow(_ move: LichessMove, isAlternate: Bool) -> some View {
+    private func moveRow(_ move: LichessMove, isAlternate: Bool, compact: Bool, positionTotal: Int) -> some View {
         let isBook = openingBook.findNode(moves: currentMoves + [move.uci]) != nil
+        let cont = compact ? "" : continuationName(for: move.uci)
+        let share = positionTotal > 0 ? Double(move.totalGames) / Double(positionTotal) * 100 : 0
         return ExplorerMoveRow(
             movePrefix: moveNumberPrefix,
             san: move.san,
+            continuation: cont,
             totalGames: move.totalGames,
             whitePercent: move.whitePercent,
             drawPercent: move.drawPercent,
             blackPercent: move.blackPercent,
+            share: share,
             isBookMove: isBook,
-            isAlternate: isAlternate
+            isAlternate: isAlternate,
+            compact: compact
         ) {
             onMovePlayed(move.uci)
         }
+    }
+
+    /// The named variation this candidate move leads to — the specific tail of the opening name
+    /// (e.g. "English Attack"), shown in the CONTINUATION column.
+    private func continuationName(for uci: String) -> String {
+        let seq = currentMoves + [uci]
+        let name = openingBook.findNode(moves: seq)?.name ?? openingBook.findOpening(moves: seq)?.name
+        return shortOpening(name)
+    }
+
+    private func shortOpening(_ full: String?) -> String {
+        guard let full, !full.isEmpty else { return "" }
+        if let c = full.range(of: ",", options: .backwards) {
+            return String(full[c.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
+        if let c = full.range(of: ":", options: .backwards) {
+            return String(full[c.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
+        return full
     }
 
     // MARK: - Notable Games

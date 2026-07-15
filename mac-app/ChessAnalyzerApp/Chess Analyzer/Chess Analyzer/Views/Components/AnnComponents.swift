@@ -308,15 +308,18 @@ struct AnnStepper: View {
 struct AnnSearchField: View {
     @Binding var text: String
     var placeholder: String = "Search…"
+    @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: 8) {
             Text("⌕").font(AnnFont.mono(12)).foregroundColor(DS.ink25)
             TextField("", text: $text, prompt: Text(placeholder).font(AnnFont.mono(11)).foregroundColor(DS.ink25))
                 .textFieldStyle(.plain).font(AnnFont.mono(11)).foregroundColor(DS.ink)
+                .focused($focused)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaFocusSearch)) { _ in focused = true }
     }
 }
 

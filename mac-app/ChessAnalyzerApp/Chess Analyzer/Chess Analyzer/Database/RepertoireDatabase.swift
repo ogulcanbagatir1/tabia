@@ -33,7 +33,7 @@ class RepertoireDatabase: ObservableObject {
     }
 
     private func save() {
-        try? modelContext.save()
+        modelContext.saveOrReport("your repertoire")
         objectWillChange.send()
         refreshCache()
     }
@@ -167,7 +167,7 @@ class RepertoireDatabase: ObservableObject {
     /// Persist training-stat mutations only. Does NOT bump `dateModified` (so drilling doesn't
     /// reshuffle the library) and does NOT refresh the cache (training stats don't affect lists).
     func saveTrainingChanges() {
-        try? modelContext.save()
+        modelContext.saveOrReport("your repertoire")
     }
 
     // MARK: - Position schedules (transposition-aware SRS)
@@ -295,7 +295,7 @@ class RepertoireDatabase: ObservableObject {
             dirty = backfillFromNode(rootRepNode, board: board) || dirty
         }
         if dirty {
-            try? modelContext.save()
+            modelContext.saveOrReport("your repertoire")
         }
     }
 

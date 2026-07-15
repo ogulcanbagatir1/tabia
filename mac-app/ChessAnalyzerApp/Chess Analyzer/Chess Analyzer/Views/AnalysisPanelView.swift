@@ -26,24 +26,26 @@ struct AnalysisPanelView: View {
         multiEngine.primaryEngine
     }
 
+    private var hasNoEngine: Bool {
+        settings.engines.isEmpty && !multiEngine.anyEngineAvailable && multiEngine.slots.isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            engineHeader
-
-            // Content
-            if gameAnalyzer.isAnalyzing {
-                analysisProgress
-            } else if settings.engines.isEmpty && !multiEngine.anyEngineAvailable && multiEngine.slots.isEmpty {
+            if hasNoEngine && !gameAnalyzer.isAnalyzing {
+                // No header — the empty-state card stands on its own.
                 noEnginePrompt
             } else {
-                // Engine eval list (compact: just eval per engine)
-                if multiEngine.slots.count > 1 {
-                    engineEvalList
-                }
+                engineHeader
 
-                // PV lines for selected engine
-                engineLines
+                if gameAnalyzer.isAnalyzing {
+                    analysisProgress
+                } else {
+                    if multiEngine.slots.count > 1 {
+                        engineEvalList
+                    }
+                    engineLines
+                }
             }
         }
         .clipped()
@@ -182,7 +184,6 @@ struct AnalysisPanelView: View {
                 }
             }
         }
-        .padding(.vertical, 6)
     }
 
     // MARK: - Analysis Progress
@@ -219,31 +220,41 @@ struct AnalysisPanelView: View {
     // MARK: - No Engine Prompt
 
     private var noEnginePrompt: some View {
-        VStack(spacing: DS.spacingMD) {
-            Image(systemName: "square.and.arrow.down.on.square")
-                .font(.system(size: 24))
-                .foregroundColor(DS.textSecondary)
+        VStack(spacing: 12) {
+            Image(systemName: "cpu")
+                .font(.system(size: 22, weight: .light))
+                .foregroundColor(DS.ink40)
 
-            Text("No Engine Installed")
-                .font(DS.bodyFont)
-                .fontWeight(.medium)
+            Text("No engine installed")
+                .font(AnnFont.serif(16, .semibold)).foregroundColor(DS.ink)
 
-            Text("Download a chess engine to enable\nposition analysis and game review.")
-                .font(DS.captionFont)
-                .foregroundColor(DS.textSecondary)
+            Text("Download Stockfish for local analysis and full-game review.")
+                .font(AnnFont.voice(13)).foregroundColor(DS.ink40)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 6)
 
             Button(action: onNavigateToEngines) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.down.circle")
-                    Text("Download Engine")
-                }
-                .glassButtonPrimary()
+                Text("DOWNLOAD STOCKFISH")
+                    .font(AnnFont.label(11)).tracking(11 * 0.1)
+                    .foregroundColor(DS.onRed)
+                    .padding(.vertical, 9).padding(.horizontal, 20)
+                    .background(DS.redAccent, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+
+            Button(action: onNavigateToEngines) {
+                Text("OR ADD ANY UCI BINARY \u{2192}")
+                    .font(AnnFont.label(9.5)).tracking(9.5 * 0.1)
+                    .foregroundColor(DS.ink40)
             }
             .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
-        .padding(DS.spacingLG)
+        .padding(.vertical, 28).padding(.horizontal, 20)
+        .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+        .padding(16)
     }
 }
 

@@ -93,9 +93,14 @@ class MultiEngineManager: ObservableObject {
         engine.engineConfig = config
         let slot = EngineSlot(id: config.id, config: config, engine: engine)
 
-        // Forward objectWillChange from this engine so SwiftUI re-renders
+        // Forward objectWillChange from this engine so SwiftUI re-renders.
+        // THROTTLED: Stockfish publishes evaluation/depth/PV lines many times per second
+        // during analysis; forwarding each one re-renders the entire MainWindowView (all three
+        // columns + board). Coalesce to ~10 Hz (latest wins) so the live eval stays responsive
+        // without turning every info line into a full-window relayout. Combined with the
+        // source-level dedup in StockfishEngine, this is what keeps the analysis screen fluid.
         let cancellable = engine.objectWillChange
-            .receive(on: RunLoop.main)
+            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -179,9 +184,11 @@ class MultiEngineManager: ObservableObject {
     /// Send position to all active engines for parallel evaluation.
     func evaluateAll(board: ChessBoard, depth: Int? = nil, movetime: Int? = nil) {
         for slot in slots {
-            let boardCopy = board.copy()
+            // evaluatePosition() synchronously copies the board before any async work, so the extra
+            // per-slot copy here was redundant — one wasted 64-square board allocation per engine
+            // per move. Pass the board straight through.
             let d = depth ?? slot.config.settings.depth
-            slot.engine.evaluatePosition(board: boardCopy, depth: d, movetime: movetime)
+            slot.engine.evaluatePosition(board: board, depth: d, movetime: movetime)
         }
     }
 
@@ -189,6 +196,21 @@ class MultiEngineManager: ObservableObject {
     func stopAll() {
         for slot in slots {
             slot.engine.stopAnalysis()
+        }
+    }
+
+    /// Pause every local engine's search but keep its last result frozen on screen (TABS-AND-RAIL
+    /// §3.2). Called when this window/tab loses focus. Cloud engines self-exempt.
+    func pauseAll() {
+        for slot in slots {
+            slot.engine.pauseAnalysis()
+        }
+    }
+
+    /// Resume every engine at its last position, frozen result staying visible until overtaken.
+    func resumeAll() {
+        for slot in slots {
+            slot.engine.resumeAnalysis()
         }
     }
 

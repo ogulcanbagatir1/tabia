@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Direct distribution outside the Mac App Store, signed with a
+         "Developer ID Application" certificate. -->
+    <key>method</key>
+    <string>developer-id</string>
+    <key>teamID</key>
+    <string>67U3MGM2PW</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <!-- Hardened Runtime is already enabled in the target build settings. -->
+</dict>
+</plist>

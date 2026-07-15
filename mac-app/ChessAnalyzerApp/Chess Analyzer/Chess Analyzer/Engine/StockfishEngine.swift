@@ -73,6 +73,9 @@ class StockfishEngine: ObservableObject {
     @Published var analysisLines: [AnalysisLine] = []
     @Published var isEngineAvailable: Bool = false
     @Published var enginePath: String? = nil
+    /// True when the search was paused (tab/section left) but the last result is kept on screen,
+    /// frozen. Drives the `‖` tab indicator and the 60%-opacity eval styling (TABS-AND-RAIL §3.2).
+    @Published var isFrozen: Bool = false
 
     // MARK: - Debug Logging
     private static let logFile: URL = {
@@ -84,7 +87,14 @@ class StockfishEngine: ObservableObject {
         return tempPath
     }()
 
+    /// Off by default. debugLog is called once per scored info line, and each call was a full
+    /// open→seek→write→close file-syscall cycle on the pipe-reader thread — dozens per second
+    /// during analysis, throttling the very thread that delivers eval updates to the UI. This flag
+    /// gates it so normal runs (including Debug builds) pay nothing; flip it on to capture a trace.
+    static var verboseLogging = false
+
     private func debugLog(_ message: String) {
+        guard Self.verboseLogging else { return }
         let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         let line = "[\(timestamp)] \(message)\n"
         if let handle = try? FileHandle(forWritingTo: Self.logFile) {
@@ -450,10 +460,35 @@ class StockfishEngine: ObservableObject {
             speculativeBestMove = nil
             speculativeDepth = 0
             lastPublishedLines.removeAll(keepingCapacity: true)
+            lastPublishedDepth = nil
+            lastPublishedEval = nil
+            lastPublishedBestMove = nil
         }
         DispatchQueue.main.async {
             self.isThinking = false
         }
+    }
+
+    /// Pause the search but keep the last result frozen on screen — used when this tab/window loses
+    /// focus (TABS-AND-RAIL §3.2). stopAnalysis() already sends UCI "stop", nils the analysis id, and
+    /// deliberately preserves the @Published eval/PV/depth/bestMove, so the display stays put.
+    /// Cloud engines are exempt (they run on someone else's CPU) and keep going.
+    func pauseAnalysis() {
+        guard !isCloudEngine else { return }
+        stopAnalysis()
+        DispatchQueue.main.async { self.isFrozen = true }
+    }
+
+    /// Resume from the frozen snapshot: restart the search at the same position, keeping the frozen
+    /// eval/PV/depth visible until the new search overtakes it.
+    func resumeAnalysis() {
+        guard !isCloudEngine else { return }
+        guard isEngineAvailable, let board = currentBoard else {
+            DispatchQueue.main.async { self.isFrozen = false }
+            return
+        }
+        DispatchQueue.main.async { self.isFrozen = false }
+        evaluatePosition(board: board, depth: engineConfig?.settings.depth, preserveDisplay: true)
     }
 
     // Minimum depth before showing best move (avoid bad early suggestions)
@@ -469,9 +504,18 @@ class StockfishEngine: ObservableObject {
     /// Cleared whenever analysisLines is cleared (new analysis / stop).
     private var lastPublishedLines: [Int: AnalysisLine] = [:]
 
+    /// Shadow copies of the scalar @Published values (guarded by resultStateQueue).
+    /// Stockfish emits many info lines per depth level (MultiPV=3 → the same depth 3×,
+    /// PV1 eval refined many times/sec). Dispatching every one to the main thread fires a
+    /// redundant objectWillChange each time. We only hop to main when the value actually
+    /// changes, collapsing dozens of no-op publishes per second into a handful.
+    private var lastPublishedDepth: Int? = nil
+    private var lastPublishedEval: Double? = nil
+    private var lastPublishedBestMove: String? = nil
+
     // MARK: - Evaluation
 
-    func evaluatePosition(board: ChessBoard, depth: Int? = nil, movetime: Int? = nil, continuous: Bool = false) {
+    func evaluatePosition(board: ChessBoard, depth: Int? = nil, movetime: Int? = nil, continuous: Bool = false, preserveDisplay: Bool = false) {
         if isCloudEngine {
             evaluateCloudPosition(board: board)
             return
@@ -529,11 +573,22 @@ class StockfishEngine: ObservableObject {
         self.currentBoard = boardCopy
         debugLog("evaluatePosition: Board turn = \(boardTurn), stored currentBoard")
 
-        // Mark as thinking and clear old analysis (keep evaluation to avoid bar flashing to 0)
-        resultStateQueue.sync { lastPublishedLines.removeAll(keepingCapacity: true) }
+        // Mark as thinking and clear old analysis (keep evaluation to avoid bar flashing to 0).
+        // preserveDisplay (a resume after pause): keep the frozen eval/PV/depth on screen and seed
+        // the dedup shadows to the frozen values so the new search only republishes once it overtakes
+        // the frozen depth (TABS-AND-RAIL §3.2 "goes live when it passes the frozen depth").
+        let frozenDepth = self.depth
+        let frozenEval = self.evaluation
+        let frozenBest = self.bestMove
+        resultStateQueue.sync {
+            lastPublishedLines.removeAll(keepingCapacity: true)
+            lastPublishedDepth = preserveDisplay ? frozenDepth : nil
+            lastPublishedEval = preserveDisplay ? frozenEval : nil
+            lastPublishedBestMove = preserveDisplay ? frozenBest : nil
+        }
         let speculativeNow = resultStateQueue.sync { isSpeculative }
         DispatchQueue.main.async {
-            if !speculativeNow {
+            if !speculativeNow && !preserveDisplay {
                 self.bestMove = nil
                 self.depth = 0
                 self.analysisLines = []
@@ -782,8 +837,17 @@ class StockfishEngine: ObservableObject {
             if speculative {
                 resultStateQueue.sync { speculativeDepth = depthValue }
             } else {
-                DispatchQueue.main.async {
-                    self.depth = depthValue
+                // Only hop to main when the depth actually advances — Stockfish emits the
+                // same depth once per MultiPV line, so this drops ~2/3 of depth publishes.
+                let changed = resultStateQueue.sync { () -> Bool in
+                    if lastPublishedDepth == depthValue { return false }
+                    lastPublishedDepth = depthValue
+                    return true
+                }
+                if changed {
+                    DispatchQueue.main.async {
+                        self.depth = depthValue
+                    }
                 }
             }
         }
@@ -821,8 +885,15 @@ class StockfishEngine: ObservableObject {
                         if speculative {
                             resultStateQueue.sync { speculativeEval = whiteScore }
                         } else {
-                            DispatchQueue.main.async {
-                                self.evaluation = whiteScore
+                            let changed = resultStateQueue.sync { () -> Bool in
+                                if lastPublishedEval == whiteScore { return false }
+                                lastPublishedEval = whiteScore
+                                return true
+                            }
+                            if changed {
+                                DispatchQueue.main.async {
+                                    self.evaluation = whiteScore
+                                }
                             }
                         }
                     }
@@ -848,8 +919,15 @@ class StockfishEngine: ObservableObject {
                         if speculative {
                             resultStateQueue.sync { speculativeEval = mateScore }
                         } else {
-                            DispatchQueue.main.async {
-                                self.evaluation = mateScore
+                            let changed = resultStateQueue.sync { () -> Bool in
+                                if lastPublishedEval == mateScore { return false }
+                                lastPublishedEval = mateScore
+                                return true
+                            }
+                            if changed {
+                                DispatchQueue.main.async {
+                                    self.evaluation = mateScore
+                                }
                             }
                         }
                     }
@@ -914,8 +992,15 @@ class StockfishEngine: ObservableObject {
             // Update best move from PV1 — single-move SAN conversion is cheap
             if pvIndex == 1, currentDepth >= minDepthForBestMove, let firstUci = pvMoves.first {
                 let firstMove = convertToAlgebraic(firstUci)
-                DispatchQueue.main.async {
-                    self.bestMove = firstMove
+                let changed = resultStateQueue.sync { () -> Bool in
+                    if lastPublishedBestMove == firstMove { return false }
+                    lastPublishedBestMove = firstMove
+                    return true
+                }
+                if changed {
+                    DispatchQueue.main.async {
+                        self.bestMove = firstMove
+                    }
                 }
             }
 

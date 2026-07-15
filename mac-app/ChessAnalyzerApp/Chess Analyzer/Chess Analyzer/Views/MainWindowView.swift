@@ -7,6 +7,10 @@ struct MainWindowView: View {
     @StateObject private var board = ChessBoard()
     @StateObject private var gameTree = GameTree()
     @StateObject private var multiEngine = MultiEngineManager()
+    // Analysis boards (tabs). The live board/gameTree above are the ACTIVE session's working copy;
+    // switching a tab swaps the tree node references in/out (lossless, instant). Tabs hold analysis
+    // boards only — repertoire/explorer/etc. are rail sections, never tabs.
+    @StateObject private var windowModel = WindowModel()
     @EnvironmentObject var database: GameDatabase
     @StateObject private var openingBook = OpeningBook.shared
     @StateObject private var gameAnalyzer = GameAnalyzer()
@@ -15,12 +19,20 @@ struct MainWindowView: View {
     @ObservedObject private var settings = AppSettings.shared
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettingsAction
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var didRestoreTabs = false
 
     @State private var autoAnalyze = true
     @State private var showingSidebar = true
     @State private var showingSaveSheet = false
+    @State private var showingSetupPosition = false
+    @State private var arrowMonitor: Any? = nil
     @State private var evaluationDebounceTask: DispatchWorkItem?
     @State private var isSyncingBoard = false
+    // Suppresses the dirty flag while we're loading/swapping a game (not a user edit).
+    @State private var suppressDirty = false
+    // Index of a dirty tab awaiting a Save / Don't Save / Cancel decision on close.
+    @State private var tabPendingClose: Int? = nil
     @State private var whiteName: String = ""
     @State private var blackName: String = ""
     @State private var whiteRating: String = ""
@@ -33,6 +45,11 @@ struct MainWindowView: View {
     // Loaded-game metadata for the move-list header (event + result).
     @State private var currentEvent: String = ""
     @State private var currentResult: String = ""
+    @State private var currentTimeClass: String? = nil
+    // Move sequences cached per position so the analysis view body doesn't re-walk the whole line
+    // (several times) on every re-render — recomputed once when the position changes.
+    @State private var cachedUCI: [String] = []
+    @State private var cachedSAN: [String] = []
 
     // Current loaded game (for saving analysis back)
     @State private var currentGameId: UUID? = nil
@@ -96,27 +113,21 @@ struct MainWindowView: View {
         VStack(spacing: 0) {
             // Masthead — wordmark · centered nav tabs · contextual actions + settings gear.
             // Hidden in Drill mode (focused mode) — handled inside RepertoireBrowserView's drill.
-            MastheadView(
-                active: $activeScreen,
-                onSelectTab: { activeScreen = $0 },
-                onSettings: openSettingsWindow,
-                onEngines: { openWindow(id: WindowID.engineRoom) },
-                rightActions: { mastheadActions }
-            )
-
-            Group {
-                switch activeScreen {
+            titlebarStrip
+            HStack(spacing: 0) {
+                RailView(selected: $activeScreen, onSettings: openSettingsWindow)
+                Group {
+                    switch activeScreen {
                 case .analysis:
                     analysisLayout
                 case .explorer:
                     ExplorerScreenView()
                 case .database:
                     DatabaseBrowserView(onGameSelected: { game in
-                        loadGame(game)
-                        activeScreen = .analysis
+                        openGameInTab(game)
                     }, onReferenceGameSelected: { pgn in
+                        newTab()
                         loadGameFromPGN(pgn)
-                        activeScreen = .analysis
                     }, onReviewGame: { game in
                         reviewGame(game)
                     })
@@ -124,37 +135,82 @@ struct MainWindowView: View {
                     RepertoireBrowserView()
                 case .chesscom:
                     ChessComBrowserView(onGameSelected: { game in
-                        loadGame(game)
-                        activeScreen = .analysis
+                        openGameInTab(game)
                     }, onReviewGame: { game in
                         reviewGame(game)
                     })
                 case .engine:
                     EngineManagerView()
-                case .settings:
-                    SettingsScreenView()
+                    case .settings:
+                        SettingsScreenView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            AnnStatusBar(left: statusLeft, right: statusRight)
         }
         .background(GlassBackground(screen: activeScreen))
+        .background { tabShortcutButtons }
         // Let the masthead rise into the title-bar band so the wordmark sits on the same
         // line as the native traffic lights (it reserves horizontal room for them).
         .ignoresSafeArea(.container, edges: .top)
         .overlay { ReferenceActivityBadge() }
+        .errorBannerHost()
         .sheet(isPresented: $showingSaveSheet) {
             SaveGameView(gameTree: gameTree, database: database)
         }
+        .confirmationDialog("This board has unsaved changes.",
+                            isPresented: Binding(get: { tabPendingClose != nil },
+                                                 set: { if !$0 { tabPendingClose = nil } }),
+                            titleVisibility: .visible) {
+            Button("Save…") {
+                if let i = tabPendingClose { if i != windowModel.activeIndex { selectTab(i) }; showingSaveSheet = true }
+                tabPendingClose = nil
+            }
+            Button("Don't Save", role: .destructive) {
+                if let i = tabPendingClose { performCloseTab(i) }
+                tabPendingClose = nil
+            }
+            Button("Cancel", role: .cancel) { tabPendingClose = nil }
+        }
+        .sheet(isPresented: $showingSetupPosition) {
+            SetUpPositionView(onSetup: { fen in
+                setupPosition(fen: fen)
+                activeScreen = .analysis
+            })
+        }
         .onAppear {
+            if !didRestoreTabs { didRestoreTabs = true; restoreTabs() }
             startEngineIfConfigured()
+            refreshMoveSequences()
             updateCurrentOpening()
+            if activeScreen == .analysis { installArrowMonitor() }
+        }
+        .onDisappear { removeArrowMonitor() }
+        .onChange(of: scenePhase) { _, phase in
+            // Persist on background only (not on every ⌘-Tab .inactive) — tab ops + willTerminate
+            // already cover the frequent cases, so this is just a minimize/hide safety net.
+            if phase == .background { persistTabs() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            // macOS may quit without a scenePhase→background transition, so persist on terminate too.
+            persistTabs()
+        }
+        .onChange(of: activeScreen) { _, s in
+            if s == .analysis { installArrowMonitor() } else { removeArrowMonitor() }
         }
         // Menu-bar commands (posted from the Scene-level command set) run here in view context.
         // Merged into one subscription so the type-checker stays fast.
         .onReceive(Self.menuCommandPublisher) { note in handleMenuCommand(note.name) }
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaOpenMyGames)) { _ in
+            activeScreen = .chesscom
+        }
+        .onChange(of: gameTree.structureVersion) { _, _ in
+            // A structural edit (move added / deleted / promoted) makes the active board dirty —
+            // unless we're mid-load/swap. Dirty drives the amber tab dot + close-save prompt (§3.3).
+            if !suppressDirty { windowModel.active.isDirty = true }
+        }
         .onChange(of: gameTree.currentNode.id) { _, _ in
+            refreshMoveSequences()
             syncBoardWithGameTree()
             updateCurrentOpening()
 
@@ -236,6 +292,297 @@ struct MainWindowView: View {
         )
     }
 
+    // MARK: - Titlebar (A6) — traffic-light zone · board tab · + · right actions
+
+    private var titlebarStrip: some View {
+        let count = windowModel.sessions.count
+        let tabWidth: CGFloat = count == 1 ? 280 : max(130, min(232, 232))
+        return HStack(spacing: 0) {
+            Color.clear.frame(width: 86)   // native traffic lights live here
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(Array(windowModel.sessions.enumerated()), id: \.element.id) { index, session in
+                        let isActive = index == windowModel.activeIndex
+                        BoardTabView(
+                            title: isActive ? boardTabTitle : session.title,
+                            active: isActive,
+                            indicator: tabIndicator(for: session, active: isActive),
+                            showClose: count > 1,
+                            width: tabWidth,
+                            onSelect: { selectTab(index) },
+                            onClose: { closeTab(index) },
+                            onRename: { renameTab(index, $0) }
+                        )
+                    }
+                    NewTabButton(action: { newTab() })
+                }
+            }
+            Spacer(minLength: 12)
+            HStack(spacing: 10) { mastheadActions }
+                .padding(.trailing, 16)
+        }
+        .frame(height: DS.titlebarHeight)
+        .background(DS.adaptive(light: 0xEDE5D3, dark: 0x211C13))
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    private func tabIndicator(for session: BoardSession, active: Bool) -> TabLeadingIndicator {
+        if active {
+            if multiEngine.primaryEngine.isFrozen { return .frozen }
+            if multiEngine.selectedIsThinking { return .engineLive }
+            return session.isDirty ? .dirty : .none
+        }
+        if session.isDirty { return .dirty }
+        if session.snapEval != nil { return .frozen }
+        return .none
+    }
+
+    private var boardTabTitle: String {
+        if let c = windowModel.active.customTitle, !c.isEmpty { return c }
+        let w = whiteName.isEmpty ? "" : surnameShort(whiteName)
+        let b = blackName.isEmpty ? "" : surnameShort(blackName)
+        if !w.isEmpty || !b.isEmpty {
+            let players = "\(w.isEmpty ? "?" : w) — \(b.isEmpty ? "?" : b)"
+            if let o = currentOpeningName, !o.isEmpty { return "\(players) · \(o)" }
+            return players
+        }
+        if let o = currentOpeningName, !o.isEmpty { return o }
+        return "New board"
+    }
+
+    private func surnameShort(_ name: String) -> String {
+        name.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces) ?? name
+    }
+
+    // MARK: - Tab session management (TABS-AND-RAIL §3.1)
+
+    /// Snapshot the live board/game/metadata + engine eval into the active session.
+    private func captureActiveSession() {
+        let s = windowModel.active
+        s.rootNode = gameTree.root
+        s.cursorNode = gameTree.currentNode
+        s.isFlipped = isBoardFlipped
+        s.whiteName = whiteName; s.blackName = blackName
+        s.whiteRating = whiteRating; s.blackRating = blackRating
+        s.event = currentEvent; s.result = currentResult
+        s.timeClass = currentTimeClass
+        s.openingName = currentOpeningName; s.openingECO = currentOpeningECO
+        s.currentGameId = currentGameId
+        s.title = boardTabTitle
+        let e = multiEngine.primaryEngine
+        s.snapEval = e.evaluation
+        s.snapDepth = e.depth
+        s.snapFEN = gameTree.currentNode.boardState.getFEN()
+    }
+
+    private func beginBoardLoad() { suppressDirty = true }
+    private func endBoardLoad(clean: Bool) {
+        if clean { windowModel.active.isDirty = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { suppressDirty = false }
+    }
+
+    /// Load the active session's stored game/metadata into the live board (lossless node swap).
+    private func applyActiveSession() {
+        let s = windowModel.active
+        beginBoardLoad()
+        isSyncingBoard = true
+        gameTree.root = s.rootNode
+        gameTree.currentNode = s.cursorNode
+        gameTree.rebuildMainLine()
+        board.restoreState(from: s.cursorNode.boardState)
+        isBoardFlipped = s.isFlipped
+        whiteName = s.whiteName; blackName = s.blackName
+        whiteRating = s.whiteRating; blackRating = s.blackRating
+        currentEvent = s.event; currentResult = s.result
+        currentTimeClass = s.timeClass
+        currentOpeningName = s.openingName; currentOpeningECO = s.openingECO
+        currentGameId = s.currentGameId
+        isSyncingBoard = false
+        refreshMoveSequences()
+        gameAnalyzer.reset()
+        endBoardLoad(clean: false)   // keep the session's own dirty state across the swap
+        // Show the frozen eval instantly for visual continuity. The currentNode swap above fires
+        // onChange(currentNode.id), which re-targets the engine at the new position — so we do NOT
+        // trigger a second search here (that raced the first and desynced the UCI flush).
+        if let ev = s.snapEval { multiEngine.primaryEngine.evaluation = ev }
+    }
+
+    /// Switch to tab `index` (capture current, swap in the target session).
+    /// The single shared engine follows the active position — swapping the board re-points its
+    /// search (stop-old + go-new inside evaluatePosition), so there is exactly ONE search running,
+    /// on the active tab. No manual pause: a redundant bare "stop" here desyncs the UCI flush and
+    /// wedges the engine.
+    private func selectTab(_ index: Int) {
+        activeScreen = .analysis
+        guard index != windowModel.activeIndex, windowModel.sessions.indices.contains(index) else { return }
+        captureActiveSession()
+        windowModel.activeIndex = index
+        applyActiveSession()
+    }
+
+    /// Create a new empty board and jump to Analysis (§3.7).
+    private func newTab() {
+        captureActiveSession()
+        windowModel.newBoard()
+        applyActiveSession()
+        activeScreen = .analysis
+        persistTabs()
+    }
+
+    private func closeTab(_ index: Int) {
+        // A dirty board asks to save first (§3.3); clean tabs close silently.
+        if windowModel.sessions.indices.contains(index), windowModel.sessions[index].isDirty {
+            tabPendingClose = index
+            return
+        }
+        performCloseTab(index)
+    }
+
+    private func performCloseTab(_ index: Int) {
+        let wasActive = index == windowModel.activeIndex
+        // Always sync the live gameTree back into the active session FIRST — otherwise the tab being
+        // closed (or the current one) still points at a stale seed tree, so WindowModel.closeTab's
+        // isEmpty/pushClosed decision is wrong and ⌘⇧T reopen restores nothing.
+        captureActiveSession()
+        _ = windowModel.closeTab(at: index)
+        if wasActive {
+            applyActiveSession()   // re-points the engine to the newly-active board
+        }
+        activeScreen = .analysis
+        persistTabs()
+    }
+
+    /// Open a library game as a new tab, or focus the existing tab if already open (§3.7).
+    private func openGameInTab(_ game: GameRecord) {
+        if let existing = windowModel.indexHoldingGame(game.id) {
+            selectTab(existing)
+            return
+        }
+        newTab()
+        loadGame(game)
+    }
+
+    private func cycleTab(_ delta: Int) {
+        let n = windowModel.sessions.count
+        guard n > 1 else { return }
+        selectTab(((windowModel.activeIndex + delta) % n + n) % n)
+    }
+
+    private func jumpToTab(_ index: Int) {
+        guard windowModel.sessions.indices.contains(index) else { return }
+        selectTab(index)
+    }
+
+    private func renameTab(_ index: Int, _ name: String) {
+        guard windowModel.sessions.indices.contains(index) else { return }
+        windowModel.sessions[index].customTitle = name
+        windowModel.sessions[index].title = name
+        windowModel.objectWillChange.send()
+        persistTabs()
+    }
+
+    private func reopenClosedTab() {
+        captureActiveSession()
+        if windowModel.reopenClosed() {
+            applyActiveSession()
+            activeScreen = .analysis
+        }
+    }
+
+    // MARK: - Tab persistence (§3.5) — restore open tabs across relaunch
+
+    private static let openTabsKey = "tabia.openTabs"
+
+    private func cursorPath(for s: BoardSession) -> [Int] {
+        var path: [Int] = []
+        var node = s.cursorNode
+        while let parent = node.parent {
+            path.append(parent.children.firstIndex(where: { $0 === node }) ?? 0)
+            node = parent
+        }
+        return path.reversed()
+    }
+
+    private func persistTabs() {
+        captureActiveSession()
+        var out: [PersistedTab] = []
+        for s in windowModel.sessions {
+            let t = GameTree()
+            t.root = s.rootNode
+            let headers: [String: String] = [
+                "White": s.whiteName.isEmpty ? "?" : s.whiteName,
+                "Black": s.blackName.isEmpty ? "?" : s.blackName,
+                "WhiteElo": s.whiteRating, "BlackElo": s.blackRating,
+                "Event": s.event.isEmpty ? "?" : s.event,
+                "Result": s.result.isEmpty ? "*" : s.result,
+            ]
+            out.append(PersistedTab(
+                pgn: t.toPGN(headers: headers), cursorPath: cursorPath(for: s),
+                isFlipped: s.isFlipped, title: s.title, customTitle: s.customTitle, isDirty: s.isDirty,
+                whiteName: s.whiteName, blackName: s.blackName,
+                whiteRating: s.whiteRating, blackRating: s.blackRating,
+                event: s.event, result: s.result, timeClass: s.timeClass,
+                openingName: s.openingName, openingECO: s.openingECO,
+                gameId: s.currentGameId?.uuidString))
+        }
+        let payload = PersistedTabSet(tabs: out, activeIndex: windowModel.activeIndex)
+        if let data = try? JSONEncoder().encode(payload) {
+            UserDefaults.standard.set(data, forKey: Self.openTabsKey)
+        }
+    }
+
+    private func restoreTabs() {
+        guard let data = UserDefaults.standard.data(forKey: Self.openTabsKey),
+              let payload = try? JSONDecoder().decode(PersistedTabSet.self, from: data),
+              !payload.tabs.isEmpty else { return }
+        let parser = PGNParser()
+        var sessions: [BoardSession] = []
+        for pt in payload.tabs {
+            let s = BoardSession()
+            if !pt.pgn.isEmpty, let g = parser.parse(string: pt.pgn).first, let tree = parser.toGameTree(g) {
+                s.rootNode = tree.root
+                var node = tree.root
+                for idx in pt.cursorPath {
+                    guard node.children.indices.contains(idx) else { break }
+                    node = node.children[idx]
+                }
+                s.cursorNode = node
+            }
+            s.isFlipped = pt.isFlipped
+            s.title = pt.title
+            s.customTitle = pt.customTitle
+            s.isDirty = pt.isDirty
+            s.whiteName = pt.whiteName; s.blackName = pt.blackName
+            s.whiteRating = pt.whiteRating; s.blackRating = pt.blackRating
+            s.event = pt.event; s.result = pt.result; s.timeClass = pt.timeClass
+            s.openingName = pt.openingName; s.openingECO = pt.openingECO
+            s.currentGameId = pt.gameId.flatMap { UUID(uuidString: $0) }
+            sessions.append(s)
+        }
+        guard !sessions.isEmpty else { return }
+        windowModel.sessions = sessions
+        windowModel.activeIndex = min(max(payload.activeIndex, 0), sessions.count - 1)
+        applyActiveSession()
+    }
+
+    /// Hidden buttons carrying the tab keyboard shortcuts (⌘T/⌘W/⌃⇥/⌘1…8/⌘⇧T) — non-colliding
+    /// with ⌘E (Engine Room) and ⌘, (Settings).
+    @ViewBuilder private var tabShortcutButtons: some View {
+        Group {
+            Button("") { newTab() }.keyboardShortcut("t", modifiers: .command)
+            Button("") { closeTab(windowModel.activeIndex) }.keyboardShortcut("w", modifiers: .command)
+            Button("") { cycleTab(1) }.keyboardShortcut(.tab, modifiers: .control)
+            Button("") { cycleTab(-1) }.keyboardShortcut(.tab, modifiers: [.control, .shift])
+            Button("") { reopenClosedTab() }.keyboardShortcut("t", modifiers: [.command, .shift])
+            ForEach(1...8, id: \.self) { n in
+                Button("") { jumpToTab(n - 1) }
+                    .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
+            }
+        }
+        .opacity(0)
+        .allowsHitTesting(false)
+    }
+
     // MARK: - Masthead & status bar
 
     @ViewBuilder private var mastheadActions: some View {
@@ -244,9 +591,32 @@ struct MainWindowView: View {
             // Sync lives in the masthead on My Games (handled inside ChessComBrowserView).
             Button("Sync Now") { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) }
                 .buttonStyle(GlassButtonStyle())
+        case .database:
+            // Library keeps a Filters control in the masthead; import now lives in Settings.
+            mastheadPill(icon: "slider.horizontal.3", label: "Filters") {
+                NotificationCenter.default.post(name: .tabiaLibraryToggleFilters, object: nil)
+            }
+        case .repertoire:
+            Button("New Repertoire") { NotificationCenter.default.post(name: .tabiaNewRepertoire, object: nil) }
+                .buttonStyle(GlassPrimaryButtonStyle())
         default:
             EmptyView()
         }
+    }
+
+    private func mastheadPill(icon: String, label: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 12, weight: .regular))
+                Text(label).font(AnnFont.label(11)).tracking(11 * 0.1)
+            }
+            .foregroundColor(DS.ink60)
+            .padding(.vertical, 5).padding(.horizontal, 12)
+            .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var statusLeft: String {
@@ -349,7 +719,7 @@ struct MainWindowView: View {
                             explorerService: lichessExplorer,
                             openingBook: openingBook,
                             board: board,
-                            currentMoves: getMoveSequenceUCI(),
+                            currentMoves: cachedUCI,
                             searchText: $explorerSearchText,
                             onMovePlayed: { uciMove in
                                 _ = applySingleUCIMove(uciMove)
@@ -366,8 +736,8 @@ struct MainWindowView: View {
                             explorerService: libraryExplorer,
                             openingBook: openingBook,
                             board: board,
-                            currentMoves: getMoveSequenceUCI(),
-                            currentSANs: getMoveSequenceSAN(),
+                            currentMoves: cachedUCI,
+                            currentSANs: cachedSAN,
                             searchText: $explorerSearchText,
                             onMovePlayed: { uciMove in
                                 _ = applySingleUCIMove(uciMove)
@@ -398,7 +768,7 @@ struct MainWindowView: View {
                         whiteRating: whiteRating,
                         blackRating: blackRating,
                         openingName: currentOpeningName,
-                        plyCount: getMoveSequenceSAN().count,
+                        plyCount: cachedSAN.count,
                         isFlipped: isBoardFlipped,
                         explorerArrow: engineArrow
                     )
@@ -414,10 +784,18 @@ struct MainWindowView: View {
                     HStack(spacing: 8) {
                         boardIconButton("arrow.up.arrow.down", "Flip Board (⇧⌘F)") { isBoardFlipped.toggle() }
                         boardIconButton("arrow.counterclockwise", "Reset Board (⌘N)") { resetGame() }
+                        boardIconButton("square.grid.3x3", "Set Up Position") { showingSetupPosition = true }
                         boardIconButton("square.and.arrow.down", "Save Game (⌘S)") { showingSaveSheet = true }
                     }
                     .padding(.top, 16)
                     .padding(.trailing, 20)
+                }
+                // Scroll over the board to step through moves (up = back, down = forward).
+                .overlay {
+                    ScrollNavCatcher { step in
+                        if step > 0 { _ = gameTree.goBack() } else { _ = gameTree.goForward() }
+                        syncBoardWithGameTree()
+                    }
                 }
 
                 // Right sidebar — engine source + PV + Game Review + move list (opening lives in
@@ -436,7 +814,8 @@ struct MainWindowView: View {
                         Rectangle().fill(DS.hairline).frame(height: 1)
                     }
 
-                    // Moves on top (fills the space), the game review below it.
+                    // Game review (when completed) sits on top of the moves inside one shared
+                    // scroll, so the whole right column scrolls together — not just the move list.
                     MoveListView(
                         gameTree: gameTree,
                         whiteName: whiteName,
@@ -444,18 +823,14 @@ struct MainWindowView: View {
                         event: currentEvent,
                         openingName: currentOpeningName ?? "",
                         eco: currentOpeningECO ?? "",
-                        result: currentResult
+                        result: currentResult,
+                        gameAnalyzer: gameAnalyzer,
+                        showReview: gameAnalyzer.isCompleted,
+                        reviewTimeClass: currentTimeClass,
+                        onImportPGN: { importPGNForDisplay() },
+                        onSetUpPosition: { showingSetupPosition = true },
+                        onDropPGNText: { loadGameFromPGN($0) }
                     )
-
-                    if gameAnalyzer.isCompleted {
-                        GameAnalysisResultsView(
-                            gameAnalyzer: gameAnalyzer,
-                            gameTree: gameTree
-                        )
-                        .overlay(alignment: .top) {
-                            Rectangle().fill(DS.hairline).frame(height: 1)
-                        }
-                    }
                 }
                 .frame(width: finalRightSidebarWidth)
                 .background(GlassPanelBackground())
@@ -469,7 +844,7 @@ struct MainWindowView: View {
     private struct BoardAreaComponents {
         let labelWidth: CGFloat = 20
         let labelHeight: CGFloat = 18
-        let evalBarWidth: CGFloat = 24
+        let evalBarWidth: CGFloat = 34
         let spacing: CGFloat = 16
         let bottomControlsHeight: CGFloat = 50
     }
@@ -507,16 +882,14 @@ struct MainWindowView: View {
         }
 
         isSyncingBoard = true
-        board.squares = currentBoard.squares
-        board.turn = currentBoard.turn
-        board.moveHistory = currentBoard.moveHistory
-        board.enPassantTarget = currentBoard.enPassantTarget
-        board.halfMoveClock = currentBoard.halfMoveClock
-        board.fullMoveNumber = currentBoard.fullMoveNumber
+        // Restore the FULL snapshot (incl. castling-rights booleans) — copying only squares/turn
+        // left the castling flags stale, which blocked re-castling after a takeback.
+        board.restoreState(from: currentBoard)
         isSyncingBoard = false
     }
 
     private func resetGame() {
+        beginBoardLoad()
         // Cancel and reset game analysis
         gameAnalyzer.cancel()
         gameAnalyzer.reset()
@@ -527,12 +900,7 @@ struct MainWindowView: View {
         multiEngine.stopAll()
 
         let newBoard = ChessBoard()
-        board.squares = newBoard.squares
-        board.turn = newBoard.turn
-        board.moveHistory = newBoard.moveHistory
-        board.enPassantTarget = newBoard.enPassantTarget
-        board.halfMoveClock = newBoard.halfMoveClock
-        board.fullMoveNumber = newBoard.fullMoveNumber
+        board.restoreState(from: newBoard)
 
         let newTree = GameTree()
         gameTree.root = newTree.root
@@ -553,7 +921,12 @@ struct MainWindowView: View {
         blackRating = ""
         currentEvent = ""
         currentResult = ""
+        currentTimeClass = nil
         currentGameId = nil
+
+        // A fresh board is clean, and its tab reverts to the "New board" title.
+        endBoardLoad(clean: true)
+        windowModel.active.title = "New board"
 
         // Use debounced evaluation — onChange may also trigger it,
         // but the debounce ensures only one evaluation runs
@@ -571,8 +944,12 @@ struct MainWindowView: View {
             return
         }
 
-        // Track current game for saving analysis
+        beginBoardLoad()
+
+        // Track current game for saving analysis — on BOTH the @State and the active session, so
+        // §3.7 focus-or-open (which scans BoardSession.currentGameId) finds this tab next time.
         currentGameId = game.id
+        windowModel.active.currentGameId = game.id
 
         // Replace current game tree contents
         gameTree.root = loadedTree.root
@@ -601,6 +978,7 @@ struct MainWindowView: View {
 
         currentEvent = game.event == "?" ? "" : game.event
         currentResult = game.result == "*" ? "" : game.result
+        currentTimeClass = game.timeClass
 
         // Restore analysis from database if available, otherwise reset
         if let analysisData = game.analysisData {
@@ -608,6 +986,10 @@ struct MainWindowView: View {
         } else {
             gameAnalyzer.reset()
         }
+
+        // A freshly loaded library game matches the library — not dirty. Also refresh the tab title.
+        endBoardLoad(clean: true)
+        windowModel.active.title = boardTabTitle
 
         // Trigger evaluation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -620,7 +1002,12 @@ struct MainWindowView: View {
         [Notification.Name.tabiaNewGame, .tabiaOpenPGN, .tabiaSavePGN, .tabiaExportGame,
          .tabiaCopyFEN, .tabiaPasteFEN, .tabiaFlipBoard, .tabiaStartEngine, .tabiaStopEngine,
          .tabiaAnalyzePosition, .tabiaShowBestMove, .tabiaGoToStart, .tabiaPreviousMove,
-         .tabiaNextMove, .tabiaGoToEnd].map { NotificationCenter.default.publisher(for: $0) }
+         .tabiaNextMove, .tabiaGoToEnd,
+         .tabiaScreenAnalysis, .tabiaScreenExplorer, .tabiaScreenRepertoire, .tabiaScreenMyGames,
+         .tabiaScreenLibrary, .tabiaSetUpPosition, .tabiaFullReview, .tabiaToggleEngine,
+         .tabiaToggleAutoAnalyze, .tabiaDeleteMove, .tabiaAnnBrilliant, .tabiaAnnGood,
+         .tabiaAnnInteresting, .tabiaAnnDubious, .tabiaAnnMistake, .tabiaAnnBlunder]
+            .map { NotificationCenter.default.publisher(for: $0) }
     )
 
     private func handleMenuCommand(_ name: Notification.Name) {
@@ -642,8 +1029,34 @@ struct MainWindowView: View {
         case .tabiaPreviousMove:   _ = gameTree.goBack(); syncBoardWithGameTree()
         case .tabiaNextMove:       _ = gameTree.goForward(); syncBoardWithGameTree()
         case .tabiaGoToEnd:        gameTree.goToEnd(); syncBoardWithGameTree()
+        case .tabiaScreenAnalysis:   activeScreen = .analysis
+        case .tabiaScreenExplorer:   activeScreen = .explorer
+        case .tabiaScreenRepertoire: activeScreen = .repertoire
+        case .tabiaScreenMyGames:    activeScreen = .chesscom
+        case .tabiaScreenLibrary:    activeScreen = .database
+        case .tabiaSetUpPosition:    activeScreen = .analysis; showingSetupPosition = true
+        case .tabiaFullReview:       activeScreen = .analysis; startGameAnalysis()
+        case .tabiaToggleEngine:
+            if multiEngine.anyEngineAvailable { multiEngine.stopAll() } else { startEngineIfConfigured() }
+        case .tabiaToggleAutoAnalyze: autoAnalyze.toggle()
+        case .tabiaDeleteMove:
+            if gameTree.currentNode.parent != nil {
+                gameTree.deleteFromNode(gameTree.currentNode); syncBoardWithGameTree()
+            }
+        case .tabiaAnnBrilliant:   annotateCurrent("!!")
+        case .tabiaAnnGood:        annotateCurrent("!")
+        case .tabiaAnnInteresting: annotateCurrent("!?")
+        case .tabiaAnnDubious:     annotateCurrent("?!")
+        case .tabiaAnnMistake:     annotateCurrent("?")
+        case .tabiaAnnBlunder:     annotateCurrent("??")
         default:                   break
         }
+    }
+
+    private func annotateCurrent(_ sym: String) {
+        guard gameTree.currentNode.parent != nil else { return }
+        gameTree.currentNode.setAnnotation(sym)
+        gameTree.objectWillChange.send()
     }
 
     /// Open a PGN file into the current game (menu: Open PGN…).
@@ -699,6 +1112,64 @@ struct MainWindowView: View {
         activeScreen = .analysis
     }
 
+    /// Bare ← / → / Home / End step through moves — only on the analysis screen and only when a
+    /// text field isn't focused, so typing and other screens keep their normal arrow behaviour.
+    private func installArrowMonitor() {
+        guard arrowMonitor == nil else { return }
+        arrowMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty else { return event }
+            if let fr = NSApp.keyWindow?.firstResponder, fr is NSText || fr is NSTextView { return event }
+            switch event.keyCode {
+            case 123: _ = gameTree.goBack();    syncBoardWithGameTree(); return nil
+            case 124: _ = gameTree.goForward(); syncBoardWithGameTree(); return nil
+            case 115: gameTree.goToStart();     syncBoardWithGameTree(); return nil
+            case 119: gameTree.goToEnd();       syncBoardWithGameTree(); return nil
+            default:  return event
+            }
+        }
+    }
+
+    private func removeArrowMonitor() {
+        if let m = arrowMonitor { NSEvent.removeMonitor(m); arrowMonitor = nil }
+    }
+
+    /// Open a PGN file and view its FIRST game on the board — not saved to the library.
+    private func importPGNForDisplay() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Open a PGN to view — this game is not saved to your library"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url,
+                  let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+            loadGameFromPGN(text)
+        }
+    }
+
+    /// Load a hand-set position (from the board editor) onto the board — not saved to the library.
+    private func setupPosition(fen: String) {
+        guard let board = ChessBoard(fen: fen) else { return }
+        let rootNode = GameNode(move: nil, parent: nil, boardState: board)
+        gameTree.root = rootNode
+        gameTree.currentNode = rootNode
+        gameTree.rebuildMainLine()
+
+        currentGameId = nil
+        whiteName = ""; blackName = ""; whiteRating = ""; blackRating = ""
+        currentEvent = ""; currentResult = ""; currentTimeClass = nil
+        currentOpeningECO = nil; currentOpeningName = nil
+
+        gameAnalyzer.reset()
+        gameTree.goToStart()
+        syncBoardWithGameTree()
+        updateCurrentOpening()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            evaluatePositionNow()
+        }
+    }
+
     private func loadGameFromPGN(_ pgn: String) {
         let parser = PGNParser()
         let pgnGames = parser.parse(string: pgn)
@@ -734,6 +1205,7 @@ struct MainWindowView: View {
         currentEvent = ev == "?" ? "" : ev
         let res = pgnGame.headers["Result"] ?? ""
         currentResult = res == "*" ? "" : res
+        currentTimeClass = nil   // imported PGN → treated as a standard/classical game
 
         // Reset analysis
         gameAnalyzer.reset()
@@ -815,9 +1287,15 @@ struct MainWindowView: View {
         database.updateGame(game)
     }
 
+    /// Recompute the cached move sequences once when the position changes (called from onChange).
+    private func refreshMoveSequences() {
+        cachedUCI = getMoveSequenceUCI()
+        cachedSAN = getMoveSequenceSAN()
+    }
+
     private func updateCurrentOpening() {
-        // Get the move sequence from root to current position
-        let uciMoves = getMoveSequenceUCI()
+        // Use the cached sequence (refreshed on position change) rather than re-walking the line.
+        let uciMoves = cachedUCI
 
         // Look up the opening
         if let opening = openingBook.findOpening(moves: uciMoves) {
@@ -860,15 +1338,14 @@ struct MainWindowView: View {
     }
 
     private func getPathToCurrentNode() -> [GameNode] {
+        // Append + reverse once (O(N)) instead of front-inserting each node (O(N²)).
         var path: [GameNode] = []
         var current: GameNode? = gameTree.currentNode
-
         while let node = current {
-            path.insert(node, at: 0)
+            path.append(node)
             current = node.parent
         }
-
-        return path
+        return path.reversed()
     }
 
     private func moveToUCI(_ move: Move) -> String {
@@ -953,12 +1430,7 @@ struct MainWindowView: View {
         // Reset board to starting position (inline, not via resetGame,
         // to avoid triggering extra evaluation cycles)
         let newBoard = ChessBoard()
-        board.squares = newBoard.squares
-        board.turn = newBoard.turn
-        board.moveHistory = newBoard.moveHistory
-        board.enPassantTarget = newBoard.enPassantTarget
-        board.halfMoveClock = newBoard.halfMoveClock
-        board.fullMoveNumber = newBoard.fullMoveNumber
+        board.restoreState(from: newBoard)
 
         let newTree = GameTree()
         gameTree.root = newTree.root

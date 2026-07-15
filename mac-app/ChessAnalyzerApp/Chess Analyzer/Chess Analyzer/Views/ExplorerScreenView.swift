@@ -110,8 +110,7 @@ struct ExplorerScreenView: View {
                 }
                 AnnSearchField(text: $searchText, placeholder: "Search openings…")
             }
-            .padding(20)
-            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+            .padding(.horizontal, 12).padding(.top, 20).padding(.bottom, 4)
 
             if source == .lichess {
                 LichessExplorerView(
@@ -192,15 +191,12 @@ struct ExplorerScreenView: View {
 
     private func resetBoard() {
         let nb = ChessBoard()
-        board.squares = nb.squares; board.turn = nb.turn; board.moveHistory = nb.moveHistory
-        board.enPassantTarget = nb.enPassantTarget; board.halfMoveClock = nb.halfMoveClock; board.fullMoveNumber = nb.fullMoveNumber
+        board.restoreState(from: nb)
         let nt = GameTree(); gameTree.root = nt.root; gameTree.currentNode = nt.root; gameTree.mainLine = [nt.root]
     }
 
     private func syncBoard() {
-        let cur = gameTree.currentNode.boardState
-        board.squares = cur.squares; board.turn = cur.turn; board.moveHistory = cur.moveHistory
-        board.enPassantTarget = cur.enPassantTarget; board.halfMoveClock = cur.halfMoveClock; board.fullMoveNumber = cur.fullMoveNumber
+        board.restoreState(from: gameTree.currentNode.boardState)
     }
 
     private func updateOpening() {

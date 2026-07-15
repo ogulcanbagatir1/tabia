@@ -72,19 +72,18 @@ class OpeningBook: ObservableObject {
     func findOpening(moves: [String]) -> (name: String, eco: String)? {
         guard isLoaded else { return nil }
 
-        let key = moves.joined(separator: " ")
+        var key = moves.joined(separator: " ")
 
         // Try exact match first
         if let opening = positionToOpening[key] {
             return opening
         }
 
-        // Try progressively shorter sequences to find the last known opening
-        var currentMoves = moves
-        while !currentMoves.isEmpty {
-            currentMoves.removeLast()
-            let partialKey = currentMoves.joined(separator: " ")
-            if let opening = positionToOpening[partialKey] {
+        // Progressively shorter prefixes — trim the joined string back to each preceding space
+        // instead of re-joining ever-shorter arrays (avoids an O(N) allocation per step).
+        while let space = key.lastIndex(of: " ") {
+            key = String(key[..<space])
+            if let opening = positionToOpening[key] {
                 return opening
             }
         }

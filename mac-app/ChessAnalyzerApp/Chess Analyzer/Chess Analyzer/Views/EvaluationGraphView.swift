@@ -6,7 +6,7 @@ struct EvaluationGraphView: View {
     @ObservedObject var gameAnalyzer: GameAnalyzer
     @ObservedObject var gameTree: GameTree
 
-    private let graphHeight: CGFloat = 80
+    private let graphHeight: CGFloat = 56
     private let evalClamp: Double = 5.0
 
     private var currentMoveIndex: Int {
@@ -32,52 +32,21 @@ struct EvaluationGraphView: View {
                 .stroke(DS.hairline, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
 
                 if points.count >= 2 {
-                    // White area (above center)
-                    Path { path in
-                        let centerY = height / 2
-                        path.move(to: CGPoint(x: points[0].x, y: centerY))
-                        for point in points {
-                            path.addLine(to: CGPoint(x: point.x, y: min(point.y, centerY)))
-                        }
-                        path.addLine(to: CGPoint(x: points.last!.x, y: centerY))
-                        path.closeSubpath()
-                    }
-                    .fill(DS.trackBg)
-
-                    // Black area (below center)
-                    Path { path in
-                        let centerY = height / 2
-                        path.move(to: CGPoint(x: points[0].x, y: centerY))
-                        for point in points {
-                            path.addLine(to: CGPoint(x: point.x, y: max(point.y, centerY)))
-                        }
-                        path.addLine(to: CGPoint(x: points.last!.x, y: centerY))
-                        path.closeSubpath()
-                    }
-                    .fill(DS.trackBg)
-
-                    // Eval line
+                    // Eval line — a single clean stroke on paper (no area fills)
                     Path { path in
                         path.move(to: points[0])
                         for i in 1..<points.count {
                             path.addLine(to: points[i])
                         }
                     }
-                    .stroke(DS.ink60, lineWidth: 1.5)
+                    .stroke(DS.ink, lineWidth: 1.3)
 
-                    // Current move indicator
+                    // Current move indicator — a single green marker on the line
                     if currentMoveIndex < points.count {
-                        let indicatorX = points[currentMoveIndex].x
-                        Path { path in
-                            path.move(to: CGPoint(x: indicatorX, y: 0))
-                            path.addLine(to: CGPoint(x: indicatorX, y: height))
-                        }
-                        .stroke(DS.borderChip, lineWidth: 1)
-
                         Circle()
-                            .fill(DS.redAccent)
-                            .frame(width: 6, height: 6)
-                            .shadow(color: Color.white.opacity(0.4), radius: 3)
+                            .fill(DS.paperRaised)
+                            .frame(width: 9, height: 9)
+                            .overlay(Circle().strokeBorder(DS.moveBrilliant, lineWidth: 2))
                             .position(points[currentMoveIndex])
                     }
                 }
@@ -133,6 +102,7 @@ struct EvaluationGraphView: View {
 struct GameAnalysisResultsView: View {
     @ObservedObject var gameAnalyzer: GameAnalyzer
     @ObservedObject var gameTree: GameTree
+    var timeClass: String? = nil
 
     private var resultText: String {
         if gameAnalyzer.whiteAccuracy > gameAnalyzer.blackAccuracy + 5 {
@@ -154,32 +124,32 @@ struct GameAnalysisResultsView: View {
                     Text(moveCountLabel)
                         .font(AnnFont.mono(10)).foregroundColor(DS.ink40)
                 }
-                .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 14)
-                .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
 
-                // Accuracies — big serif numbers
-                HStack(spacing: 0) {
+                // Accuracies — big serif numbers, grouped to the left
+                HStack(alignment: .firstTextBaseline, spacing: 40) {
                     accuracyBlock("White Accuracy", gameAnalyzer.whiteAccuracy, color: DS.ink)
                     accuracyBlock("Black Accuracy", gameAnalyzer.blackAccuracy, color: DS.ink60)
+                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 16)
+                .padding(.horizontal, 16).padding(.bottom, 14)
 
-                // Evaluation graph
+                // Evaluation graph — kept low so it never crowds out the moves below
                 EvaluationGraphView(gameAnalyzer: gameAnalyzer, gameTree: gameTree)
-                    .frame(height: 120)
+                    .padding(.horizontal, 10).padding(.vertical, 8)
                     .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
                     .clipShape(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
-                    .padding(.horizontal, 16).padding(.bottom, 16)
+                    .padding(.horizontal, 16).padding(.bottom, 14)
 
                 // Grade table (grades across the top; White / Black rows)
                 gradeTable
-                    .padding(.horizontal, 16).padding(.bottom, 16)
+                    .padding(.horizontal, 16).padding(.bottom, 14)
 
                 // Move of the game
                 if let motg = moveOfTheGame {
                     moveOfGameCallout(motg)
-                        .padding(.horizontal, 16).padding(.bottom, 18)
+                        .padding(.horizontal, 16).padding(.bottom, 16)
                 }
             }
     }
@@ -187,17 +157,17 @@ struct GameAnalysisResultsView: View {
     private var moveCountLabel: String {
         let plies = max(0, gameAnalyzer.totalMoves - 1)
         let full = (plies + 1) / 2
-        return "\(full) MOVE\(full == 1 ? "" : "S")"
+        let cls = (timeClass?.isEmpty == false ? timeClass! : "classical").uppercased()
+        return "\(full) MOVE\(full == 1 ? "" : "S") · \(cls)"
     }
 
     private func accuracyBlock(_ label: String, _ value: Double, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(String(format: "%.1f", value))
                 .font(AnnFont.serif(30, .semibold)).foregroundColor(color)
             Text(label.uppercased())
                 .font(AnnFont.label(9.5)).tracking(9.5 * 0.12).foregroundColor(DS.ink40)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Grade table

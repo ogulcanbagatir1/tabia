@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MoveListView: View {
     @ObservedObject var gameTree: GameTree
@@ -9,6 +10,16 @@ struct MoveListView: View {
     var openingName: String = ""
     var eco: String = ""
     var result: String = ""
+    // Game review — rendered at the top of the same scroll (above the moves) once analysis completes,
+    // so the whole right column scrolls as one, not just the move list.
+    var gameAnalyzer: GameAnalyzer? = nil
+    var showReview: Bool = false
+    var reviewTimeClass: String? = nil
+    // Bring a game in without saving it: the Import button and PGN drag-drop both load the first
+    // game from the PGN into the board for viewing only.
+    var onImportPGN: (() -> Void)? = nil
+    var onSetUpPosition: (() -> Void)? = nil
+    var onDropPGNText: ((String) -> Void)? = nil
 
     private var hasGameInfo: Bool { !whiteName.isEmpty || !blackName.isEmpty }
 
@@ -39,46 +50,32 @@ struct MoveListView: View {
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
-        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if hasGameInfo { gameInfoHeader }
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Game review on top (once an analysis has completed), then the moves —
+                    // all in a single scroll so the whole column moves together.
+                    if showReview, let analyzer = gameAnalyzer {
+                        GameAnalysisResultsView(
+                            gameAnalyzer: analyzer,
+                            gameTree: gameTree,
+                            timeClass: reviewTimeClass
+                        )
+                        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+                    }
 
-            // Navigation row — no "MOVES" label; the game header above already frames it.
-            HStack {
-                Spacer()
+                    if hasGameInfo { gameInfoHeader }
 
-                HStack(spacing: 2) {
-                    navButton(icon: "backward.end.fill", action: { gameTree.goToStart() })
-                        .disabled(gameTree.currentNode.parent == nil)
-
-                    navButton(icon: "chevron.left", action: { _ = gameTree.goBack() })
-                        .disabled(gameTree.currentNode.parent == nil)
-
-                    navButton(icon: "chevron.right", action: { _ = gameTree.goForward() })
-                        .disabled(gameTree.currentNode.children.isEmpty)
-
-                    navButton(icon: "forward.end.fill", action: { gameTree.goToEnd() })
-                        .disabled(gameTree.currentNode.children.isEmpty)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-
-            // Move list with vertical layout
-            ScrollViewReader { proxy in
-                ScrollView {
                     if gameTree.root.children.isEmpty {
-                        EmptyMoveListView()
+                        EmptyMoveListView(onImportPGN: onImportPGN, onSetUpPosition: onSetUpPosition)
                     } else {
                         VerticalMoveTreeView(
                             node: gameTree.root,
                             currentNodeId: gameTree.currentNode.id,
+                            structureVersion: gameTree.structureVersion,
                             onTapMove: { node in
                                 withAnimation(DS.quickFade) {
                                     gameTree.goToNode(node)
@@ -103,10 +100,9 @@ struct MoveListView: View {
                             startMoveNumber: 1,
                             startIsWhite: true
                         )
+                        .equatable()
                         .onChange(of: gameTree.currentNode.id) { _, newId in
-                            withAnimation {
-                                proxy.scrollTo(newId, anchor: .center)
-                            }
+                            proxy.scrollTo(newId, anchor: .center)
                         }
                     }
                 }
@@ -114,29 +110,29 @@ struct MoveListView: View {
             }
         }
         .clipped()
-    }
-
-    private func navButton(icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(DS.ink60)
-                .frame(width: 22, height: 22)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(DS.fieldBg)
-                )
-                .contentShape(Rectangle())
+        // Drag-and-drop a PGN anywhere on the moves panel to view its first game (not saved).
+        .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+            guard let provider = providers.first else { return false }
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                var url: URL?
+                if let u = item as? URL { url = u }
+                else if let data = item as? Data { url = URL(dataRepresentation: data, relativeTo: nil) }
+                guard let fileURL = url, let text = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
+                DispatchQueue.main.async { onDropPGNText?(text) }
+            }
+            return true
         }
-        .buttonStyle(.plain)
     }
 }
 
 // MARK: - Vertical Move Tree View
 
-struct VerticalMoveTreeView: View {
+struct VerticalMoveTreeView: View, Equatable {
     let node: GameNode
     let currentNodeId: UUID
+    // Structural revision of the whole tree — drives the .equatable() skip below (default 0 for the
+    // recursive inner instances, which aren't wrapped in .equatable() so their value is unused).
+    var structureVersion: Int = 0
     let onTapMove: (GameNode) -> Void
     let onSetAnnotation: (GameNode, String) -> Void
     let onDeleteMove: (GameNode) -> Void
@@ -145,6 +141,19 @@ struct VerticalMoveTreeView: View {
     let isMainLine: Bool
     let startMoveNumber: Int
     let startIsWhite: Bool
+
+    // Skip re-running collectSegments() + every MoveRow/MoveButton body when the parent window
+    // re-renders (e.g. on each engine eval tick) but the tree, the selected node, and this view's
+    // position are all unchanged. Closures are intentionally excluded — they're pure forwarders
+    // keyed on the node, so a fresh closure instance never means a different rendering.
+    static func == (lhs: VerticalMoveTreeView, rhs: VerticalMoveTreeView) -> Bool {
+        lhs.node.id == rhs.node.id &&
+        lhs.currentNodeId == rhs.currentNodeId &&
+        lhs.structureVersion == rhs.structureVersion &&
+        lhs.isMainLine == rhs.isMainLine &&
+        lhs.startMoveNumber == rhs.startMoveNumber &&
+        lhs.startIsWhite == rhs.startIsWhite
+    }
 
     var body: some View {
         let segments = collectSegments()
@@ -187,10 +196,13 @@ struct VerticalMoveTreeView: View {
     // MARK: - Data structures
 
     struct MoveRowData: Identifiable {
-        let id = UUID()
         let moveNumber: Int
         let whiteNode: GameNode?
         let blackNode: GameNode?
+        // Stable identity from the (stable) GameNode ids, so SwiftUI diffs rows instead of tearing
+        // down and rebuilding every row's views (incl. AppKit overlays) on each move — the stutter fix.
+        var id: UUID { whiteNode?.id ?? blackNode?.id ?? Self.empty }
+        private static let empty = UUID()
     }
 
     private struct VariationItem {
@@ -318,7 +330,7 @@ struct MoveRow: View {
             HStack(alignment: .center, spacing: 0) {
                 // Move number column
                 Text("\(row.moveNumber).")
-                    .font(AnnFont.mono(11, bold: true))
+                    .font(AnnFont.mono(13, bold: true))
                     .foregroundColor(DS.ink25)
                     .frame(width: 24, alignment: .trailing)
 
@@ -335,10 +347,11 @@ struct MoveRow: View {
                         onMakeSubline: { onMakeSubline(whiteNode) },
                         onEditNote: { beginEditingNote(for: whiteNode) }
                     )
+                    .equatable()
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text("...")
-                        .font(AnnFont.mono(12))
+                        .font(AnnFont.mono(13.5))
                         .foregroundColor(DS.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -356,6 +369,7 @@ struct MoveRow: View {
                         onMakeSubline: { onMakeSubline(blackNode) },
                         onEditNote: { beginEditingNote(for: blackNode) }
                     )
+                    .equatable()
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Spacer()
@@ -440,6 +454,7 @@ struct VariationView: View {
                     onPromoteToMainLine: { onPromoteToMainLine(child) },
                     onMakeSubline: { onMakeSubline(child) }
                 )
+                .equatable()
 
                 if !isExpanded {
                     Text("...")
@@ -471,7 +486,7 @@ struct VariationView: View {
 
 // MARK: - Move Button
 
-struct MoveButton: View {
+struct MoveButton: View, Equatable {
     @ObservedObject var node: GameNode
     let isCurrent: Bool
     let isMainLine: Bool
@@ -485,12 +500,21 @@ struct MoveButton: View {
     @State private var showingComment = false
     @State private var showingContextMenu = false
 
+    // Skip re-rendering (incl. rebuilding the .popover + right-click NSView) when neither the
+    // selection state nor the identity changed. annotation/comment edits still repaint because
+    // `node` is observed — @ObservedObject invalidation bypasses this equality skip.
+    static func == (lhs: MoveButton, rhs: MoveButton) -> Bool {
+        lhs.node.id == rhs.node.id &&
+        lhs.isCurrent == rhs.isCurrent &&
+        lhs.isMainLine == rhs.isMainLine
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 2) {
                 Button(action: onTap) {
                     Text(displayText)
-                        .font(AnnFont.mono(isMainLine ? 12 : 11, bold: isCurrent))
+                        .font(AnnFont.mono(isMainLine ? 14 : 12.5, bold: isCurrent))
                         .foregroundColor(isCurrent ? DS.ink : DS.ink)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -633,31 +657,47 @@ struct NavigationButton: View {
 // MARK: - Empty State
 
 struct EmptyMoveListView: View {
+    var onImportPGN: (() -> Void)? = nil
+    var onSetUpPosition: (() -> Void)? = nil
+
     var body: some View {
-        VStack(spacing: 10) {
-            Spacer()
-
+        VStack(spacing: 12) {
             Image(systemName: "list.bullet")
-                .font(.system(size: 32, weight: .light))
-                .foregroundColor(DS.textTertiary)
+                .font(.system(size: 22, weight: .light))
+                .foregroundColor(DS.ink40)
 
-            VStack(spacing: 6) {
-                Text("No Moves Yet")
-                    .font(AnnFont.serif(13, .semibold))
-                    .foregroundColor(DS.textSecondary)
+            Text("No moves yet")
+                .font(AnnFont.serif(16, .semibold))
+                .foregroundColor(DS.ink)
 
-                Text("Play moves on the board or import a PGN to get started")
-                    .font(AnnFont.serif(11, .regular))
-                    .foregroundColor(DS.textTertiary)
-                    .lineSpacing(4)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 200)
+            Text("Play on the board, or bring a game in.")
+                .font(AnnFont.voice(13))
+                .foregroundColor(DS.ink40)
+                .multilineTextAlignment(.center)
+
+            VStack(spacing: 8) {
+                emptyStateButton("IMPORT PGN") { onImportPGN?() }
+                emptyStateButton("SET UP A POSITION") { onSetUpPosition?() }
             }
-
-            Spacer()
+            .padding(.top, 2)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36).padding(.horizontal, 20)
+        .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+        .padding(16)
+    }
+
+    private func emptyStateButton(_ label: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(AnnFont.label(11)).tracking(11 * 0.1)
+                .foregroundColor(DS.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9).padding(.horizontal, 20)
+                .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
 

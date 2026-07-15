@@ -39,13 +39,10 @@ struct RepertoireBrowserView: View {
                 emptyState
             } else {
                 HStack(spacing: 0) {
-                    leftBooks
-                        .frame(width: 372)
-                        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
-                    centerPanel
+                    shelfMain
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     rightRail
-                        .frame(width: 396)
+                        .frame(width: 400)
                         .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
                 }
                 .frame(maxHeight: .infinity)
@@ -60,6 +57,9 @@ struct RepertoireBrowserView: View {
         .onChange(of: repertoireDB.repertoires.count) { _, _ in
             refreshKnowledge()
             if selectedRepertoire == nil { selectedRepertoire = repertoireDB.repertoires.first }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaNewRepertoire)) { _ in
+            showingNewRepertoireSheet = true
         }
         .sheet(isPresented: $showingNewRepertoireSheet) {
             NewRepertoireSheet { name, side, summary in
@@ -100,6 +100,57 @@ struct RepertoireBrowserView: View {
                                     preloaded: knowledge[rep.id])
             }
         }
+    }
+
+    // MARK: - Shelf (R1) — "Your Books" grid + training rail
+
+    private var shelfMain: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                (Text("Your Books ").font(AnnFont.serif(26, .semibold)).foregroundColor(DS.ink)
+                 + Text("— \(repertoireWord)").font(AnnFont.voice(22)).foregroundColor(DS.ink40))
+                Text(aggregateStatLine).font(AnnFont.mono(10)).tracking(0.3).foregroundColor(DS.ink40)
+            }
+            .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 20)
+
+            ScrollView {
+                // Explicit leading VStack: a ScrollView with multiple children wraps them in an
+                // implicit CENTER-aligned stack, which is what pushed the capped grid to the middle.
+                VStack(alignment: .leading, spacing: 0) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)], spacing: 18) {
+                        ForEach(filtered) { rep in
+                            Button(action: { openRepertoire = rep }) {
+                                bookCard(rep)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
+                                Divider()
+                                Button("Delete…", role: .destructive) { repertoireToDelete = rep; showingDeleteAlert = true }
+                            }
+                        }
+                    }
+                    // Cap the grid so cards stay a readable size on wide screens instead of stretching
+                    // to half the window each; anchored to the start (left) of the shelf.
+                    .frame(maxWidth: 820, alignment: .leading)
+                    .padding(.horizontal, 32)
+
+                    Text("Coverage is measured against your own online games — not against theory you'll never meet.")
+                        .font(AnnFont.voice(13)).foregroundColor(DS.ink40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 32).padding(.top, 22).padding(.bottom, 20)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .background(DS.paper)
+    }
+
+    private var repertoireWord: String {
+        let n = repertoireDB.repertoireCount
+        let words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+        let numStr = n < words.count ? words[n] : "\(n)"
+        return "\(numStr) repertoire\(n == 1 ? "" : "s"), one habit"
     }
 
     // MARK: - Left column — "Your Books" (R1)
@@ -325,8 +376,8 @@ struct RepertoireBrowserView: View {
             Button(action: beginDrill) {
                 Text("BEGIN DRILL")
                     .font(AnnFont.label(11)).tracking(11 * 0.12).foregroundColor(DS.onRed)
-                    .frame(maxWidth: .infinity).padding(.vertical, 11)
-                    .background(DS.redInk, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
+                    .background(DS.redAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -382,7 +433,7 @@ struct RepertoireBrowserView: View {
         let cov = Int(k.coveragePercent.rounded())
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(rep.name).font(AnnFont.serif(18, .semibold)).foregroundColor(DS.ink).lineLimit(1)
+                Text(rep.name).font(AnnFont.serif(21, .semibold)).foregroundColor(DS.ink).lineLimit(1)
                 Spacer(minLength: 6)
                 if k.dueNow > 0 { dueChip(k.dueNow) }
             }

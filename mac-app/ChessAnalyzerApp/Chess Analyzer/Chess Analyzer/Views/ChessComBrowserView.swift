@@ -113,6 +113,16 @@ struct ChessComBrowserView: View {
         // Ratings are keyed off the games' account handle — (re)load once the games are in.
         .onChange(of: cachedGames.count) { _, n in
             if n > 0 && cachedRatings.isEmpty { loadRatings() }
+            cacheAccountSummaries()
+        }
+        .onChange(of: isSyncing) { was, now in
+            if was && !now {   // a sync just finished — stamp the time and refresh cached counts
+                let s = AppSettings.shared
+                let stamp = Date().timeIntervalSince1970
+                if !savedUsername.isEmpty { s.chessComLastSynced = stamp }
+                if !lichessUsername.isEmpty { s.lichessLastSynced = stamp }
+                cacheAccountSummaries()
+            }
         }
         // The masthead "Sync Now" button drives the sync from here.
         .onReceive(NotificationCenter.default.publisher(for: .tabiaSyncGames)) { _ in
@@ -522,6 +532,7 @@ struct ChessComBrowserView: View {
             // Filter Pills
             filterPillsRow
                 .padding(.horizontal, 28)
+                .padding(.top, 14)
                 .padding(.bottom, 12)
 
             if showingFilters {
@@ -755,6 +766,13 @@ struct ChessComBrowserView: View {
         return !savedUsername.isEmpty ? savedUsername : lichessUsername
     }
 
+    /// Persist per-account game counts so the Settings › Accounts page can show them without the DB.
+    private func cacheAccountSummaries() {
+        let s = AppSettings.shared
+        if !savedUsername.isEmpty { s.chessComGameCount = database.chessComGamesCount(for: savedUsername) }
+        if !lichessUsername.isEmpty { s.lichessGameCount = database.chessComGamesCount(for: lichessUsername) }
+    }
+
     private func loadRatings() {
         let username = accountHandle
         guard !username.isEmpty else { return }
@@ -884,7 +902,7 @@ struct ChessComBrowserView: View {
                             }
                             .contextMenu {
                                 Button("Open Game") { onGameSelected(game) }
-                                Button("Review Game") { onReviewGame(game) }
+                                Button("Analyze Game") { onReviewGame(game) }
                                 Divider()
                                 if selectedGameIds.count > 1 {
                                     moveToFolderMenu(gameIds: selectedGameIds, label: "Move \(selectedGameIds.count) Games to...")
@@ -966,20 +984,36 @@ struct ChessComBrowserView: View {
     }
 
     /// Player name with the reviewed accuracy in parentheses, e.g. "BidiBoy1 (91.4)".
-    private func ccNameCell(_ name: String, acc: Double?, primary: Bool, width: CGFloat) -> some View {
-        (Text(name).font(AnnFont.serif(13, primary ? .medium : .regular)).foregroundColor(primary ? DS.ink : DS.ink60)
-         + ((acc ?? 0) > 0
-            ? Text("  (\(String(format: "%.1f", acc!)))").font(AnnFont.mono(10)).foregroundColor(DS.ink40)
-            : Text("")))
+    private func ccNameCell(_ name: String, primary: Bool, width: CGFloat) -> some View {
+        Text(name).font(AnnFont.serif(13, primary ? .medium : .regular)).foregroundColor(primary ? DS.ink : DS.ink60)
             .lineLimit(1)
             .padding(.horizontal, 8)
             .frame(width: width, alignment: .leading)
     }
 
+    /// White (top) + black (bottom) accuracy dots for a reviewed game, shown in the far-right cell.
+    private func accDotsBadge(white: Double, black: Double) -> some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            accDotRow(filled: false, acc: white)
+            accDotRow(filled: true, acc: black)
+        }
+    }
+
+    private func accDotRow(filled: Bool, acc: Double) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(filled ? DS.boardBlackPiece : DS.boardWhitePiece)
+                .frame(width: 8, height: 8)
+                .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
+            Text(acc > 0 ? String(format: "%.1f", acc) : "—")
+                .font(AnnFont.mono(10.5)).foregroundColor(DS.ink60)
+        }
+    }
+
     private func chessComTableRow(_ game: GameRecord, isAlternate: Bool = false) -> some View {
         HStack(spacing: 0) {
-            ccNameCell(game.white, acc: game.analysisData?.whiteAccuracy, primary: true, width: CCW.white)
-            ccNameCell(game.black, acc: game.analysisData?.blackAccuracy, primary: false, width: CCW.black)
+            ccNameCell(game.white, primary: true, width: CCW.white)
+            ccNameCell(game.black, primary: false, width: CCW.black)
 
             Text(chessComResultDisplay(game.result))
                 .font(AnnFont.mono(12, bold: true)).foregroundColor(chessComResultColor(game))
@@ -1001,14 +1035,14 @@ struct ChessComBrowserView: View {
                 .font(AnnFont.mono(10)).foregroundColor(DS.ink40).lineLimit(1)
                 .padding(.horizontal, 8).frame(width: CCW.date, alignment: .leading)
 
-            // Review — far right; a fixed-width cell (Color.clear holds it) so reviewed rows, which
-            // have no button, stay perfectly aligned with unreviewed rows.
+            // Analyze / accuracy — far right; a fixed-width cell (Color.clear holds it) so rows stay
+            // aligned. Reviewed games show white/black accuracy dots; unreviewed show the Analyze button.
             Color.clear
                 .frame(width: CCW.review, height: 1)
                 .overlay(alignment: .trailing) {
                     if game.analysisData == nil {
                         Button(action: { onReviewGame(game) }) {
-                            Text("Review")
+                            Text("Analyze")
                                 .font(AnnFont.label(9)).tracking(0.3)
                                 .foregroundColor(DS.redAccent)
                                 .padding(.horizontal, 8).padding(.vertical, 3)
@@ -1017,15 +1051,17 @@ struct ChessComBrowserView: View {
                         }
                         .buttonStyle(.plain)
                         .padding(.trailing, 8)
+                    } else {
+                        accDotsBadge(white: game.analysisData?.whiteAccuracy ?? 0,
+                                     black: game.analysisData?.blackAccuracy ?? 0)
+                            .padding(.trailing, 8)
                     }
                 }
         }
         .padding(.horizontal, 28)
         .frame(height: 40)
         .background(
-            selectedGameIds.contains(game.id)
-            ? DS.selectedWash
-            : (isAlternate ? DS.hoverWash : Color.clear)
+            selectedGameIds.contains(game.id) ? DS.selectedWash : Color.clear
         )
         .overlay(alignment: .bottom) {
             Rectangle().fill(DS.hairline).frame(height: 1)
@@ -1446,7 +1482,6 @@ struct ChessComBrowserView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(index % 2 == 1 ? DS.bgSecondary : Color.clear)
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(DS.borderSubtle).frame(height: 1)
                 }

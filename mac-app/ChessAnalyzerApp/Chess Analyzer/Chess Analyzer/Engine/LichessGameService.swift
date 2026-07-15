@@ -23,8 +23,14 @@ class LichessGameService: ObservableObject {
             Task { @MainActor in self.isLoading = false }
         }
 
-        // Build URL
-        var components = URLComponents(string: "https://lichess.org/api/games/user/\(username)")!
+        // Build URL — sanitize the user-typed username (trim + percent-encode) so a stray space or
+        // special char yields an error instead of trapping on a force-unwrapped URLComponents.
+        let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard let encodedUsername = cleanUsername.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              var components = URLComponents(string: "https://lichess.org/api/games/user/\(encodedUsername)") else {
+            await MainActor.run { self.error = "Invalid username" }
+            return
+        }
         var queryItems: [URLQueryItem] = [
             // NDJSON response → embed each game's PGN (with moves) in its JSON object.
             // (pgnInBody is for the plain-PGN response; it leaves `pgn` nil here, so games arrive moveless.)

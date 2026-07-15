@@ -256,7 +256,7 @@ class GameDatabase: ObservableObject {
     }
 
     private func save() {
-        try? modelContext.save()
+        modelContext.saveOrReport("your library")
         objectWillChange.send()
         refreshCache()
     }
@@ -264,7 +264,7 @@ class GameDatabase: ObservableObject {
     /// Persist without refreshing the cache (for updates that don't affect library game lists,
     /// e.g. analysis data updates on a single game).
     private func saveLightly() {
-        try? modelContext.save()
+        modelContext.saveOrReport("your library")
     }
 
     // MARK: - Library Game Queries (paginated)
@@ -457,7 +457,7 @@ class GameDatabase: ObservableObject {
                 modelContext.insert(CachedName(type: entry.type, name: entry.name))
             }
         }
-        try? modelContext.save()
+        modelContext.saveOrReport("your library")
     }
 
     // MARK: - Chess.com Queries (on-demand, NOT cached in database)
@@ -1001,7 +1001,7 @@ class GameDatabase: ObservableObject {
                 game.whiteElo = GameRecord.extractEloFromPGN(game.pgn, color: "White") ?? -1
                 game.blackElo = GameRecord.extractEloFromPGN(game.pgn, color: "Black") ?? -1
             }
-            try? context.save()
+            context.saveOrReport("your library")
 
             if batch.count < batchSize { break }
         }
@@ -1052,7 +1052,7 @@ class GameDatabase: ObservableObject {
                     }
                 }
             }
-            try? context.save()
+            context.saveOrReport("your library")
             offset += batch.count
             if batch.count < batchSize { break }
         }

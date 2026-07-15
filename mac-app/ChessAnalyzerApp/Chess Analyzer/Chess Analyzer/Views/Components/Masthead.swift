@@ -6,7 +6,6 @@ struct MastheadView<Right: View>: View {
     @Binding var active: AppScreen
     let onSelectTab: (AppScreen) -> Void
     let onSettings: () -> Void
-    var onEngines: (() -> Void)? = nil
     @ViewBuilder var rightActions: () -> Right
 
     var body: some View {
@@ -28,6 +27,9 @@ struct MastheadView<Right: View>: View {
                         .resizable()
                         .interpolation(.high)
                         .frame(width: 21, height: 21)
+                        // Serif line-box descent pulls the wordmark's optical centre up ~1.5pt;
+                        // nudge the mark to match so the two read as vertically centred.
+                        .offset(y: -1.5)
                     (Text("Tabia").foregroundColor(DS.ink) + Text(".").foregroundColor(DS.redAccent))
                         .font(AnnFont.serif(20, .semibold))
                 }
@@ -37,17 +39,6 @@ struct MastheadView<Right: View>: View {
 
                 HStack(spacing: 10) {
                     rightActions()
-                    if let onEngines {
-                        Button(action: onEngines) {
-                            Image(systemName: "cpu")
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundColor(DS.ink60)
-                                .frame(width: 28, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("Engines (⌘E)")
-                    }
                     Button(action: onSettings) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 14, weight: .regular))

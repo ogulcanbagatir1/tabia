@@ -32,6 +32,8 @@ struct DatabaseBrowserView: View {
     @State private var isDropTargeted = false
     @State private var showingFilters = false
     @State private var rootSearchText = ""
+    @State private var sidebarCollapsed = false
+    @State private var hoveredRowId: UUID? = nil
 
     // Filters
     @State private var filterWhite: String = ""
@@ -111,10 +113,14 @@ struct DatabaseBrowserView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                librarySidebar
-                    .frame(width: 280)
-                    .background(DS.chrome)
-                    .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                if sidebarCollapsed {
+                    collapsedSidebarRail
+                } else {
+                    librarySidebar
+                        .frame(width: 280)
+                        .background(DS.paper)
+                        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                }
                 Group {
                     switch navigation {
                     case .reference:
@@ -128,6 +134,15 @@ struct DatabaseBrowserView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaLibraryToggleFilters)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { showingFilters.toggle() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaLibraryImportPGN)) { _ in
+            showingImportPicker = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaNewDatabase)) { _ in
+            showingNewDatabaseSheet = true
         }
         .fileImporter(
             isPresented: $showingImportPicker,
@@ -292,11 +307,34 @@ struct DatabaseBrowserView: View {
 
     // MARK: - Library sidebar (D1) — the old "Databases" grid folded into a sidebar
 
+    // Thin rail shown when the library sidebar is collapsed — one tap brings it back.
+    private var collapsedSidebarRail: some View {
+        VStack(spacing: 0) {
+            Button(action: { withAnimation(DS.quickFade) { sidebarCollapsed = false } }) {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(DS.ink60)
+                    .frame(width: 26, height: 26)
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Show library")
+            .padding(.top, 16)
+            Spacer(minLength: 0)
+        }
+        .frame(width: 46)
+        .frame(maxHeight: .infinity)
+        .background(DS.paper)
+        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+    }
+
     private var librarySidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack {
+                    HStack(spacing: 6) {
                         AnnLabel("Library", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
                         Spacer()
                         Button(action: { showingNewDatabaseSheet = true }) {
@@ -310,6 +348,17 @@ struct DatabaseBrowserView: View {
                         }
                         .buttonStyle(.plain)
                         .help("New database")
+                        Button(action: { withAnimation(DS.quickFade) { sidebarCollapsed = true } }) {
+                            Image(systemName: "sidebar.left")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(DS.ink60)
+                                .frame(width: 20, height: 20)
+                                .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Hide library")
                     }
                     .padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 8)
 
@@ -361,25 +410,17 @@ struct DatabaseBrowserView: View {
                             isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 13))
-                    .foregroundColor(isSelected ? DS.redAccent : DS.ink40).frame(width: 18)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(name).font(AnnFont.serif(13.5, .medium)).foregroundColor(DS.ink).lineLimit(1)
+                    Text(name).font(AnnFont.serif(16, .regular)).foregroundColor(DS.ink).lineLimit(1)
                     if let subtitle {
                         Text(subtitle.uppercased()).font(AnnFont.label(8)).tracking(0.8).foregroundColor(DS.ink40)
                     }
                 }
                 Spacer(minLength: 6)
-                Text("\(count)").font(AnnFont.mono(10)).foregroundColor(DS.ink40)
+                Text(count.formatted()).font(AnnFont.mono(11)).foregroundColor(DS.ink25)
             }
-            .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(isSelected ? DS.selectedMove : Color.clear, in: RoundedRectangle(cornerRadius: DS.rControl))
-            .overlay(alignment: .leading) {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 1).fill(DS.redAccent)
-                        .frame(width: 2.5).padding(.vertical, 5)
-                }
-            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(isSelected ? DS.selectedMove : Color.clear, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -645,7 +686,7 @@ struct DatabaseBrowserView: View {
     private var tableView: some View {
         ZStack(alignment: .trailing) {
             VStack(spacing: 0) {
-                tableHeaderBar
+                if hasContextActions { tableHeaderBar }
 
                 if cachedGames.isEmpty && !isLoadingGames {
                     emptyState
@@ -879,27 +920,8 @@ struct DatabaseBrowserView: View {
         HStack(spacing: 12) {
             Spacer()
 
-            // Delete (only when a specific database is selected) + Filter + Import buttons
+            // Situational actions for a selected database (index + delete).
             HStack(spacing: 8) {
-                if case .allGames = navigation, database.unfiledLibraryGameCount() > 0 {
-                    Button(action: {
-                        fileUnfiledIntoNew = true
-                        newDatabaseName = ""
-                        showingNewDatabaseForGames = true
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "tray.and.arrow.down").font(.system(size: 14))
-                            Text("File Unfiled").font(AnnFont.label(12)).tracking(12 * 0.1)
-                        }
-                        .foregroundColor(DS.redAccent)
-                        .padding(.vertical, 6).padding(.horizontal, 14)
-                        .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.redAccent.opacity(0.4), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Move imported games that have no database into a new one")
-                }
-
                 if case .folder(let id) = navigation,
                    let folder = database.folders.first(where: { $0.id == id }) {
                     indexToolbarButton(folder)
@@ -920,48 +942,17 @@ struct DatabaseBrowserView: View {
                     .buttonStyle(.plain)
                 }
 
-                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showingFilters.toggle() } }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 14))
-                        Text("Filters")
-                            .font(AnnFont.label(12))
-                            .tracking(12 * 0.1)
-                    }
-                    .foregroundColor(DS.ink60)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 14)
-                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(DS.borderChip, lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-
-                Button(action: { showingImportPicker = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.down.circle")
-                            .font(.system(size: 14))
-                        Text("Import PGN")
-                            .font(AnnFont.label(12))
-                            .tracking(12 * 0.1)
-                    }
-                    .foregroundColor(DS.ink)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 14)
-                    .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 28)
-        .frame(height: 56)
-        .background(DS.chrome)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
-        }
+        .frame(height: 52)
+        .background(DS.paper)
+    }
+
+    /// The content toolbar only carries situational actions now (Filters + Import live in the masthead).
+    private var hasContextActions: Bool {
+        if case .folder = navigation { return true }
+        return false
     }
 
     // MARK: - Filter Panel (slide-in side panel)
@@ -1255,7 +1246,7 @@ struct DatabaseBrowserView: View {
                                 }
                                 .contextMenu {
                                     Button("Open") { onGameSelected(game) }
-                                    Button("Review Game") { onReviewGame(game) }
+                                    Button("Analyze Game") { onReviewGame(game) }
                                     Divider()
                                     moveToFolderMenu(gameIds: selectedGameIds.count > 1 ? selectedGameIds : [game.id])
                                     Divider()
@@ -1313,10 +1304,31 @@ struct DatabaseBrowserView: View {
     // Fixed columns: .frame(width: X, alignment: .leading)
     // Flex columns:  .frame(maxWidth: .infinity, alignment: .leading)
 
-    /// White accuracy for a reviewed library game (these games have no "you"), or "—".
-    private func libraryAccuracy(_ game: GameRecord) -> String {
-        guard let d = game.analysisData, d.whiteAccuracy > 0 else { return "—" }
-        return String(format: "%.1f", d.whiteAccuracy)
+    /// "(91.4)" accuracy suffix shown next to a player's name for a reviewed game (empty otherwise).
+    /// White (top) + black (bottom) accuracy dots for a reviewed game, shown in the far-right cell.
+    private func accDotsBadge(white: Double, black: Double) -> some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            accDotRow(filled: false, acc: white)
+            accDotRow(filled: true, acc: black)
+        }
+    }
+
+    private func accDotRow(filled: Bool, acc: Double) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(filled ? DS.boardBlackPiece : DS.boardWhitePiece)
+                .frame(width: 8, height: 8)
+                .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
+            Text(acc > 0 ? String(format: "%.1f", acc) : "—")
+                .font(AnnFont.mono(10.5)).foregroundColor(DS.ink60)
+        }
+    }
+
+    /// Opening name for the row (ECO is shown separately as a chip), or "—" when nothing is known.
+    private func openingText(_ game: GameRecord) -> String {
+        if let o = game.opening, !o.isEmpty { return o }
+        if let e = game.eco, !e.isEmpty { return "" }   // ECO chip stands alone
+        return "—"
     }
 
     private var tableHeader: some View {
@@ -1343,21 +1355,19 @@ struct DatabaseBrowserView: View {
 
             HStack(spacing: 4) { Text("Event").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.event) }
                 .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 150, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.event) }
-
-            Text("Acc").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary)
-                .padding(.horizontal, 8)
-                .frame(width: 70, alignment: .trailing)
 
             HStack(spacing: 4) { Text("Date").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.date) }
                 .padding(.horizontal, 8)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 124, alignment: .leading)
                 .contentShape(Rectangle()).onTapGesture { toggleSort(.date) }
+
+            Color.clear.frame(width: 90)
         }
         .padding(.horizontal, 24)
         .frame(height: 34)
-        .background(DS.bgSecondary)
+        .background(DS.paper)
         .overlay(alignment: .bottom) {
             Rectangle().fill(DS.hairline).frame(height: 1)
         }
@@ -1381,54 +1391,75 @@ struct DatabaseBrowserView: View {
             .padding(.horizontal, 8)
             .frame(width: 180, alignment: .leading)
 
-            Text(resultDisplay(game.result))
-                .font(AnnFont.mono(12, bold: true))
-                .foregroundColor(resultColor(game.result))
-                .padding(.horizontal, 8)
-                .frame(width: 80, alignment: .leading)
+            HStack {
+                Text(resultDisplay(game.result))
+                    .font(AnnFont.mono(10.5, bold: true))
+                    .foregroundColor(DS.ink)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+            }
+            .padding(.horizontal, 8)
+            .frame(width: 80, alignment: .leading)
 
-            Text(game.opening ?? game.eco ?? "-")
-                .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                if let eco = game.eco, !eco.isEmpty {
+                    Text(eco)
+                        .font(AnnFont.mono(9.5, bold: true)).tracking(0.3)
+                        .foregroundColor(DS.ink40)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                }
+                Text(openingText(game))
+                    .font(AnnFont.voice(12.5)).foregroundColor(DS.ink60).lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(cleanField(game.event))
                 .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
                 .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Accuracy — reviewed White accuracy, or a Review button to compute it
-            Group {
-                if game.analysisData != nil {
-                    Text(libraryAccuracy(game))
-                        .font(AnnFont.mono(11)).foregroundColor(DS.ink)
-                } else {
-                    Button(action: { onReviewGame(game) }) {
-                        Text("Review")
-                            .font(AnnFont.label(9)).tracking(0.3)
-                            .foregroundColor(DS.redAccent)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 8)
-            .frame(width: 70, alignment: .trailing)
+                .frame(width: 150, alignment: .leading)
 
             Text(game.date.isEmpty ? formatDate(game.dateAdded) : game.date)
                 .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary).lineLimit(1)
                 .padding(.horizontal, 8)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 124, alignment: .leading)
+
+            // Analyze / accuracy — far-right, fixed-width so it never shifts the other columns.
+            // Reviewed games show white/black accuracy dots; unreviewed games show the Analyze button.
+            Color.clear.frame(width: 90, height: 1)
+                .overlay(alignment: .trailing) {
+                    if game.analysisData == nil {
+                        Button(action: { onReviewGame(game) }) {
+                            Text("Analyze")
+                                .font(AnnFont.label(9)).tracking(0.3)
+                                .foregroundColor(DS.redAccent)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    } else {
+                        accDotsBadge(white: game.analysisData?.whiteAccuracy ?? 0,
+                                     black: game.analysisData?.blackAccuracy ?? 0)
+                            .padding(.trailing, 8)
+                    }
+                }
         }
         .padding(.horizontal, 24)
         .frame(height: 38)
-        .background(selectedGameIds.contains(game.id) ? DS.accentLight : (isAlternate ? DS.bgSurface : Color.clear))
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.borderSubtle).frame(height: 1)
-        }
+        .background(
+            selectedGameIds.contains(game.id) ? DS.accentLight
+            : (hoveredRowId == game.id ? DS.hoverWash : Color.clear)
+        )
         .contentShape(Rectangle())
+        .onHover { hovering in
+            if hovering { hoveredRowId = game.id }
+            else if hoveredRowId == game.id { hoveredRowId = nil }
+        }
     }
 
     private func moveToFolderMenu(gameIds: Set<UUID>) -> some View {
