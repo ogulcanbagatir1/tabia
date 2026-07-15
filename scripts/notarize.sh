@@ -61,12 +61,36 @@ xcrun stapler staple "$APP"
 echo "▸ Final Gatekeeper assessment:"
 spctl -a -vvv -t exec "$APP" || true
 
-# Package a stapled, ready-to-ship zip alongside the app.
-DIST_ZIP="$BUILD_DIR/Tabia-notarized.zip"
+# Version-stamped, stapled archive for the Sparkle appcast.
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+TAG="v${VERSION}"
+DIST_ZIP="$BUILD_DIR/Tabia-${VERSION}.zip"
+rm -f "$DIST_ZIP"
 ditto -c -k --keepParent "$APP" "$DIST_ZIP"
+
+# Generate + sign the Sparkle appcast. The private EdDSA key is read from the keychain
+# (created once via generate_keys — see scripts/UPDATES.md).
+GEN_APPCAST="${SPARKLE_BIN:-}"
+if [ -z "$GEN_APPCAST" ]; then
+    GEN_APPCAST="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/artifacts/sparkle/Sparkle/bin/generate_appcast' 2>/dev/null | head -1)"
+fi
+if [ -n "$GEN_APPCAST" ] && [ -x "$GEN_APPCAST" ]; then
+    echo "▸ Generating signed appcast…"
+    "$GEN_APPCAST" \
+        --download-url-prefix "https://github.com/ogulcanbagatir1/tabia/releases/download/${TAG}/" \
+        "$BUILD_DIR"
+    echo "   appcast: $BUILD_DIR/appcast.xml"
+else
+    echo "⚠︎ generate_appcast not found — appcast skipped."
+    echo "  Build once in Xcode so SPM fetches Sparkle's tools, or set SPARKLE_BIN=/path/to/generate_appcast."
+fi
 
 echo ""
 echo "✅ Done."
-echo "   App:  $APP"
-echo "   Ship: $DIST_ZIP"
-echo "   (Distribute the stapled .app — e.g. inside a .dmg or the zip above.)"
+echo "   App:     $APP"
+echo "   Archive: $DIST_ZIP"
+echo "   Appcast: $BUILD_DIR/appcast.xml (if generated)"
+echo ""
+echo "Release: create a GitHub release tagged ${TAG}, and upload BOTH"
+echo "  $(basename "$DIST_ZIP")  and  appcast.xml  as release assets."
+echo "See scripts/UPDATES.md for the full flow."

@@ -57,5 +57,13 @@
             </dict>
         </dict>
     </array>
+    <key>SUFeedURL</key>
+    <string>https://github.com/ogulcanbagatir1/tabia/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>rUx250S0ftxLcCkqx/MeRe8hEw6TTRevWiSpBD4Tbzc=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
 </dict>
 </plist>

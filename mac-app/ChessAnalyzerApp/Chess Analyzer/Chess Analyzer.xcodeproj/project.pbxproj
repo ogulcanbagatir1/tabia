@@ -113,6 +113,7 @@
 			name = Tabia;
 			packageProductDependencies = (
 				9B2F80F12F28F000008DD79D /* onnxruntime */,
+				FE0000000000000000000A02 /* Sparkle */,
 			);
 			productName = Tabia;
 			productReference = 9B2F80BF2F28DFBD008DD79D /* Tabia.app */;
@@ -198,6 +199,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9B2F80F02F28F000008DD79D /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
+				FE0000000000000000000A01 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9B2F80C02F28DFBD008DD79D /* Products */;
@@ -567,6 +569,14 @@
 				minimumVersion = 1.16.0;
 			};
 		};
+		FE0000000000000000000A01 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -574,6 +584,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B2F80F02F28F000008DD79D /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */;
 			productName = onnxruntime;
+		};
+		FE0000000000000000000A02 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FE0000000000000000000A01 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -8,6 +8,7 @@ struct TabiaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var shortcuts = ShortcutStore.shared
+    @StateObject private var updater = UpdaterViewModel()
 
     let container: ModelContainer
     let database: GameDatabase
@@ -98,6 +99,7 @@ struct TabiaApp: App {
         .defaultSize(width: 1440, height: 900)
         .commands {
             EngineRoomCommands()
+            CheckForUpdatesCommand(updater: updater)
 
             CommandGroup(replacing: .newItem) {
                 menuItem("game.new")
