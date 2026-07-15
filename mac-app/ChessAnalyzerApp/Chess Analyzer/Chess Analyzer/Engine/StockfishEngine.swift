@@ -1085,43 +1085,12 @@ class StockfishEngine: ObservableObject {
 
     // MARK: - Move Conversion
 
+    /// UCI (e.g. "g1f3", "e7e8q") → full SAN ("Nf3", "e8=Q+"). Delegates to the board's notation
+    /// engine so promotion, disambiguation, and check/mate markers are all handled correctly —
+    /// the previous hand-rolled version dropped all three.
     private func convertToAlgebraic(_ uci: String) -> String {
-        guard uci.count >= 4, let board = currentBoard else { return uci }
-
-        let chars = Array(uci)
-
-        guard let fromFileAscii = chars[0].asciiValue,
-              let toFileAscii = chars[2].asciiValue else { return uci }
-
-        let fromFile = Int(fromFileAscii) - Int(Character("a").asciiValue!)
-        guard let fromRank = Int(String(chars[1])) else { return uci }
-        let toFile = Int(toFileAscii) - Int(Character("a").asciiValue!)
-        guard let toRank = Int(String(chars[3])) else { return uci }
-
-        let from = Position(fromFile, fromRank - 1)
-        let to = Position(toFile, toRank - 1)
-
-        guard let piece = board.pieceAt(from) else { return uci }
-
-        let isCapture = board.pieceAt(to) != nil
-        let toSquare = to.algebraic
-
-        switch piece.type {
-        case .pawn:
-            if isCapture {
-                let fromFileChar = String("abcdefgh"[String.Index(utf16Offset: fromFile, in: "abcdefgh")])
-                return "\(fromFileChar)x\(toSquare)"
-            }
-            return toSquare
-        case .king:
-            if abs(fromFile - toFile) == 2 {
-                return toFile > fromFile ? "O-O" : "O-O-O"
-            }
-            return isCapture ? "Kx\(toSquare)" : "K\(toSquare)"
-        default:
-            let symbol = piece.type.rawValue
-            return isCapture ? "\(symbol)x\(toSquare)" : "\(symbol)\(toSquare)"
-        }
+        guard let board = currentBoard else { return uci }
+        return board.toAlgebraicPV(uciMoves: [uci]).first ?? uci
     }
 
     // MARK: - Speculative (Look-ahead) Analysis
