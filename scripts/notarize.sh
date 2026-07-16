@@ -70,6 +70,10 @@ DIST_ZIP="$BUILD_DIR/Tabia-${VERSION}.zip"
 rm -f "$DIST_ZIP"
 ditto -c -k --keepParent "$APP" "$DIST_ZIP"
 
+# Remove the temporary notary-submission zip so generate_appcast doesn't see two archives with
+# the same bundle version (it errors "Duplicate updates are not supported").
+rm -f "$ZIP"
+
 # Generate + sign the Sparkle appcast. The private EdDSA key is read from the keychain
 # (created once via generate_keys — see scripts/UPDATES.md).
 GEN_APPCAST="${SPARKLE_BIN:-}"
