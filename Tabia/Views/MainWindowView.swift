@@ -61,6 +61,12 @@ struct MainWindowView: View {
     // Current loaded game (for saving analysis back)
     @State private var currentGameId: UUID? = nil
 
+    // Repertoire recording: when the active tab was opened from the Repertoire library, moves played
+    // on the board are persisted into this repertoire. repNodeMap bridges gameNode.id → repNode.id.
+    @State private var activeRepertoire: Repertoire? = nil
+    @State private var repNodeMap: [UUID: UUID] = [:]
+    @State private var isHydratingRep = false
+
     // Board flip
     @State private var isBoardFlipped = false
 
@@ -132,7 +138,7 @@ struct MainWindowView: View {
                         reviewGame(game)
                     })
                 case .repertoire:
-                    RepertoireBrowserView()
+                    RepertoireBrowserView(onOpen: { rep in openRepertoireInTab(rep) })
                 case .chesscom:
                     ChessComBrowserView(onGameSelected: { game in
                         openGameInTab(game)
@@ -209,6 +215,10 @@ struct MainWindowView: View {
             // A structural edit (move added / deleted / promoted) makes the active board dirty —
             // unless we're mid-load/swap. Dirty drives the amber tab dot + close-save prompt (§3.3).
             if !suppressDirty { windowModel.active.isDirty = true }
+            // If this tab is recording into a repertoire, persist any newly-played move as prep.
+            if !isHydratingRep, !isSyncingBoard, let rep = activeRepertoire {
+                persistRepertoireFromRoot(rep)
+            }
         }
         .onChange(of: gameTree.currentNode.id) { _, _ in
             refreshMoveSequences()
@@ -369,6 +379,8 @@ struct MainWindowView: View {
         s.timeClass = currentTimeClass
         s.openingName = currentOpeningName; s.openingECO = currentOpeningECO
         s.currentGameId = currentGameId
+        s.repertoireId = activeRepertoire?.id
+        s.repNodeMap = repNodeMap
         s.title = boardTabTitle
         let e = multiEngine.primaryEngine
         s.snapEval = e.evaluation
@@ -398,6 +410,8 @@ struct MainWindowView: View {
         currentTimeClass = s.timeClass
         currentOpeningName = s.openingName; currentOpeningECO = s.openingECO
         currentGameId = s.currentGameId
+        repNodeMap = s.repNodeMap
+        activeRepertoire = s.repertoireId.flatMap { id in repertoireDB.repertoires.first { $0.id == id } }
         isSyncingBoard = false
         refreshMoveSequences()
         gameAnalyzer.reset()
@@ -461,6 +475,135 @@ struct MainWindowView: View {
         }
         newTab()
         loadGame(game)
+    }
+
+    // MARK: - Repertoire recording (open a repertoire as an analysis tab; moves persist as prep)
+
+    /// Open the given repertoire as an analysis tab. Its lines hydrate onto the board; any move you
+    /// play from here is recorded back into the repertoire. Focuses an existing tab if already open.
+    private func openRepertoireInTab(_ rep: Repertoire) {
+        if let existing = windowModel.indexHoldingRepertoire(rep.id) {
+            selectTab(existing)
+            return
+        }
+        newTab()
+        hydrateRepertoire(rep)
+        let s = windowModel.active
+        s.repertoireId = rep.id
+        s.repNodeMap = repNodeMap
+        s.customTitle = rep.name
+        s.title = rep.name
+        activeRepertoire = rep
+        windowModel.objectWillChange.send()
+        activeScreen = .analysis
+        persistTabs()
+    }
+
+    /// Rebuild the live GameTree (and repNodeMap) from a repertoire's stored nodes.
+    private func hydrateRepertoire(_ rep: Repertoire) {
+        repNodeMap.removeAll()
+        guard let rootRepId = rep.rootNodeId,
+              let rootRepNode = rep.nodes.first(where: { $0.id == rootRepId }) else { return }
+        isHydratingRep = true
+        repNodeMap[gameTree.root.id] = rootRepNode.id
+        hydrateRepChildren(of: rootRepNode, gameNode: gameTree.root)
+        gameTree.goToStart()
+        gameTree.rebuildMainLine()
+        isHydratingRep = false
+        syncBoardWithGameTree()
+    }
+
+    private func hydrateRepChildren(of repNode: RepertoireNode, gameNode: GameNode) {
+        for childRep in repNode.children {
+            guard let uci = childRep.uciMove,
+                  let move = repertoireMove(fromUCI: uci, board: gameNode.boardState) else { continue }
+            gameTree.currentNode = gameNode
+            guard gameTree.addMove(move, notation: childRep.san) else { continue }
+            let newGameNode = gameTree.currentNode
+            repNodeMap[newGameNode.id] = childRep.id
+            hydrateRepChildren(of: childRep, gameNode: newGameNode)
+        }
+    }
+
+    /// Persist any nodes on the path root→currentNode that aren't yet in the repertoire (incremental).
+    private func persistRepertoireFromRoot(_ rep: Repertoire) {
+        var path: [GameNode] = []
+        var cur: GameNode? = gameTree.currentNode
+        while let n = cur { path.append(n); cur = n.parent }
+        path.reverse()
+        guard path.count > 1 else { return }
+
+        for i in 1..<path.count {
+            let gn = path[i]
+            if repNodeMap[gn.id] != nil { continue }
+            guard let parentRepId = repNodeMap[path[i - 1].id],
+                  let parentRep = rep.nodes.first(where: { $0.id == parentRepId }),
+                  let move = gn.move else { continue }
+
+            // Owner = the side that played this move (parent's side to move).
+            let parentTurn = path[i - 1].boardState.turn
+            let isUserMove = parentTurn == (rep.side == .white ? .white : .black)
+            let ownership: NodeOwnership = isUserMove ? .mineMain : .opponentCritical
+
+            let newRepNode = RepertoireNode(
+                repertoire: rep,
+                parent: parentRep,
+                uciMove: repertoireUCI(from: move),
+                san: gn.cachedNotation,
+                fen: gn.boardState.getFEN(),
+                isUserMove: isUserMove,
+                ownership: ownership,
+                isPrimary: isUserMove
+            )
+            repNodeMap[gn.id] = newRepNode.id
+            repertoireDB.insertNode(newRepNode, into: rep, parent: parentRep)
+        }
+        windowModel.active.repNodeMap = repNodeMap
+    }
+
+    private func repertoireMove(fromUCI uci: String, board: ChessBoard) -> Move? {
+        guard uci.count >= 4 else { return nil }
+        let chars = Array(uci)
+        guard let fromFileAscii = chars[0].asciiValue, let toFileAscii = chars[2].asciiValue,
+              let fromRank = Int(String(chars[1])), let toRank = Int(String(chars[3])) else { return nil }
+        let from = Position(Int(fromFileAscii) - Int(Character("a").asciiValue!), fromRank - 1)
+        let to = Position(Int(toFileAscii) - Int(Character("a").asciiValue!), toRank - 1)
+        guard let piece = board.pieceAt(from) else { return nil }
+        var promotionType: PieceType? = nil
+        if chars.count >= 5 {
+            switch chars[4] {
+            case "q": promotionType = .queen
+            case "r": promotionType = .rook
+            case "b": promotionType = .bishop
+            case "n": promotionType = .knight
+            default: break
+            }
+        }
+        let capturedPiece = board.pieceAt(to)
+        let isEnPassant = piece.type == .pawn && from.file != to.file && capturedPiece == nil
+        let isCastling = piece.type == .king && abs(to.file - from.file) == 2
+        return Move(from: from, to: to, piece: piece,
+                    capturedPiece: isEnPassant ? board.pieceAt(Position(to.file, from.rank)) : capturedPiece,
+                    isEnPassant: isEnPassant, isCastling: isCastling, promotionType: promotionType)
+    }
+
+    private func repertoireUCI(from move: Move) -> String {
+        let files = "abcdefgh"
+        func sq(_ p: Position) -> String {
+            let f = files[files.index(files.startIndex, offsetBy: p.file)]
+            return "\(f)\(p.rank + 1)"
+        }
+        var s = sq(move.from) + sq(move.to)
+        if let promo = move.promotionType {
+            switch promo {
+            case .queen: s += "q"
+            case .rook: s += "r"
+            case .bishop: s += "b"
+            case .knight: s += "n"
+            default: break
+            }
+        }
+        return s
     }
 
     private func cycleTab(_ delta: Int) {
@@ -597,9 +740,6 @@ struct MainWindowView: View {
             mastheadPill(icon: "slider.horizontal.3", label: "Filters") {
                 NotificationCenter.default.post(name: .tabiaLibraryToggleFilters, object: nil)
             }
-        case .repertoire:
-            Button("New Repertoire") { NotificationCenter.default.post(name: .tabiaNewRepertoire, object: nil) }
-                .buttonStyle(GlassPrimaryButtonStyle())
         default:
             EmptyView()
         }

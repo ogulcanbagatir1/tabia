@@ -23,6 +23,11 @@ final class BoardSession: ObservableObject, Identifiable {
     var openingECO: String? = nil
     var currentGameId: UUID? = nil          // library-match key (§3.7 focus-or-open)
 
+    // When this tab is recording INTO a repertoire (opened from the Repertoire library), the
+    // repertoire's id + the gameNode→repertoireNode bridge so moves played here persist as prep.
+    var repertoireId: UUID? = nil
+    var repNodeMap: [UUID: UUID] = [:]
+
     @Published var title: String = "New board"
     @Published var isDirty: Bool = false
     /// User-set name (double-click rename); overrides the auto-derived title when present.
@@ -116,6 +121,11 @@ final class WindowModel: ObservableObject {
     /// Index of a session already holding the given library game, if any (§3.7 focus-or-open).
     func indexHoldingGame(_ gameId: UUID) -> Int? {
         sessions.firstIndex { $0.currentGameId == gameId }
+    }
+
+    /// Index of a session already recording into the given repertoire, if any (focus-or-open).
+    func indexHoldingRepertoire(_ repertoireId: UUID) -> Int? {
+        sessions.firstIndex { $0.repertoireId == repertoireId }
     }
 
     private func pushClosed(_ s: BoardSession) {

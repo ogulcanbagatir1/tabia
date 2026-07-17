@@ -2,18 +2,19 @@ import SwiftUI
 
 struct RepertoireBrowserView: View {
     @EnvironmentObject var repertoireDB: RepertoireDatabase
+    @EnvironmentObject var referenceDatabase: ReferenceDatabase
+
+    /// Open this repertoire as an analysis tab (recording mode). Wired by MainWindowView.
+    var onOpen: (Repertoire) -> Void = { _ in }
 
     @State private var searchText = ""
-    @State private var showingNewRepertoireSheet = false
     @State private var renamingRepertoire: Repertoire?
     @State private var newName = ""
     @State private var repertoireToDelete: Repertoire?
     @State private var showingDeleteAlert = false
-    @State private var openRepertoire: Repertoire?
-    // When the editor is opened via BEGIN DRILL, jump straight into a drill session.
-    @State private var drillLaunch = false
+    // Active drill session (BEGIN DRILL) — presented full-screen over the library.
+    @State private var drillSession: DrillSession?
     // The repertoire selected in the left shelf — its lines show in the center panel.
-    // (Opening the full editor is a separate action, via the center "Edit" button.)
     @State private var selectedRepertoire: Repertoire?
     @State private var showingKnowledge = false
 
@@ -24,9 +25,8 @@ struct RepertoireBrowserView: View {
 
     var body: some View {
         Group {
-            if let rep = openRepertoire {
-                RepertoireEditorView(repertoire: rep, onClose: { openRepertoire = nil; drillLaunch = false },
-                                     autoStartDrill: drillLaunch)
+            if let session = drillSession {
+                RepertoireDrillView(session: session, onClose: { drillSession = nil })
             } else {
                 libraryBody
             }
@@ -57,20 +57,6 @@ struct RepertoireBrowserView: View {
         .onChange(of: repertoireDB.repertoires.count) { _, _ in
             refreshKnowledge()
             if selectedRepertoire == nil { selectedRepertoire = repertoireDB.repertoires.first }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .tabiaNewRepertoire)) { _ in
-            showingNewRepertoireSheet = true
-        }
-        .sheet(isPresented: $showingNewRepertoireSheet) {
-            NewRepertoireSheet { name, side, summary in
-                showingNewRepertoireSheet = false
-                // Create it and jump straight into the editor to start recording lines.
-                let rep = repertoireDB.createRepertoire(name: name, side: side, summary: summary)
-                selectedRepertoire = rep
-                openRepertoire = rep
-            } onCancel: {
-                showingNewRepertoireSheet = false
-            }
         }
         .alert("Rename Repertoire", isPresented: Binding(
             get: { renamingRepertoire != nil },
@@ -122,7 +108,7 @@ struct RepertoireBrowserView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)], spacing: 18) {
                         ForEach(filtered) { rep in
-                            Button(action: { openRepertoire = rep }) {
+                            Button(action: { onOpen(rep) }) {
                                 bookCard(rep)
                             }
                             .buttonStyle(.plain)
@@ -158,47 +144,7 @@ struct RepertoireBrowserView: View {
 
     // MARK: - Left column — "Your Books" (R1)
 
-    private var leftBooks: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Your Books").font(AnnFont.serif(20, .semibold)).foregroundColor(DS.ink)
-                    Spacer()
-                    newRepertoireButton
-                }
-                Text(aggregateStatLine).font(AnnFont.mono(9.5)).foregroundColor(DS.ink40).lineLimit(1)
-            }
-            .padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 14)
-            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
-
-            ScrollView {
-                VStack(spacing: 14) {
-                    ForEach(filtered) { rep in
-                        Button(action: { selectedRepertoire = rep }) {
-                            bookCard(rep, selected: selectedRepertoire?.id == rep.id)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button("Edit") { openRepertoire = rep }
-                            Divider()
-                            Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
-                            Divider()
-                            Button("Delete…", role: .destructive) { repertoireToDelete = rep; showingDeleteAlert = true }
-                        }
-                    }
-                }
-                .padding(16)
-            }
-        }
-        .background(DS.paper)
-    }
-
-    private var newRepertoireButton: some View {
-        Button(action: { showingNewRepertoireSheet = true }) { Text("New") }
-            .buttonStyle(GlassPrimaryButtonStyle())
-    }
-
-    // MARK: - Center — selected repertoire's lines (read-only preview; "Edit" opens the editor)
+    // MARK: - Center — selected repertoire's lines (read-only preview; "Open" loads it into Analysis)
 
     private var centerPanel: some View {
         VStack(spacing: 0) {
@@ -212,7 +158,7 @@ struct RepertoireBrowserView: View {
                     if let k = knowledge[rep.id], k.dueNow > 0 { dueChip(k.dueNow) }
                     Button(action: { showingKnowledge = true }) { Text("Knowledge") }
                         .buttonStyle(GlassButtonStyle())
-                    Button(action: { openRepertoire = rep }) { Text("Edit") }
+                    Button(action: { onOpen(rep) }) { Text("Open") }
                         .buttonStyle(GlassButtonStyle())
                 }
                 .padding(.horizontal, 26).padding(.vertical, 18)
@@ -252,9 +198,9 @@ struct RepertoireBrowserView: View {
             VStack(spacing: 12) {
                 Spacer()
                 Text("No lines yet").font(AnnFont.serif(17, .medium)).foregroundColor(DS.ink)
-                Text("Open the editor to build this repertoire, move by move.")
+                Text("Open it in Analysis to build this repertoire, move by move.")
                     .font(AnnFont.voice(13.5)).foregroundColor(DS.ink40).multilineTextAlignment(.center)
-                Button(action: { openRepertoire = rep }) { Text("Edit") }
+                Button(action: { onOpen(rep) }) { Text("Open") }
                     .buttonStyle(GlassButtonStyle())
                 Spacer()
             }
@@ -515,12 +461,15 @@ struct RepertoireBrowserView: View {
     }
 
     private func beginDrill() {
-        // Open the repertoire with the most cards due and jump straight into the drill session.
-        let target = repertoireDB.repertoires.max {
+        // Drill the repertoire with the most cards due (fall back to the first book).
+        guard let target = repertoireDB.repertoires.max(by: {
             (knowledge[$0.id]?.dueNow ?? 0) < (knowledge[$1.id]?.dueNow ?? 0)
-        }
-        drillLaunch = true
-        openRepertoire = target ?? repertoireDB.repertoires.first
+        }) ?? repertoireDB.repertoires.first else { return }
+        startDrill(for: target)
+    }
+
+    private func startDrill(for rep: Repertoire) {
+        drillSession = DrillSession(repertoire: rep, repertoireDB: repertoireDB, referenceDB: referenceDatabase)
     }
 
     private func refreshKnowledge() {
@@ -556,25 +505,13 @@ struct RepertoireBrowserView: View {
                     .font(AnnFont.serif(20, .semibold))
                     .foregroundColor(DS.textPrimary)
 
-                Text("Create a repertoire to start building your opening preparation, line by line.")
+                Text("Build a line on the Analysis board, then Save it as a repertoire. It lands here, ready to drill.")
                     .font(AnnFont.serif(13))
                     .foregroundColor(DS.textTertiary)
                     .lineSpacing(4)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 340)
+                    .frame(maxWidth: 360)
             }
-
-            Button(action: { showingNewRepertoireSheet = true }) {
-                Text("Create Repertoire")
-                    .font(AnnFont.label(13))
-                    .tracking(13 * 0.1)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(DS.accent)
-                    .cornerRadius(8)
-            }
-            .buttonStyle(.plain)
 
             Spacer()
         }
@@ -606,143 +543,5 @@ struct RepertoireBrowserView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())
-    }
-}
-
-// MARK: - New Repertoire Sheet (mirrors NewDatabaseSheet structure)
-
-struct NewRepertoireSheet: View {
-    let onCreate: (String, RepertoireSide, String) -> Void
-    let onCancel: () -> Void
-
-    @State private var name = ""
-    @State private var side: RepertoireSide = .white
-    @State private var summary = ""
-
-    private var canCreate: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header — editorial title + a one-line voice subtitle
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    (Text("New ").font(AnnFont.serif(18, .semibold))
-                     + Text("Repertoire").font(AnnFont.voice(18)))
-                        .foregroundColor(DS.ink)
-                    Text("Name your book and choose the side you'll defend.")
-                        .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
-                }
-
-                Spacer()
-
-                Button(action: { onCancel() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(DS.ink40)
-                        .frame(width: 26, height: 26)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 22)
-            .padding(.bottom, 18)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-
-            // Body
-            VStack(alignment: .leading, spacing: 22) {
-                field("Name") {
-                    annTextField("Najdorf Sicilian", text: $name)
-                }
-
-                field("Side") {
-                    HStack(spacing: 10) {
-                        sideButton(.white)
-                        sideButton(.black)
-                    }
-                }
-
-                field("Summary  ·  optional") {
-                    annTextField("Short description", text: $summary)
-                }
-            }
-            .padding(24)
-
-            // Footer
-            HStack(spacing: 10) {
-                Spacer()
-                Button(action: { onCancel() }) { Text("Cancel") }
-                    .buttonStyle(GlassButtonStyle())
-
-                Button(action: {
-                    let trimmed = name.trimmingCharacters(in: .whitespaces)
-                    guard !trimmed.isEmpty else { return }
-                    onCreate(trimmed, side, summary.trimmingCharacters(in: .whitespaces))
-                }) {
-                    Text("Create Repertoire")
-                }
-                .buttonStyle(GlassPrimaryButtonStyle())
-                .disabled(!canCreate)
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
-            .overlay(alignment: .top) {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-        }
-        .frame(width: 460)
-        .background(DS.paper)
-    }
-
-    // Uppercase micro-label above a control — the Annotator field voice.
-    private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label.uppercased())
-                .font(AnnFont.label(10)).tracking(10 * 0.14)
-                .foregroundColor(DS.ink40)
-            content()
-        }
-    }
-
-    private func annTextField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text)
-            .textFieldStyle(.plain)
-            .font(AnnFont.serif(13.5))
-            .foregroundColor(DS.ink)
-            .padding(.horizontal, 12)
-            .frame(height: 38)
-            .background(DS.fieldBg)
-            .cornerRadius(DS.rControl)
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
-                    .strokeBorder(DS.hairline, lineWidth: 1)
-            )
-    }
-
-    private func sideButton(_ s: RepertoireSide) -> some View {
-        let isSelected = side == s
-        return Button(action: { side = s }) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(s == .white ? DS.onRed : DS.ink)
-                    .frame(width: 13, height: 13)
-                    .overlay(Circle().strokeBorder(DS.ink40, lineWidth: 1))
-                Text(s.displayName)
-                    .font(AnnFont.label(11)).tracking(11 * 0.08)
-                    .foregroundColor(isSelected ? DS.ink : DS.ink40)
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 38)
-            .frame(maxWidth: .infinity)
-            .background(isSelected ? DS.redAccent.opacity(0.10) : DS.fieldBg)
-            .cornerRadius(DS.rControl)
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.rControl, style: .continuous)
-                    .strokeBorder(isSelected ? DS.redAccent : DS.hairline, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
     }
 }
