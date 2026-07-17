@@ -18,6 +18,7 @@ struct MainWindowView: View {
     // boards only — repertoire/explorer/etc. are rail sections, never tabs.
     @StateObject private var windowModel = WindowModel()
     @EnvironmentObject var database: GameDatabase
+    @EnvironmentObject var repertoireDB: RepertoireDatabase
     @StateObject private var openingBook = OpeningBook.shared
     @StateObject private var gameAnalyzer = GameAnalyzer()
     @StateObject private var lichessExplorer = LichessExplorerService()
@@ -156,6 +157,7 @@ struct MainWindowView: View {
         .errorBannerHost()
         .sheet(isPresented: $showingSaveSheet) {
             SaveGameView(gameTree: gameTree, database: database)
+                .environmentObject(repertoireDB)
         }
         .confirmationDialog("This board has unsaved changes.",
                             isPresented: Binding(get: { tabPendingClose != nil },

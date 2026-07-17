@@ -115,6 +115,20 @@ class RepertoireDatabase: ObservableObject {
         return repertoire
     }
 
+    /// Create a repertoire from a PGN (used by "Save as Repertoire" on the analysis screen — the
+    /// analysed tree, variations and all, becomes the prep). Reuses the tested PGN importer.
+    @discardableResult
+    func createRepertoire(named name: String, side: RepertoireSide, importingPGN pgn: String) -> Repertoire {
+        let repertoire = createRepertoire(name: name, side: side)
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tabia_rep_\(UUID().uuidString).pgn")
+        if (try? pgn.write(to: tmp, atomically: true, encoding: .utf8)) != nil {
+            _ = try? importPGN(from: tmp, into: repertoire)
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        return repertoire
+    }
+
     func renameRepertoire(_ repertoire: Repertoire, to newName: String) {
         repertoire.name = newName
         repertoire.dateModified = Date()

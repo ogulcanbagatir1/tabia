@@ -3,7 +3,13 @@ import SwiftUI
 struct SaveGameView: View {
     @ObservedObject var gameTree: GameTree
     @ObservedObject var database: GameDatabase
+    @EnvironmentObject private var repertoireDB: RepertoireDatabase
     @Environment(\.dismiss) private var dismiss
+
+    enum SaveTarget: String, CaseIterable { case game = "Game", repertoire = "Repertoire" }
+    @State private var saveMode: SaveTarget = .game
+    @State private var repName = ""
+    @State private var repSide: RepertoireSide = .white
 
     @State private var whiteName = ""
     @State private var blackName = ""
@@ -23,9 +29,10 @@ struct SaveGameView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     (Text("Save ").font(AnnFont.serif(18, .semibold))
-                     + Text("Game").font(AnnFont.voice(18)))
+                     + Text(saveMode.rawValue).font(AnnFont.voice(18)))
                         .foregroundColor(DS.ink)
-                    Text("File the game to your library, or export it as PGN.")
+                    Text(saveMode == .game ? "File the game to your library, or export it as PGN."
+                                           : "Turn the board's lines into a repertoire you can drill.")
                         .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
                 }
                 Spacer()
@@ -43,6 +50,12 @@ struct SaveGameView: View {
             // Form
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    Picker("", selection: $saveMode) {
+                        ForEach(SaveTarget.allCases, id: \.self) { Text("Save as \($0.rawValue)").tag($0) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+
+                    if saveMode == .game {
                     section("Players") {
                         HStack(spacing: 12) {
                             field("White") { annTextField("White player", $whiteName) }
@@ -78,6 +91,19 @@ struct SaveGameView: View {
                         }
                         .labelsHidden()
                     }
+                    } else {
+                        section("Name") { annTextField("e.g. Caro-Kann", $repName) }
+                        section("Your Side") {
+                            Picker("", selection: $repSide) {
+                                Text("White").tag(RepertoireSide.white)
+                                Text("Black").tag(RepertoireSide.black)
+                            }
+                            .pickerStyle(.segmented).labelsHidden()
+                        }
+                        Text("Saves the moves on the board — variations and all — as a new repertoire you can drill.")
+                            .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     section("PGN Preview") {
                         Text(generatedPGN)
@@ -103,22 +129,31 @@ struct SaveGameView: View {
 
                 Spacer()
 
-                Button("Export to File…") { exportToFile() }
-                    .buttonStyle(GlassButtonStyle())
+                if saveMode == .game {
+                    Button("Export to File…") { exportToFile() }
+                        .buttonStyle(GlassButtonStyle())
 
-                Button("Save to Library") { saveToLibrary() }
-                    .buttonStyle(GlassPrimaryButtonStyle())
-                    .keyboardShortcut(.return, modifiers: [])
+                    Button("Save to Library") { saveToLibrary() }
+                        .buttonStyle(GlassPrimaryButtonStyle())
+                        .keyboardShortcut(.return, modifiers: [])
+                } else {
+                    Button("Save Repertoire") { saveAsRepertoire() }
+                        .buttonStyle(GlassPrimaryButtonStyle())
+                        .keyboardShortcut(.return, modifiers: [])
+                        .disabled(repName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
             }
             .padding(.horizontal, 24).padding(.vertical, 16)
             .overlay(alignment: .top) { hairline }
         }
         .frame(width: 500, height: 560)
         .background(DS.paper)
-        .alert("Game Saved", isPresented: $showingSaveSuccess) {
+        .alert(saveMode == .game ? "Game Saved" : "Repertoire Created", isPresented: $showingSaveSuccess) {
             Button("OK") { dismiss() }
         } message: {
-            Text("The game has been saved to your library.")
+            Text(saveMode == .game
+                 ? "The game has been saved to your library."
+                 : "Your repertoire is ready — open it from the Repertoire tab to drill.")
         }
     }
 
@@ -191,6 +226,14 @@ struct SaveGameView: View {
         )
 
         database.addGame(record)
+        showingSaveSuccess = true
+    }
+
+    private func saveAsRepertoire() {
+        let name = repName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        // The board's tree (variations and all) becomes the new repertoire's prep.
+        repertoireDB.createRepertoire(named: name, side: repSide, importingPGN: generatedPGN)
         showingSaveSuccess = true
     }
 
