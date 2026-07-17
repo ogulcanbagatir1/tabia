@@ -30,19 +30,19 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		9B2F80C12F28DFBD008DD79D /* Chess Analyzer */ = {
+		9B2F80C12F28DFBD008DD79D /* Tabia */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Chess Analyzer";
+			path = "Tabia";
 			sourceTree = "<group>";
 		};
-		9B2F80D02F28DFBF008DD79D /* Chess AnalyzerTests */ = {
+		9B2F80D02F28DFBF008DD79D /* TabiaTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Chess AnalyzerTests";
+			path = "TabiaTests";
 			sourceTree = "<group>";
 		};
-		9B2F80DA2F28DFBF008DD79D /* Chess AnalyzerUITests */ = {
+		9B2F80DA2F28DFBF008DD79D /* TabiaUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Chess AnalyzerUITests";
+			path = "TabiaUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		9B2F80B62F28DFBD008DD79D = {
 			isa = PBXGroup;
 			children = (
-				9B2F80C12F28DFBD008DD79D /* Chess Analyzer */,
-				9B2F80D02F28DFBF008DD79D /* Chess AnalyzerTests */,
-				9B2F80DA2F28DFBF008DD79D /* Chess AnalyzerUITests */,
+				9B2F80C12F28DFBD008DD79D /* Tabia */,
+				9B2F80D02F28DFBF008DD79D /* TabiaTests */,
+				9B2F80DA2F28DFBF008DD79D /* TabiaUITests */,
 				9B2F80C02F28DFBD008DD79D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -108,7 +108,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				9B2F80C12F28DFBD008DD79D /* Chess Analyzer */,
+				9B2F80C12F28DFBD008DD79D /* Tabia */,
 			);
 			name = Tabia;
 			packageProductDependencies = (
@@ -133,7 +133,7 @@
 				9B2F80CF2F28DFBF008DD79D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				9B2F80D02F28DFBF008DD79D /* Chess AnalyzerTests */,
+				9B2F80D02F28DFBF008DD79D /* TabiaTests */,
 			);
 			name = TabiaTests;
 			packageProductDependencies = (
@@ -156,7 +156,7 @@
 				9B2F80D92F28DFBF008DD79D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				9B2F80DA2F28DFBF008DD79D /* Chess AnalyzerUITests */,
+				9B2F80DA2F28DFBF008DD79D /* TabiaUITests */,
 			);
 			name = TabiaUITests;
 			packageProductDependencies = (
@@ -400,7 +400,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Chess Analyzer/Tabia.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Tabia/Tabia.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -409,7 +409,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Chess Analyzer/Info.plist";
+				INFOPLIST_FILE = "Tabia/Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -429,7 +429,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Chess Analyzer/Tabia.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Tabia/Tabia.entitlements";
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -438,7 +438,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Chess Analyzer/Info.plist";
+				INFOPLIST_FILE = "Tabia/Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

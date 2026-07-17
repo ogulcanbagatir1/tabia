@@ -23,3 +23,9 @@ dist/*.pkg
 
 # Notarization credentials
 .netrc
+
+# Internal notes / design handoffs — kept local, not published
+CLAUDE.md
+APP_DESCRIPTION.md
+APP_STORE_BRIEF.md
+design_handoff_annotator_redesign/

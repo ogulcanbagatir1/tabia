@@ -21,14 +21,14 @@ A native **macOS** chess studio for analyzing your games and building an opening
 ## Build & run
 
 ```bash
-open "mac-app/ChessAnalyzerApp/Chess Analyzer/Chess Analyzer.xcodeproj"
+open "Tabia.xcodeproj"
 # then ⌘R  (scheme: Tabia)
 ```
 
 Command line:
 
 ```bash
-xcodebuild -project "mac-app/ChessAnalyzerApp/Chess Analyzer/Chess Analyzer.xcodeproj" \
+xcodebuild -project "Tabia.xcodeproj" \
   -scheme "Tabia" -configuration Debug build
 ```
 
@@ -47,17 +47,19 @@ Updates are delivered via [Sparkle](https://sparkle-project.org); see `scripts/U
 ## Project layout
 
 ```
-mac-app/ChessAnalyzerApp/Chess Analyzer/   # the Xcode project (Tabia)
-  Chess Analyzer/
-    Engine/      # chess logic, UCI engine, game analysis, integrations
-    Views/       # SwiftUI screens & components
-    Store/       # SwiftData ingest, reference database, dedup
-    Database/    # game & repertoire persistence
-    Utils/       # settings, opening book, ECO database, design system
-    Resources/   # bundled boards, pieces, openings
-scripts/         # signing, notarization & release scripts
+Tabia.xcodeproj/     # the Xcode project
+Tabia/               # app source
+  Engine/            # chess logic, UCI engine, game analysis, integrations
+  Views/             # SwiftUI screens & components
+  Store/             # SwiftData ingest, reference database, dedup
+  Database/          # game & repertoire persistence
+  Utils/             # settings, opening book, ECO database, design system
+  Resources/         # bundled boards, pieces, openings, licenses
+TabiaTests/          # unit tests
+TabiaUITests/        # UI tests
+scripts/             # signing, notarization & release scripts
 ```
 
 ## License
 
-Tabia's own source is licensed under the **GNU General Public License v3.0** — see [`LICENSE`](LICENSE). GPL is required because the app bundles GPL/AGPL-licensed engines (Stockfish, Leela) and other copyleft assets. Bundled third-party licenses live under [`Resources/Licenses`](mac-app/ChessAnalyzerApp/Chess%20Analyzer/Chess%20Analyzer/Resources/Licenses) and are listed in the in-app **Acknowledgements** screen. Note: some bundled piece sets are **CC BY-NC-SA** (non-commercial) — a distributed build that includes them may not be sold.
+Tabia's own source is licensed under the **GNU General Public License v3.0** — see [`LICENSE`](LICENSE). GPL is required because the app bundles GPL/AGPL-licensed engines (Stockfish, Leela) and other copyleft assets. Bundled third-party licenses live under [`Resources/Licenses`](Tabia/Resources/Licenses) and are listed in the in-app **Acknowledgements** screen. Note: some bundled piece sets are **CC BY-NC-SA** (non-commercial) — a distributed build that includes them may not be sold.
