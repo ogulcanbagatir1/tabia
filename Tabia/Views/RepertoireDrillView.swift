@@ -139,10 +139,12 @@ struct RepertoireDrillView: View {
         // and disappearing, the wrong-move details — flows DOWNWARD below the board and can never
         // re-center the column and jog the board up and down.
         GeometryReader { geo in
-            let topInset = max((geo.size.height - 460) / 2 - 48, 20)
+            // Board fills the available square area — the width, or the height minus the room the
+            // prompt / ask-card / buttons / progress need below it (whichever is smaller).
+            let boardSize = max(min(geo.size.width - 48, geo.size.height - 340), 380)
             VStack(spacing: 16) {
-                promptLine
-                boardArea
+                promptLine(boardSize)
+                boardArea(boardSize)
                 askCard
                 if session.phase == .userWrong {
                     referenceStrip
@@ -152,19 +154,19 @@ struct RepertoireDrillView: View {
                 progressStrip
                 Spacer(minLength: 0)
             }
-            .padding(.top, topInset)
+            .padding(.top, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 
-    private var promptLine: some View {
+    private func promptLine(_ width: CGFloat) -> some View {
         HStack {
             Text(promptTitle).font(AnnFont.serif(15)).foregroundColor(DS.ink)
             Spacer()
             Text("MOVE \(board.fullMoveNumber) · \(session.repertoire.side.displayName.uppercased())")
                 .font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
         }
-        .frame(width: 512)
+        .frame(width: width)
     }
 
     private var promptTitle: String {
@@ -364,9 +366,9 @@ struct RepertoireDrillView: View {
 
     // MARK: - Reusable bits
 
-    private var boardArea: some View {
+    private func boardArea(_ size: CGFloat) -> some View {
         BoardView(board: board, gameTree: gameTree, isFlipped: isFlipped, showLabels: false)
-            .frame(width: 460, height: 460)
+            .frame(width: size, height: size)
             .allowsHitTesting(session.phase == .userToMove)
     }
 
