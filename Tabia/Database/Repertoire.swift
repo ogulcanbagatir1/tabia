@@ -69,6 +69,10 @@ struct TrainingStats: Codable, Hashable {
     private static let DECAY = -0.5
     private static let FACTOR = 19.0 / 81.0
     private static let R_TARGET = 0.9
+    /// Cap on how far out a review is spaced. Opening prep is worth keeping fresh, so we hold the
+    /// interval to a daily rhythm rather than letting FSRS push it out to weeks/months. Raise this
+    /// (e.g. 7) to loosen toward proper spacing.
+    static let maxReviewIntervalDays: Double = 1
 
     private static func clampD(_ d: Double) -> Double { min(10, max(1, d)) }
     /// Initial difficulty for a first review at grade `g` (1…4).
@@ -131,6 +135,7 @@ struct TrainingStats: Codable, Hashable {
         s.difficulty = newD
         var days = TrainingStats.interval(forStability: newS)
         if g == 1 { days = max(10.0 / 1440.0, min(days, 2.0)) }   // relearn soon after a lapse
+        days = min(days, TrainingStats.maxReviewIntervalDays)     // keep it a daily practice rhythm
         s.intervalDays = days
         s.lastReviewed = now
         s.nextDue = now.addingTimeInterval(days * 86_400)

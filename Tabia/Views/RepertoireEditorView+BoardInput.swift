@@ -296,6 +296,57 @@ extension RepertoireEditorView {
 
     // Right column of BOARD mode: the full engine view (same as the analysis screen) with the
     // repertoire move tree beneath it.
+    private var r6CurrentUCI: [String] {
+        r6LinePath.compactMap { $0.move }.map { RepertoireEditorView.uci(from: $0) }
+    }
+    private var r6CurrentSAN: [String] {
+        r6LinePath.compactMap { $0.cachedNotation }
+    }
+
+    /// The opening explorer column — the exact same component as the analysis screen. Clicking a
+    /// move plays it and records it into the repertoire (onMovePlayed → r6RecordUCI).
+    var r6ExplorerColumn: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    AnnLabel("Opening Explorer", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
+                    Spacer()
+                    Text(explorerSource == .lichess ? "MASTERS" : "YOUR GAMES")
+                        .font(AnnFont.mono(10)).foregroundColor(DS.ink40)
+                }
+                AnnSegmented(options: ExplorerSource.allCases.map { ($0, $0.rawValue) }, selection: $explorerSource)
+            }
+            .padding(16)
+            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+            if explorerSource == .lichess {
+                LichessExplorerView(
+                    explorerService: lichessExplorer,
+                    openingBook: openingBook,
+                    board: board,
+                    currentMoves: r6CurrentUCI,
+                    searchText: $explorerSearchText,
+                    onMovePlayed: { uci in r6RecordUCI(uci) },
+                    onGameLoaded: { _ in },
+                    onOpeningSelected: { moves in for m in moves { r6RecordUCI(m) } }
+                )
+            } else {
+                LibraryExplorerView(
+                    explorerService: libraryExplorer,
+                    openingBook: openingBook,
+                    board: board,
+                    currentMoves: r6CurrentUCI,
+                    currentSANs: r6CurrentSAN,
+                    searchText: $explorerSearchText,
+                    onMovePlayed: { uci in r6RecordUCI(uci) },
+                    onGameLoaded: { _ in },
+                    onOpeningSelected: { moves in for m in moves { r6RecordUCI(m) } }
+                )
+            }
+        }
+        .background(DS.paper)
+    }
+
     var r6EngineMovesPane: some View {
         VStack(spacing: 0) {
             AnalysisPanelView(
@@ -324,6 +375,23 @@ extension RepertoireEditorView {
                     .padding(.horizontal, 12).padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            }
+
+            // Note for the selected move (persists to the repertoire) — replaces the old inspector.
+            if gameTree.currentNode.parent != nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("NOTE").font(AnnFont.label(9.5, bold: true)).tracking(9.5 * 0.14).foregroundColor(DS.ink40)
+                    TextEditor(text: Binding(
+                        get: { draftAnnotation },
+                        set: { draftAnnotation = $0; saveDraftAnnotation() }))
+                        .font(AnnFont.serif(13, .regular, italic: true)).foregroundColor(DS.ink)
+                        .scrollContentBackground(.hidden)
+                        .frame(height: 58).padding(8)
+                        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+                }
+                .padding(12)
+                .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)

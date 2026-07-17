@@ -25,7 +25,7 @@ struct RepertoireEditorView: View {
     // Inspector draft state (synced from the current RepertoireNode on every navigation)
     @State private var draftOwnership: NodeOwnership = .mineMain
     @State private var draftGlyph: String = ""
-    @State private var draftAnnotation: String = ""
+    @State var draftAnnotation: String = ""
     @State private var draftIsPrimary: Bool = true
     @State private var draftIsImportant: Bool = false
     @State private var draftIdeaTags: String = ""
@@ -52,6 +52,13 @@ struct RepertoireEditorView: View {
     @State private var showingOpponentPicker = false
     @State private var opponentBook: OpponentBook?
     @State private var opponentLoading = false
+
+    // Opening explorer (same component as the analysis screen) — helps pick moves while building.
+    @StateObject var lichessExplorer = LichessExplorerService()
+    @StateObject var libraryExplorer = LibraryExplorerService()
+    @ObservedObject var openingBook = OpeningBook.shared
+    @State var explorerSource: ExplorerSource = .lichess
+    @State var explorerSearchText = ""
 
     // MARK: - R2 spec (standalone manuscript, per R2-REPERTOIRE-EDITOR.md)
     struct SpecRow: Identifiable {
@@ -116,10 +123,10 @@ struct RepertoireEditorView: View {
         VStack(spacing: 0) {
             editorHeader
             HStack(spacing: 0) {
-                // Move inspector on the left · board fills the center · full engine view + the move
-                // tree beneath it on the right.
-                specInspector
-                    .frame(width: 300)
+                // Opening explorer on the left · board fills the center · engine + repertoire move
+                // tree on the right — the same shape as the analysis screen.
+                r6ExplorerColumn
+                    .frame(width: 320)
                     .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
                 r6BoardCenter
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -978,7 +985,7 @@ struct RepertoireEditorView: View {
         repertoireDB.updateNode(node)
     }
 
-    private func saveDraftAnnotation() {
+    func saveDraftAnnotation() {
         guard !isLoadingDraft, let node = currentRepNode else { return }
         node.annotation = draftAnnotation
         repertoireDB.updateNode(node)

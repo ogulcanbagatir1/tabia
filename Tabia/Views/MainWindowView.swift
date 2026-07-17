@@ -3,6 +3,12 @@ import AppKit
 import Combine
 import UniformTypeIdentifiers
 
+/// Opening explorer data source — shared by the analysis screen and the repertoire editor.
+enum ExplorerSource: String, CaseIterable {
+    case lichess = "Lichess Masters"
+    case library = "My Library"
+}
+
 struct MainWindowView: View {
     @StateObject private var board = ChessBoard()
     @StateObject private var gameTree = GameTree()
@@ -69,13 +75,6 @@ struct MainWindowView: View {
     // Explorer source toggle
     @State private var explorerSource: ExplorerSource = .lichess
     @State private var explorerSearchText = ""
-
-    // The reference DB is no longer a top-level source: it's selectable as a database
-    // inside "My Library" (see LibraryExplorerView's database picker).
-    enum ExplorerSource: String, CaseIterable {
-        case lichess = "Lichess Masters"
-        case library = "My Library"
-    }
 
     // Computed arrow from engine's best move suggestion
     private var engineArrow: BoardArrow? {
