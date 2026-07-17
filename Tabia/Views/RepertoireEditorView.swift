@@ -41,7 +41,8 @@ struct RepertoireEditorView: View {
 
     // MARK: - R6 Board Input mode (per R6-BOARD-INPUT.md)
     enum CenterMode { case tree, board }
-    @State var centerMode: CenterMode = .tree
+    // Tree view was removed — the editor is always the board-input mode.
+    @State var centerMode: CenterMode = .board
     @State var sanInput: String = ""
     @State var sanError: Bool = false
     @State var mergeToast: String? = nil
@@ -115,32 +116,19 @@ struct RepertoireEditorView: View {
         VStack(spacing: 0) {
             editorHeader
             HStack(spacing: 0) {
-                if centerMode == .tree {
-                    specInspector
-                        .frame(width: 300)
-                        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
-                    // Tree and board+engine SHARE the remaining width equally (both flexible), so the
-                    // board fills roughly half — big, not a tiny square lost in one giant column.
-                    specCenter
-                        .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
-                    specRight
-                        .frame(minWidth: 440, maxWidth: .infinity)
-                        .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
-                } else {
-                    // BOARD INPUT: same move inspector as TREE on the left · board fills the center ·
-                    // full engine view + the move tree beneath it on the right.
-                    specInspector
-                        .frame(width: 300)
-                        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
-                    r6BoardCenter
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    r6EngineMovesPane
-                        .frame(width: 400)
-                        .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
-                }
+                // Move inspector on the left · board fills the center · full engine view + the move
+                // tree beneath it on the right.
+                specInspector
+                    .frame(width: 300)
+                    .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+                r6BoardCenter
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                r6EngineMovesPane
+                    .frame(width: 400)
+                    .overlay(alignment: .leading) { Rectangle().fill(DS.hairline).frame(width: 1) }
             }
             .frame(maxHeight: .infinity)
-            centerMode == .board ? AnyView(r6StatusBar) : AnyView(specStatusBar)
+            r6StatusBar
         }
         .background(DS.paper)
         .onAppear {
@@ -148,8 +136,6 @@ struct RepertoireEditorView: View {
             hydrateTree()
             loadDraft()
             startEngineIfConfigured()
-            // An empty repertoire never shows an empty tree — it shows a board to record into (R6 §1).
-            if repertoire.nodeCount <= 1 { centerMode = .board }
         }
         .onChange(of: gameTree.currentNode.id) { _, _ in
             syncBoardToCurrent()
@@ -164,7 +150,6 @@ struct RepertoireEditorView: View {
             refreshDueCount()
         }
         .onAppear { refreshR6Tries(); refreshDueCount() }
-        .onChange(of: centerMode) { _, m in if m == .board { refreshR6Tries() } }
         .onChange(of: settings.engineConfigsJSON) { _, _ in
             multiEngine.reconfigure()
         }
@@ -468,12 +453,6 @@ struct RepertoireEditorView: View {
             Text(repertoire.name.isEmpty ? "Caro-Kann" : repertoire.name)
                 .font(AnnFont.serif(20, .semibold)).foregroundColor(DS.ink)
 
-            HStack(spacing: 8) {
-                AnnSegmented(options: [(CenterMode.tree, "Tree"), (CenterMode.board, "Board")],
-                             selection: $centerMode, size: 9.5)
-                Text("⌥T").font(AnnFont.mono(10)).foregroundColor(DS.ink40)
-            }
-
             if centerMode == .board {
                 HStack(spacing: 7) {
                     PulsingDot(color: DS.redAccent, size: 8)
@@ -497,8 +476,8 @@ struct RepertoireEditorView: View {
                 }
                 .foregroundColor(DS.paper)
                 .padding(.horizontal, 14).frame(height: 30)
-                .background(DS.accent, in: Capsule())
-                .contentShape(Capsule())
+                .background(DS.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(.plain)
             .help("Start a spaced-repetition drill of this repertoire")
@@ -507,8 +486,6 @@ struct RepertoireEditorView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
         .background(
             Group {
-                Button("") { centerMode = centerMode == .tree ? .board : .tree }
-                    .keyboardShortcut("t", modifiers: .option)
                 Button("") { r6PromoteToMain() }
                     .keyboardShortcut(.return, modifiers: .option)
             }

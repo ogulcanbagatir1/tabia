@@ -64,7 +64,10 @@ struct RepertoireBrowserView: View {
         .sheet(isPresented: $showingNewRepertoireSheet) {
             NewRepertoireSheet { name, side, summary in
                 showingNewRepertoireSheet = false
-                _ = repertoireDB.createRepertoire(name: name, side: side, summary: summary)
+                // Create it and jump straight into the editor to start recording lines.
+                let rep = repertoireDB.createRepertoire(name: name, side: side, summary: summary)
+                selectedRepertoire = rep
+                openRepertoire = rep
             } onCancel: {
                 showingNewRepertoireSheet = false
             }
