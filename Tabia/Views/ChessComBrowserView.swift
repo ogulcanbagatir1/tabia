@@ -776,9 +776,10 @@ struct ChessComBrowserView: View {
     private func loadRatings() {
         let username = accountHandle
         guard !username.isEmpty else { return }
-        Task.detached {
-            let db = database
-            guard let cached = db.fetchAllCachedStats(for: username) else { return }
+        // GameDatabase is main-actor-bound, so run this small cached-stats lookup on the main actor
+        // rather than a detached task — Swift 6 rejects touching `database` from off-actor.
+        Task { @MainActor in
+            guard let cached = database.fetchAllCachedStats(for: username) else { return }
             var ratings: [String: Int] = [:]
             for tc in ["bullet", "blitz", "rapid"] {
                 if let allStats = cached.statsData["all"],
@@ -789,9 +790,7 @@ struct ChessComBrowserView: View {
                     ratings[tc] = tcStats.currentRating
                 }
             }
-            await MainActor.run {
-                cachedRatings = ratings
-            }
+            cachedRatings = ratings
         }
     }
 
