@@ -227,6 +227,22 @@ struct PieceStyle: Identifiable, Equatable {
         PieceStyle(id: "monarchy",  name: "Monarchy",   folder: "monarchy",  isNonCommercial: true),
         PieceStyle(id: "disguised", name: "Disguised",  folder: "disguised", isNonCommercial: true),
         PieceStyle(id: "xkcd",      name: "xkcd",       folder: "xkcd",      isNonCommercial: true),
+        // Classic chess-font style sets (added under Resources/Pieces).
+        PieceStyle(id: "classic",    name: "Classic",    folder: "classic"),
+        PieceStyle(id: "neo",        name: "Neo",        folder: "neo"),
+        PieceStyle(id: "bold",       name: "Bold",       folder: "bold"),
+        PieceStyle(id: "fine",       name: "Fine",       folder: "fine"),
+        PieceStyle(id: "gothic",     name: "Gothic",     folder: "gothic"),
+        PieceStyle(id: "engraving",  name: "Engraving",  folder: "engraving"),
+        PieceStyle(id: "regence",    name: "Regence",    folder: "regence"),
+        PieceStyle(id: "selenus",    name: "Selenus",    folder: "selenus"),
+        PieceStyle(id: "tournament", name: "Tournament", folder: "tournament"),
+        PieceStyle(id: "bazinga",    name: "Bazinga",    folder: "bazinga"),
+        PieceStyle(id: "bidi",       name: "Bidi",       folder: "bidi"),
+        PieceStyle(id: "kram",       name: "Kram",       folder: "kram"),
+        PieceStyle(id: "mung",       name: "Mung",       folder: "mung"),
+        PieceStyle(id: "pantulsa",   name: "Pantulsa",   folder: "pantulsa"),
+        PieceStyle(id: "setto",      name: "Setto",      folder: "setto"),
     ]
 
     static func style(for id: String) -> PieceStyle {

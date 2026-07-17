@@ -45,6 +45,12 @@ struct AcknowledgementsView: View {
         .init(name: "Firi",           author: "James Faure",               license: "CC BY 4.0",    url: "https://github.com/jfaure/Firi-pieceset"),
     ]
 
+    // Original piece sets designed for Tabia (bundled under Resources/Pieces) — the author's own work.
+    private let originalPieces: [Credit] = [
+        .init(name: "Classic · Neo · Bold · Fine · Gothic · Engraving · Regence · Selenus · Tournament · Bazinga · Bidi · Kram · Mung · Pantulsa · Setto",
+              author: "Ogulcan Bagatir", license: "Original", url: "https://github.com/ogulcanbagatir1/tabia"),
+    ]
+
     // CC BY-NC-SA piece sets from Lichess (lila). Legal to bundle only while Tabia is distributed FREE
     // of charge (no ads, in-app purchases, or paid tier). Converted PNGs inherit CC BY-NC-SA; credited here.
     private let ncPieces: [Credit] = [
@@ -103,6 +109,7 @@ struct AcknowledgementsView: View {
                     section("CHESS ENGINE", software)
                     section("PIECE SETS — from Lichess (lila)", pieces)
                     section("PIECE SETS — other free sources", otherPieces)
+                    section("PIECE SETS — original (Tabia)", originalPieces)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("The sets below are licensed CC BY-NC-SA (NonCommercial). They are included because Tabia is distributed free of charge — no ads, in-app purchases, or paid tier. Converted images keep this license and credit their original authors.")
