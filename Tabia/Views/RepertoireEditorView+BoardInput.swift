@@ -135,6 +135,13 @@ extension RepertoireEditorView {
 
             BoardView(board: board, gameTree: gameTree, extraArrows: r6BoardArrows, isFlipped: isFlipped, showLabels: false)
                 .frame(width: s, height: s)
+                .overlay {
+                    // Scroll over the board to step through moves (up = back, down = forward), just
+                    // like the analysis screen. Clicks still fall through to the board.
+                    ScrollNavCatcher { step in
+                        if step > 0 { _ = gameTree.goBack() } else { _ = gameTree.goForward() }
+                    }
+                }
 
             if r6IsOpponentTurn && !r6BoardArrows.isEmpty {
                 HStack(spacing: 18) {

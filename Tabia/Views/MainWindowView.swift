@@ -1117,6 +1117,10 @@ struct MainWindowView: View {
     private func installArrowMonitor() {
         guard arrowMonitor == nil else { return }
         arrowMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Only the analysis screen drives the main gameTree with bare arrows. On other screens
+            // (e.g. the repertoire editor, which has its own tree + arrow handler) pass the event
+            // through so it isn't hijacked into navigating the wrong, invisible tree.
+            guard activeScreen == .analysis else { return event }
             guard event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty else { return event }
             if let fr = NSApp.keyWindow?.firstResponder, fr is NSText || fr is NSTextView { return event }
             switch event.keyCode {
