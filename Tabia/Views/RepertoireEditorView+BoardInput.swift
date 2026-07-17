@@ -124,15 +124,10 @@ extension RepertoireEditorView {
         // Board fills the center column — bound by width, or by height minus the prompt/legend/plate.
         // Board fills the center as a large square — bound by the smaller of the column's width or
         // its height (minus the prompt + plate strip), with a little breathing padding. No hard cap.
-        let s = max(min(geo.size.width - 48, geo.size.height - 118), 300)
-        VStack(spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                r6TurnPrompt
-                Spacer(minLength: 8)
-                Text(r6MoveLabel).font(AnnFont.mono(10.5, bold: true)).foregroundColor(DS.ink40)
-            }
-            .frame(width: s)
-
+        // Clean board that fills the center as a large square (width- or height-bound), like the
+        // analysis screen — no repertoire-specific prompt/plate/legend chrome.
+        let s = max(min(geo.size.width - 48, geo.size.height - 56), 300)
+        VStack(spacing: 12) {
             BoardView(board: board, gameTree: gameTree, extraArrows: r6BoardArrows, isFlipped: isFlipped, showLabels: false)
                 .frame(width: s, height: s)
                 .overlay {
@@ -142,24 +137,6 @@ extension RepertoireEditorView {
                         if step > 0 { _ = gameTree.goBack() } else { _ = gameTree.goForward() }
                     }
                 }
-
-            if r6IsOpponentTurn && !r6BoardArrows.isEmpty {
-                HStack(spacing: 18) {
-                    r6Legend(DS.qBrilliant, "IN THE TREE — ANSWERED")
-                    r6Legend(DS.qInaccuracy, "GAP — PLAY IT, THEN YOUR REPLY")
-                }
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("PLATE \(Self.r6Roman(max(gameTree.currentNode.boardState.fullMoveNumber, 1)))")
-                    .font(AnnFont.mono(10, bold: true)).tracking(1.0).foregroundColor(DS.redAccent)
-                Text(r6PlateCaption).font(AnnFont.voice(14)).foregroundColor(DS.ink60).lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .frame(width: s)
-            .padding(.top, 4)
-            .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
-
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
