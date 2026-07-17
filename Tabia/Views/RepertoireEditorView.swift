@@ -552,6 +552,20 @@ struct RepertoireEditorView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if row.repNode?.isUserMove == true && !(row.repNode?.isPrimary ?? true) {
+                Button("Promote to Main Line") {
+                    gameTree.goToNode(row.node)
+                    r6PromoteToMain()
+                }
+            }
+            Button("Delete Line", role: .destructive) {
+                if let rep = row.repNode { repertoireDB.deleteNode(rep) }
+                gameTree.deleteFromNode(row.node)
+                refreshR6Tries()
+                refreshDueCount()
+            }
+        }
     }
 
     // MARK: RIGHT — Board & context (396)
