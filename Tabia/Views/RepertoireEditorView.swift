@@ -456,17 +456,17 @@ struct RepertoireEditorView: View {
     private var editorHeader: some View {
         HStack(alignment: .center, spacing: 14) {
             Button(action: onClose) {
-                HStack(spacing: 7) {
-                    Text(repertoire.name.isEmpty ? "Caro-Kann" : repertoire.name)
-                        .font(AnnFont.serif(20, .semibold)).foregroundColor(DS.ink)
-                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundColor(DS.ink40)
-                }
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
-                .contentShape(Rectangle())
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold)).foregroundColor(DS.ink60)
+                    .frame(width: 30, height: 30)
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Back to the shelf")
+
+            Text(repertoire.name.isEmpty ? "Caro-Kann" : repertoire.name)
+                .font(AnnFont.serif(20, .semibold)).foregroundColor(DS.ink)
 
             HStack(spacing: 8) {
                 AnnSegmented(options: [(CenterMode.tree, "Tree"), (CenterMode.board, "Board")],
