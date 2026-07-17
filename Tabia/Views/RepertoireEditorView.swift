@@ -489,6 +489,19 @@ struct RepertoireEditorView: View {
                     .padding(.horizontal, 7).padding(.vertical, 2)
                     .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(DS.redAccent, lineWidth: 1))
             }
+
+            Button(action: { startDrill() }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "graduationcap.fill").font(.system(size: 11, weight: .bold))
+                    Text("BEGIN DRILL").font(AnnFont.label(11, bold: true)).tracking(0.6)
+                }
+                .foregroundColor(DS.paper)
+                .padding(.horizontal, 14).frame(height: 30)
+                .background(DS.accent, in: Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Start a spaced-repetition drill of this repertoire")
         }
         .padding(.leading, 26).padding(.trailing, 26).padding(.top, 18).padding(.bottom, 14)
         .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
