@@ -215,9 +215,9 @@ struct MainWindowView: View {
             // A structural edit (move added / deleted / promoted) makes the active board dirty —
             // unless we're mid-load/swap. Dirty drives the amber tab dot + close-save prompt (§3.3).
             if !suppressDirty { windowModel.active.isDirty = true }
-            // If this tab is recording into a repertoire, persist any newly-played move as prep.
+            // If this tab is recording into a repertoire, mirror the board edit (add/delete) into it.
             if !isHydratingRep, !isSyncingBoard, let rep = activeRepertoire {
-                persistRepertoireFromRoot(rep)
+                reconcileRepertoire(rep)
             }
         }
         .onChange(of: gameTree.currentNode.id) { _, _ in
@@ -525,39 +525,52 @@ struct MainWindowView: View {
         }
     }
 
-    /// Persist any nodes on the path root→currentNode that aren't yet in the repertoire (incremental).
-    private func persistRepertoireFromRoot(_ rep: Repertoire) {
-        var path: [GameNode] = []
-        var cur: GameNode? = gameTree.currentNode
-        while let n = cur { path.append(n); cur = n.parent }
-        path.reverse()
-        guard path.count > 1 else { return }
+    /// Mirror the live GameTree into the repertoire: add newly-played moves AND delete moves that
+    /// were removed from the board. Runs on every structural edit of a repertoire tab, so it catches
+    /// every path (board, move-list context menu, ⌫ menu command) uniformly.
+    private func reconcileRepertoire(_ rep: Repertoire) {
+        // 1. Collect every live gameNode reachable from the root.
+        var liveNodes: [UUID: GameNode] = [:]
+        func collect(_ n: GameNode) { liveNodes[n.id] = n; for c in n.children { collect(c) } }
+        collect(gameTree.root)
 
-        for i in 1..<path.count {
-            let gn = path[i]
-            if repNodeMap[gn.id] != nil { continue }
-            guard let parentRepId = repNodeMap[path[i - 1].id],
-                  let parentRep = rep.nodes.first(where: { $0.id == parentRepId }),
-                  let move = gn.move else { continue }
-
-            // Owner = the side that played this move (parent's side to move).
-            let parentTurn = path[i - 1].boardState.turn
-            let isUserMove = parentTurn == (rep.side == .white ? .white : .black)
-            let ownership: NodeOwnership = isUserMove ? .mineMain : .opponentCritical
-
-            let newRepNode = RepertoireNode(
-                repertoire: rep,
-                parent: parentRep,
-                uciMove: repertoireUCI(from: move),
-                san: gn.cachedNotation,
-                fen: gn.boardState.getFEN(),
-                isUserMove: isUserMove,
-                ownership: ownership,
-                isPrimary: isUserMove
-            )
-            repNodeMap[gn.id] = newRepNode.id
-            repertoireDB.insertNode(newRepNode, into: rep, parent: parentRep)
+        // 2. Delete repertoire nodes whose gameNode no longer exists (SwiftData cascades the subtree).
+        let orphanedGameIds = repNodeMap.keys.filter { liveNodes[$0] == nil }
+        for gameId in orphanedGameIds {
+            if let repId = repNodeMap[gameId], let repNode = rep.nodes.first(where: { $0.id == repId }) {
+                repertoireDB.deleteNode(repNode)
+            }
+            repNodeMap[gameId] = nil
         }
+
+        // 3. Add live nodes not yet in the repertoire (parent-first, so the parent is always mapped).
+        func addChildren(_ gameNode: GameNode) {
+            for child in gameNode.children {
+                if repNodeMap[child.id] == nil,
+                   let parentRepId = repNodeMap[gameNode.id],
+                   let parentRep = rep.nodes.first(where: { $0.id == parentRepId }),
+                   let move = child.move {
+                    let parentTurn = gameNode.boardState.turn
+                    let isUserMove = parentTurn == (rep.side == .white ? .white : .black)
+                    let ownership: NodeOwnership = isUserMove ? .mineMain : .opponentCritical
+                    let newRepNode = RepertoireNode(
+                        repertoire: rep,
+                        parent: parentRep,
+                        uciMove: repertoireUCI(from: move),
+                        san: child.cachedNotation,
+                        fen: child.boardState.getFEN(),
+                        isUserMove: isUserMove,
+                        ownership: ownership,
+                        isPrimary: isUserMove
+                    )
+                    repNodeMap[child.id] = newRepNode.id
+                    repertoireDB.insertNode(newRepNode, into: rep, parent: parentRep)
+                }
+                addChildren(child)
+            }
+        }
+        addChildren(gameTree.root)
+
         windowModel.active.repNodeMap = repNodeMap
     }
 
