@@ -532,7 +532,8 @@ struct MainWindowView: View {
     }
 
     private func hydrateRepChildren(of repNode: RepertoireNode, gameNode: GameNode) {
-        for childRep in repNode.children {
+        // Primary (main) line first, so the board's main line mirrors the repertoire's.
+        for childRep in repNode.children.sorted(by: { $0.isPrimary && !$1.isPrimary }) {
             guard let uci = childRep.uciMove,
                   let move = repertoireMove(fromUCI: uci, board: gameNode.boardState) else { continue }
             gameTree.currentNode = gameNode
@@ -562,15 +563,18 @@ struct MainWindowView: View {
             repNodeMap[gameId] = nil
         }
 
-        // 3. Add live nodes not yet in the repertoire (parent-first, so the parent is always mapped).
+        // 3. Add live nodes not yet in the repertoire (parent-first, so the parent is always mapped),
+        //    and sync notes + main-line status (promote) for nodes already there.
         func addChildren(_ gameNode: GameNode) {
+            let isUserMove = gameNode.boardState.turn == (rep.side == .white ? .white : .black)
+            let firstChildId = gameNode.children.first?.id
             for child in gameNode.children {
+                // The board's main line is child[0]; for the user's own moves that marks the primary.
+                let shouldBePrimary = isUserMove && child.id == firstChildId
                 if repNodeMap[child.id] == nil,
                    let parentRepId = repNodeMap[gameNode.id],
                    let parentRep = rep.nodes.first(where: { $0.id == parentRepId }),
                    let move = child.move {
-                    let parentTurn = gameNode.boardState.turn
-                    let isUserMove = parentTurn == (rep.side == .white ? .white : .black)
                     let ownership: NodeOwnership = isUserMove ? .mineMain : .opponentCritical
                     let newRepNode = RepertoireNode(
                         repertoire: rep,
@@ -580,17 +584,18 @@ struct MainWindowView: View {
                         fen: child.boardState.getFEN(),
                         isUserMove: isUserMove,
                         ownership: ownership,
-                        isPrimary: isUserMove
+                        isPrimary: shouldBePrimary
                     )
                     newRepNode.annotation = child.comment
                     repNodeMap[child.id] = newRepNode.id
                     repertoireDB.insertNode(newRepNode, into: rep, parent: parentRep)
                 } else if let repId = repNodeMap[child.id],
-                          let repNode = rep.nodes.first(where: { $0.id == repId }),
-                          repNode.annotation != child.comment {
-                    // Note edited on the board → flush it back to the repertoire.
-                    repNode.annotation = child.comment
-                    repertoireDB.updateNode(repNode)
+                          let repNode = rep.nodes.first(where: { $0.id == repId }) {
+                    // Flush note edits + promote (main-line) changes back to the repertoire.
+                    var changed = false
+                    if repNode.annotation != child.comment { repNode.annotation = child.comment; changed = true }
+                    if repNode.isUserMove, repNode.isPrimary != shouldBePrimary { repNode.isPrimary = shouldBePrimary; changed = true }
+                    if changed { repertoireDB.updateNode(repNode) }
                 }
                 addChildren(child)
             }
