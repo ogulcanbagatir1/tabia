@@ -910,25 +910,28 @@ struct MainWindowView: View {
         .help(help)
     }
 
-    /// Save as a split control: click saves to the linked entity; the chevron offers Save As (new).
-    private var saveSplitButton: some View {
+    /// One menu button gathering every board action (native menu, like a right-click menu).
+    private var boardActionsMenu: some View {
         Menu {
-            Button(saveActionLabel) { saveActiveTab() }
-            Button("Save As…") { saveAsActiveTab() }
+            Button { saveActiveTab() } label: { Label(saveActionLabel, systemImage: "square.and.arrow.down") }
+            Button { saveAsActiveTab() } label: { Label("Save As…", systemImage: "square.and.arrow.down.on.square") }
+            Divider()
+            Button { isBoardFlipped.toggle() } label: { Label("Flip Board", systemImage: "arrow.up.arrow.down") }
+            Button { resetGame() } label: { Label("Reset Board", systemImage: "arrow.counterclockwise") }
+            Button { showingSetupPosition = true } label: { Label("Set Up Position", systemImage: "square.grid.3x3") }
         } label: {
-            Image(systemName: "square.and.arrow.down")
-                .font(.system(size: 13, weight: .regular))
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(DS.ink60)
                 .frame(width: 28, height: 28)
                 .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
                 .contentShape(Rectangle())
-        } primaryAction: {
-            saveActiveTab()
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
-        .help("\(saveActionLabel) — chevron for Save As")
+        .help("Board actions")
     }
 
     // MARK: - Analysis Layout (3-column: explorer + board + right sidebar)
@@ -1059,12 +1062,7 @@ struct MainWindowView: View {
                 .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
                 // Floating board controls — overlaid (absolute) so they never shift the board.
                 .overlay(alignment: .topTrailing) {
-                    HStack(spacing: 8) {
-                        boardIconButton("arrow.up.arrow.down", "Flip Board (⇧⌘F)") { isBoardFlipped.toggle() }
-                        boardIconButton("arrow.counterclockwise", "Reset Board (⌘N)") { resetGame() }
-                        boardIconButton("square.grid.3x3", "Set Up Position") { showingSetupPosition = true }
-                        saveSplitButton
-                    }
+                    boardActionsMenu
                     .padding(.top, 16)
                     .padding(.trailing, 20)
                 }
