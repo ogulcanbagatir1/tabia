@@ -83,6 +83,7 @@ struct TabiaApp: App {
                 .environmentObject(database)
                 .environmentObject(repertoireDatabase)
                 .environmentObject(referenceDatabase)
+                .tint(DS.redAccent)   // our one red pen — never the system blue
                 .frame(minWidth: 900, minHeight: 600)
                 .task {
                     database.startBackgroundBackfills()
@@ -190,6 +191,7 @@ struct TabiaApp: App {
                 .environmentObject(database)
                 .environmentObject(repertoireDatabase)
                 .environmentObject(referenceDatabase)
+                .tint(DS.redAccent)
                 .frame(minWidth: 760, minHeight: 540)
                 .preferredColorScheme(settings.appAppearance == .light ? .light : settings.appAppearance == .dark ? .dark : nil)
         }
