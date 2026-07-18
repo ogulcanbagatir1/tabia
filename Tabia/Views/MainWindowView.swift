@@ -488,9 +488,12 @@ struct MainWindowView: View {
         }
         newTab()
         hydrateRepertoire(rep)
+        // Study your own side: a Black repertoire opens from Black's view.
+        isBoardFlipped = (rep.side == .black)
         let s = windowModel.active
         s.repertoireId = rep.id
         s.repNodeMap = repNodeMap
+        s.isFlipped = isBoardFlipped
         s.customTitle = rep.name
         s.title = rep.name
         activeRepertoire = rep
@@ -520,6 +523,7 @@ struct MainWindowView: View {
             gameTree.currentNode = gameNode
             guard gameTree.addMove(move, notation: childRep.san) else { continue }
             let newGameNode = gameTree.currentNode
+            newGameNode.comment = childRep.annotation   // carry the repertoire's note onto the board
             repNodeMap[newGameNode.id] = childRep.id
             hydrateRepChildren(of: childRep, gameNode: newGameNode)
         }
@@ -563,8 +567,15 @@ struct MainWindowView: View {
                         ownership: ownership,
                         isPrimary: isUserMove
                     )
+                    newRepNode.annotation = child.comment
                     repNodeMap[child.id] = newRepNode.id
                     repertoireDB.insertNode(newRepNode, into: rep, parent: parentRep)
+                } else if let repId = repNodeMap[child.id],
+                          let repNode = rep.nodes.first(where: { $0.id == repId }),
+                          repNode.annotation != child.comment {
+                    // Note edited on the board → flush it back to the repertoire.
+                    repNode.annotation = child.comment
+                    repertoireDB.updateNode(repNode)
                 }
                 addChildren(child)
             }
