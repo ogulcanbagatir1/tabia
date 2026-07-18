@@ -162,7 +162,9 @@ struct MainWindowView: View {
         .overlay { ReferenceActivityBadge() }
         .errorBannerHost()
         .sheet(isPresented: $showingSaveSheet) {
-            SaveGameView(gameTree: gameTree, database: database)
+            SaveGameView(gameTree: gameTree, database: database,
+                         onSavedGame: { linkTabToGame($0) },
+                         onSavedRepertoire: { linkTabToRepertoire($0) })
                 .environmentObject(repertoireDB)
         }
         .confirmationDialog("This board has unsaved changes.",
@@ -481,15 +483,85 @@ struct MainWindowView: View {
         loadGame(game)
     }
 
-    /// The Save action for the active tab. A repertoire-linked tab writes its edits back into that
-    /// repertoire (explicit save — nothing persists until you ask); any other tab opens the Save sheet.
+    /// Save — write the active tab's edits back into whatever it's linked to (its repertoire or its
+    /// library game). A tab that isn't linked to anything yet falls through to Save As (the sheet).
     private func saveActiveTab() {
         if let rep = activeRepertoire {
             reconcileRepertoire(rep)
             windowModel.active.isDirty = false
+        } else if let gameId = currentGameId, let game = database.game(withId: gameId) {
+            game.pgn = gameTree.toPGN(headers: linkedGameHeaders())
+            if !whiteName.isEmpty { game.white = whiteName }
+            if !blackName.isEmpty { game.black = blackName }
+            if !currentResult.isEmpty { game.result = currentResult }
+            if !currentEvent.isEmpty { game.event = currentEvent }
+            database.updateGame(game)
+            windowModel.active.isDirty = false
         } else {
             showingSaveSheet = true
         }
+    }
+
+    /// Save As — always mint a NEW game or repertoire (via the sheet), then link the tab to it so
+    /// the next plain Save updates that same entity instead of spawning another copy.
+    private func saveAsActiveTab() { showingSaveSheet = true }
+
+    /// Label for the Save affordance, reflecting what a plain Save will write to.
+    private var saveActionLabel: String {
+        if activeRepertoire != nil { return "Save to Repertoire" }
+        if currentGameId != nil { return "Save Game" }
+        return "Save"
+    }
+
+    private func linkedGameHeaders() -> [String: String] {
+        var h: [String: String] = [:]
+        if !whiteName.isEmpty { h["White"] = whiteName }
+        if !blackName.isEmpty { h["Black"] = blackName }
+        if !currentEvent.isEmpty { h["Event"] = currentEvent }
+        if !currentResult.isEmpty { h["Result"] = currentResult }
+        return h
+    }
+
+    /// After Save As creates a game, bind this tab to it (so plain Save updates it, no duplicates).
+    private func linkTabToGame(_ record: GameRecord) {
+        activeRepertoire = nil
+        currentGameId = record.id
+        let s = windowModel.active
+        s.repertoireId = nil
+        s.repNodeMap = [:]
+        s.currentGameId = record.id
+        s.isDirty = false
+    }
+
+    /// After Save As creates a repertoire, bind this tab to it by matching the live tree to the new
+    /// repertoire's nodes (move-by-move), so plain Save reconciles into it instead of forking again.
+    private func linkTabToRepertoire(_ rep: Repertoire) {
+        repNodeMap.removeAll()
+        if let rootRepId = rep.rootNodeId,
+           let rootRep = rep.nodes.first(where: { $0.id == rootRepId }) {
+            repNodeMap[gameTree.root.id] = rootRep.id
+            func match(_ gameNode: GameNode, _ repNode: RepertoireNode) {
+                for child in gameNode.children {
+                    guard let move = child.move else { continue }
+                    let uci = repertoireUCI(from: move)
+                    if let repChild = repNode.children.first(where: { $0.uciMove == uci }) {
+                        repNodeMap[child.id] = repChild.id
+                        match(child, repChild)
+                    }
+                }
+            }
+            match(gameTree.root, rootRep)
+        }
+        currentGameId = nil
+        activeRepertoire = rep
+        let s = windowModel.active
+        s.currentGameId = nil
+        s.repertoireId = rep.id
+        s.repNodeMap = repNodeMap
+        s.customTitle = rep.name
+        s.title = rep.name
+        s.isDirty = false
+        windowModel.objectWillChange.send()
     }
 
     // MARK: - Repertoire recording (open a repertoire as an analysis tab; moves persist as prep)
@@ -838,6 +910,27 @@ struct MainWindowView: View {
         .help(help)
     }
 
+    /// Save as a split control: click saves to the linked entity; the chevron offers Save As (new).
+    private var saveSplitButton: some View {
+        Menu {
+            Button(saveActionLabel) { saveActiveTab() }
+            Button("Save As…") { saveAsActiveTab() }
+        } label: {
+            Image(systemName: "square.and.arrow.down")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundColor(DS.ink60)
+                .frame(width: 28, height: 28)
+                .background(DS.chrome, in: RoundedRectangle(cornerRadius: DS.rChip, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: DS.rChip, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+                .contentShape(Rectangle())
+        } primaryAction: {
+            saveActiveTab()
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("\(saveActionLabel) — chevron for Save As")
+    }
+
     // MARK: - Analysis Layout (3-column: explorer + board + right sidebar)
 
     private var analysisLayout: some View {
@@ -970,8 +1063,7 @@ struct MainWindowView: View {
                         boardIconButton("arrow.up.arrow.down", "Flip Board (⇧⌘F)") { isBoardFlipped.toggle() }
                         boardIconButton("arrow.counterclockwise", "Reset Board (⌘N)") { resetGame() }
                         boardIconButton("square.grid.3x3", "Set Up Position") { showingSetupPosition = true }
-                        boardIconButton("square.and.arrow.down",
-                                        activeRepertoire != nil ? "Save to Repertoire (⌘S)" : "Save Game (⌘S)") { saveActiveTab() }
+                        saveSplitButton
                     }
                     .padding(.top, 16)
                     .padding(.trailing, 20)

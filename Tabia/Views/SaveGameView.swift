@@ -6,6 +6,10 @@ struct SaveGameView: View {
     @EnvironmentObject private var repertoireDB: RepertoireDatabase
     @Environment(\.dismiss) private var dismiss
 
+    /// Called after a new entity is created, so the caller can link the tab to it (Save As).
+    var onSavedGame: (GameRecord) -> Void = { _ in }
+    var onSavedRepertoire: (Repertoire) -> Void = { _ in }
+
     enum SaveTarget: String, CaseIterable { case game = "Game", repertoire = "Repertoire" }
     @State private var saveMode: SaveTarget = .game
     @State private var repName = ""
@@ -226,6 +230,7 @@ struct SaveGameView: View {
         )
 
         database.addGame(record)
+        onSavedGame(record)
         showingSaveSuccess = true
     }
 
@@ -233,7 +238,8 @@ struct SaveGameView: View {
         let name = repName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         // The board's tree (variations and all) becomes the new repertoire's prep.
-        repertoireDB.createRepertoire(named: name, side: repSide, importingPGN: generatedPGN)
+        let rep = repertoireDB.createRepertoire(named: name, side: repSide, importingPGN: generatedPGN)
+        onSavedRepertoire(rep)
         showingSaveSuccess = true
     }
 
