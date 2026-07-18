@@ -36,11 +36,16 @@ struct ChessComBrowserView: View {
     @State var importedCount = 0
     @State var syncTimeClassCounts: [String: Int] = [:]
     @State var recentlyImportedGames: [GameRecord] = []
+    /// sourceUrls already in the library, loaded once per sync. Dedup used to run one unindexed
+    /// fetch per game — a full table scan each time, quadratic over a large import.
+    @State var seenSourceUrls: Set<String> = []
     @State var syncTask: Task<Void, Never>?
 
     // Sorting
     @State private var sortColumn: SortColumn = .date
     @State private var sortAscending = false
+    /// Cached sort of `cachedGames`; kept in sync by resortGames().
+    @State private var sortedGames: [GameRecord] = []
 
     enum SortColumn: String {
         case white, black, date, result, opening, timeControl, source
@@ -149,6 +154,7 @@ struct ChessComBrowserView: View {
     func reloadGames() {
         guard hasAnyAccount else { return }
         cachedGames = []
+        sortedGames = []
         dbOffset = 0
         allDbGamesExhausted = false
         isLoadingGames = true
@@ -172,6 +178,7 @@ struct ChessComBrowserView: View {
             } else {
                 cachedGames = batch
             }
+            resortGames()
             isLoadingGames = false
         }
     }
@@ -196,6 +203,7 @@ struct ChessComBrowserView: View {
             } else {
                 cachedGames.append(contentsOf: batch)
             }
+            resortGames()
             isLoadingGames = false
         }
     }
@@ -853,8 +861,11 @@ struct ChessComBrowserView: View {
 
     // MARK: - Games List
 
-    private var sortedCachedGames: [GameRecord] {
-        cachedGames.sorted { a, b in
+    /// Sorted view of `cachedGames`, recomputed only when the games or the sort change. As a computed
+    /// property this ran on every body evaluation — an n log n sort with ICU collation on a list that
+    /// grows toward the whole account, re-run on every hover and every sync tick.
+    private func resortGames() {
+        sortedGames = cachedGames.sorted { a, b in
             let result: Bool
             switch sortColumn {
             case .white:       result = a.white.localizedCaseInsensitiveCompare(b.white) == .orderedAscending
@@ -870,68 +881,26 @@ struct ChessComBrowserView: View {
     }
 
     private var gamesList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                Section {
-                    let sorted = sortedCachedGames
-                    ForEach(Array(sorted.enumerated()), id: \.element.id) { index, game in
-                        chessComTableRow(game, isAlternate: index % 2 != 0)
-                            .onTapGesture {
-                                if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-                                    onGameSelected(game)
-                                }
-                                if NSEvent.modifierFlags.contains(.command) {
-                                    if selectedGameIds.contains(game.id) {
-                                        selectedGameIds.remove(game.id)
-                                    } else {
-                                        selectedGameIds.insert(game.id)
-                                    }
-                                } else if NSEvent.modifierFlags.contains(.shift), let last = lastSelectedGame {
-                                    if let startIdx = sorted.firstIndex(where: { $0.id == last.id }),
-                                       let endIdx = sorted.firstIndex(where: { $0.id == game.id }) {
-                                        let range = min(startIdx, endIdx)...max(startIdx, endIdx)
-                                        for i in range {
-                                            selectedGameIds.insert(sorted[i].id)
-                                        }
-                                    }
-                                } else {
-                                    selectedGameIds = [game.id]
-                                }
-                                lastSelectedGame = game
-                            }
-                            .contextMenu {
-                                Button("Open Game") { onGameSelected(game) }
-                                Button("Analyze Game") { onReviewGame(game) }
-                                Divider()
-                                if selectedGameIds.count > 1 {
-                                    moveToFolderMenu(gameIds: selectedGameIds, label: "Move \(selectedGameIds.count) Games to...")
-                                } else {
-                                    moveToFolderMenu(gameIds: [game.id], label: "Move to...")
-                                }
-                            }
-                            .onAppear {
-                                if game.id == cachedGames.last?.id && hasMorePages {
-                                    loadNextPage()
-                                }
-                            }
-                    }
-
-                    if hasMorePages {
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small).tint(DS.redAccent)
-                            Text("Loading more games...")
-                                .font(AnnFont.serif(11))
-                                .foregroundColor(DS.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .onAppear { loadNextPage() }
-                    }
-                } header: {
-                    chessComTableHeader
+        GameTableList(
+            games: sortedGames,
+            selectedGameIds: $selectedGameIds,
+            selectionAnchor: $lastSelectedGame,
+            hasMore: hasMorePages,
+            onOpen: onGameSelected,
+            onLoadMore: loadNextPage,
+            header: { chessComTableHeader },
+            row: { game, isAlternate in chessComTableRow(game, isAlternate: isAlternate) },
+            menu: { game in
+                Button("Open Game") { onGameSelected(game) }
+                Button("Analyze Game") { onReviewGame(game) }
+                Divider()
+                if selectedGameIds.count > 1 {
+                    moveToFolderMenu(gameIds: selectedGameIds, label: "Move \(selectedGameIds.count) Games to...")
+                } else {
+                    moveToFolderMenu(gameIds: [game.id], label: "Move to...")
                 }
             }
-        }
+        )
     }
 
     // Shared column widths — the header and rows use these same values so they line up exactly.
@@ -965,6 +934,7 @@ struct ChessComBrowserView: View {
         let btn = Button(action: {
             if sortColumn == column { sortAscending.toggle() }
             else { sortColumn = column; sortAscending = column != .date }
+            resortGames()
         }) {
             HStack(spacing: 4) {
                 Text(title).font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink25)
@@ -1224,6 +1194,7 @@ struct ChessComBrowserView: View {
         savedUsername = ""
         lastSyncTimestamp = 0
         cachedGames = []
+        sortedGames = []
         totalGameCount = 0
         dbOffset = 0
         allDbGamesExhausted = false
@@ -1237,6 +1208,7 @@ struct ChessComBrowserView: View {
         lichessUsername = ""
         lichessLastSync = 0
         cachedGames = []
+        sortedGames = []
         totalGameCount = 0
         dbOffset = 0
         allDbGamesExhausted = false

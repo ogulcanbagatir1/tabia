@@ -238,7 +238,7 @@ class LibraryExplorerService: ObservableObject {
         for (san, stats) in moveStatsDict {
             let uci: String
             if let move = notation.fromAlgebraic(san) {
-                uci = moveToUCI(move)
+                uci = UCI.string(from: move)
             } else {
                 uci = san // fallback
             }
@@ -266,30 +266,8 @@ class LibraryExplorerService: ObservableObject {
 
     // MARK: - UCI Helpers
 
-    private static func moveToUCI(_ move: Move) -> String {
-        let files = "abcdefgh"
-        let fromFile = files[files.index(files.startIndex, offsetBy: move.from.file)]
-        let fromRank = move.from.rank + 1
-        let toFile = files[files.index(files.startIndex, offsetBy: move.to.file)]
-        let toRank = move.to.rank + 1
-
-        var uci = "\(fromFile)\(fromRank)\(toFile)\(toRank)"
-
-        if let promotion = move.promotionType {
-            switch promotion {
-            case .queen: uci += "q"
-            case .rook: uci += "r"
-            case .bishop: uci += "b"
-            case .knight: uci += "n"
-            default: break
-            }
-        }
-
-        return uci
-    }
-
     /// Get UCI move sequence from board's move history
     private static func getMoveSequenceUCI(board: ChessBoard) -> [String] {
-        board.moveHistory.map { moveToUCI($0) }
+        board.moveHistory.map { UCI.string(from: $0) }
     }
 }

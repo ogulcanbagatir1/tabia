@@ -255,7 +255,7 @@ struct SaveGameView: View {
                 do {
                     try generatedPGN.write(to: url, atomically: true, encoding: .utf8)
                 } catch {
-                    print("Error saving PGN: \(error)")
+                    AppErrorReporter.report("Couldn't export the PGN to \(url.lastPathComponent).", error: error)
                 }
             }
         }

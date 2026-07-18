@@ -416,7 +416,7 @@ struct RepertoireDrillView: View {
     private func handleUserMove() {
         guard session.phase == .userToMove else { return }
         guard let move = gameTree.currentNode.move else { return }
-        let uci = DrillSession.uci(from: move)
+        let uci = UCI.string(from: move)
         session.attemptUserMove(uci)
     }
 

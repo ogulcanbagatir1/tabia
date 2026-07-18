@@ -9,13 +9,19 @@ class MoveGenerator {
     
     // MARK: - Legal Moves
     func legalMoves(for position: Position) -> [Move] {
-        guard let piece = board.pieceAt(position),
-              piece.color == board.turn else {
-            return []
-        }
-        
+        guard let piece = board.pieceAt(position), piece.color == board.turn else { return [] }
+        return legalMovesIgnoringTurn(for: position)
+    }
+
+    /// Legal moves for whatever stands on `position`, without the whose-turn-is-it guard.
+    /// Terminal-condition checks need this: `legalMoves(for:)` returns [] for the side not to move,
+    /// so asking it about the opponent reports "no legal moves" — i.e. stalemate — in every position,
+    /// including the starting one.
+    private func legalMovesIgnoringTurn(for position: Position) -> [Move] {
+        guard let piece = board.pieceAt(position) else { return [] }
+
         var moves: [Move] = []
-        
+
         switch piece.type {
         case .pawn:
             moves = pawnMoves(from: position, piece: piece)
@@ -44,7 +50,7 @@ class MoveGenerator {
             for rank in 0..<8 {
                 let position = Position(file, rank)
                 if let piece = board.pieceAt(position), piece.color == color {
-                    allMoves.append(contentsOf: legalMoves(for: position))
+                    allMoves.append(contentsOf: legalMovesIgnoringTurn(for: position))
                 }
             }
         }
@@ -61,7 +67,7 @@ class MoveGenerator {
             for rank in 0..<8 {
                 let position = Position(file, rank)
                 if let piece = board.pieceAt(position), piece.color == color {
-                    if !legalMoves(for: position).isEmpty {
+                    if !legalMovesIgnoringTurn(for: position).isEmpty {
                         return true
                     }
                 }
@@ -429,5 +435,49 @@ class MoveGenerator {
 
     func isStalemate(color: PieceColor) -> Bool {
         return !isInCheck(color: color) && !hasAnyLegalMove(for: color)
+    }
+
+    /// FIDE 9.4/9.6 dead position, restricted to the material-only cases every engine agrees on:
+    /// K vs K, K+minor vs K, and K+B vs K+B with both bishops on the same colour complex.
+    /// K+N+N vs K is deliberately excluded — mate is unforceable but still possible, so it is not a
+    /// dead position.
+    func isInsufficientMaterial() -> Bool {
+        var bishopSquareColors: [PieceColor: [Int]] = [.white: [], .black: []]
+        var knightCounts: [PieceColor: Int] = [.white: 0, .black: 0]
+
+        for file in 0..<8 {
+            for rank in 0..<8 {
+                guard let piece = board.pieceAt(Position(file, rank)) else { continue }
+                switch piece.type {
+                case .king:
+                    continue
+                case .pawn, .rook, .queen:
+                    return false          // any of these can force mate
+                case .bishop:
+                    bishopSquareColors[piece.color]?.append((file + rank) % 2)
+                case .knight:
+                    knightCounts[piece.color]? += 1
+                }
+            }
+        }
+
+        let whiteBishops = bishopSquareColors[.white] ?? []
+        let blackBishops = bishopSquareColors[.black] ?? []
+        let whiteKnights = knightCounts[.white] ?? 0
+        let blackKnights = knightCounts[.black] ?? 0
+        let whiteMinors = whiteBishops.count + whiteKnights
+        let blackMinors = blackBishops.count + blackKnights
+
+        // K vs K, and K + one minor vs K.
+        if whiteMinors + blackMinors <= 1 { return true }
+
+        // K+B vs K+B, both bishops on the same colour complex.
+        if whiteKnights == 0, blackKnights == 0,
+           whiteBishops.count == 1, blackBishops.count == 1,
+           whiteBishops[0] == blackBishops[0] {
+            return true
+        }
+
+        return false
     }
 }

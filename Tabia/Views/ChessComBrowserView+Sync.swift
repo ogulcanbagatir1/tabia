@@ -12,6 +12,7 @@ extension ChessComBrowserView {
         importedCount = 0
         syncTimeClassCounts = [:]
         recentlyImportedGames = []
+        seenSourceUrls = database.existingChessComSourceUrls(for: savedUsername)
 
         let username = savedUsername
 
@@ -46,6 +47,7 @@ extension ChessComBrowserView {
         importedCount = 0
         syncTimeClassCounts = [:]
         recentlyImportedGames = []
+        seenSourceUrls = database.existingChessComSourceUrls(for: username)
 
         syncTask = Task {
             // Import games in batches to avoid blocking
@@ -80,10 +82,13 @@ extension ChessComBrowserView {
         // Save to DB on main thread
         await MainActor.run {
             // Dedup: filter out games already in DB
+            // In-memory dedup against the set loaded once per sync, plus the urls seen in
+            // earlier batches of this run.
             let newRecords = records.filter { record in
                 guard let sourceUrl = record.sourceUrl else { return true }
-                return !database.sourceUrlExists(sourceUrl)
+                return !seenSourceUrls.contains(sourceUrl)
             }
+            seenSourceUrls.formUnion(newRecords.compactMap { $0.sourceUrl })
 
             if !newRecords.isEmpty {
                 database.addGames(newRecords, isChessComImport: true)
@@ -121,6 +126,9 @@ extension ChessComBrowserView {
             importedCount = 0
             syncTimeClassCounts = [:]
             recentlyImportedGames = []
+            // Lichess can sync on its own, so seed the dedup set here too — otherwise it would be
+            // empty and every already-imported game would look new.
+            seenSourceUrls = database.existingChessComSourceUrls(for: lichessUsername)
         }
 
         let username = lichessUsername
@@ -159,10 +167,13 @@ extension ChessComBrowserView {
         guard !Task.isCancelled else { return }
 
         await MainActor.run {
+            // In-memory dedup against the set loaded once per sync, plus the urls seen in
+            // earlier batches of this run.
             let newRecords = records.filter { record in
                 guard let sourceUrl = record.sourceUrl else { return true }
-                return !database.sourceUrlExists(sourceUrl)
+                return !seenSourceUrls.contains(sourceUrl)
             }
+            seenSourceUrls.formUnion(newRecords.compactMap { $0.sourceUrl })
 
             if !newRecords.isEmpty {
                 database.addGames(newRecords, isChessComImport: true)

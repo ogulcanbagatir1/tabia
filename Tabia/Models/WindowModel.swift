@@ -62,6 +62,9 @@ struct PersistedTab: Codable {
     var openingName: String? = nil
     var openingECO: String? = nil
     var gameId: String? = nil
+    /// The repertoire this tab records into, if any. Without it a restored repertoire tab looks
+    /// intact but has lost its link, and Save silently falls through to the library-game branch.
+    var repertoireId: String? = nil
 }
 
 struct PersistedTabSet: Codable {

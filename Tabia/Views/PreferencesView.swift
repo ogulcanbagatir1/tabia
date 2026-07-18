@@ -96,13 +96,9 @@ struct AccountsImportView: View {
                 )
                 rowDivider
 
-                settingRow(title: "Auto-sync", subtitle: "PULL NEW GAMES IN THE BACKGROUND") {
-                    HStack(spacing: 14) {
-                        intervalSegmented
-                        redToggle($settings.autoSyncEnabled)
-                    }
-                }
-                rowDivider
+                // Auto-sync is not built yet — there is no background scheduler, so the control was
+                // promising something that never happened. The `autoSyncEnabled` / `syncIntervalRaw`
+                // keys are kept so the row can come back once a headless sync service exists.
 
                 settingRow(title: "Skip duplicates", subtitle: "MATCH BY PLAYERS, DATE AND MOVES") {
                     redToggle($settings.skipDuplicatesOnImport)
@@ -165,27 +161,6 @@ struct AccountsImportView: View {
     private var rowDivider: some View { Rectangle().fill(DS.hairline).frame(height: 1) }
 
     // MARK: Controls
-
-    private var intervalSegmented: some View {
-        let options: [(String, String)] = [("15m", "15M"), ("1h", "1H"), ("6h", "6H"), ("daily", "DAILY")]
-        return HStack(spacing: 2) {
-            ForEach(options, id: \.0) { opt in
-                let sel = settings.syncIntervalRaw == opt.0
-                Button { withAnimation(DS.quickFade) { settings.syncIntervalRaw = opt.0 } } label: {
-                    Text(opt.1).font(AnnFont.label(10)).tracking(10 * 0.1)
-                        .foregroundColor(sel ? DS.ink : DS.ink40)
-                        .padding(.vertical, 6).padding(.horizontal, 12)
-                        .background(sel ? RoundedRectangle(cornerRadius: 7, style: .continuous).fill(DS.selectedWash) : nil)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(DS.trackBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-        .opacity(settings.autoSyncEnabled ? 1 : 0.4)
-    }
 
     private func redToggle(_ isOn: Binding<Bool>) -> some View {
         Button {
@@ -409,58 +384,6 @@ private func settingsSectionLabel(_ text: String) -> some View {
 
 // MARK: - Custom Toggle Row
 
-struct SettingsToggleRow: View {
-    let label: String
-    var description: String = ""
-    @Binding var isOn: Bool
-    var showBorder: Bool = false
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(AnnFont.serif(13, .medium))
-                    .foregroundColor(DS.ink)
-
-                if !description.isEmpty {
-                    Text(description)
-                        .font(AnnFont.serif(11))
-                        .foregroundColor(DS.ink40)
-                }
-            }
-
-            Spacer()
-
-            // Toggle (40x22 capsule)
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) { isOn.toggle() }
-            } label: {
-                ZStack(alignment: isOn ? .trailing : .leading) {
-                    Capsule()
-                        .fill(isOn ? DS.redInk : DS.trackBg)
-                        .overlay(
-                            isOn ? nil : Capsule().strokeBorder(DS.borderChip, lineWidth: 1)
-                        )
-                        .frame(width: 40, height: 22)
-                    Circle()
-                        .fill(isOn ? DS.onRed : DS.ink60)
-                        .frame(width: 18, height: 18)
-                        .padding(.horizontal, 2)
-                }
-                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isOn)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 18)
-        .overlay(alignment: .bottom) {
-            if showBorder {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-        }
-    }
-}
-
 // MARK: - Board Theme Preview
 
 struct BoardThemePreview: View {
@@ -509,50 +432,6 @@ struct BoardThemePreview: View {
 
 // MARK: - Piece Style Preview
 
-struct PieceStylePreview: View {
-    let style: PieceStyle
-    let isSelected: Bool
-
-    private var previewPiece: Piece {
-        Piece(type: .knight, color: .black)
-    }
-
-    var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(DS.paperRaised)
-                }
-                .frame(width: 50, height: 50)
-
-                if let nsImage = loadPieceImage(style.imageFileName(for: previewPiece)) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 36, height: 36)
-                } else {
-                    Text("\u{265E}")
-                        .font(.system(size: 30))
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(
-                        isSelected ? DS.redAccent : DS.hairline,
-                        lineWidth: isSelected ? 2 : 1
-                    )
-            )
-            .shadow(color: isSelected ? DS.redAccent.opacity(0.2) : Color.black.opacity(0.12), radius: isSelected ? 6 : 4, x: 0, y: 2)
-
-            Text(style.name)
-                .font(AnnFont.serif(10, isSelected ? .medium : .regular))
-                .foregroundColor(isSelected ? DS.ink : DS.ink40)
-        }
-    }
-}
-
 // MARK: - Engine Settings
 
 struct EngineSettingsView: View {
@@ -573,10 +452,8 @@ struct EngineSettingsView: View {
                 settingRow(title: "Analyze on open", subtitle: "START THE ENGINE WHEN A GAME LOADS") {
                     redToggle($settings.autoAnalyze)
                 }
-                rowDivider
-                settingRow(title: "Cloud fallback", subtitle: "USE LICHESS CLOUD WHEN NO LOCAL ENGINE") {
-                    redToggle($settings.cloudFallbackEnabled)
-                }
+                // Cloud fallback is not built — there is no cloud-eval path, so a missing local engine
+                // simply reports unavailable. The `cloudFallbackEnabled` key is kept for when it is.
                 rowDivider
                 settingRow(title: "Engine Room", subtitle: "INSTALL, REMOVE AND TUNE ENGINES — \u{2318}E") {
                     Button { openWindow(id: WindowID.engineRoom) } label: {

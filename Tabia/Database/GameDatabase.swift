@@ -131,9 +131,11 @@ final class GameRecord {
     }
 
     static func from(pgnGame: PGNGame, pgn: String) -> GameRecord {
-        // Use opening name from PGN header if present, otherwise resolve from ECO code
+        // Use opening name from PGN header if present, otherwise resolve from ECO code — unless the
+        // user turned off "Classify openings on import", in which case only what the PGN states is kept.
         var openingName = pgnGame.opening
-        if (openingName == nil || openingName?.isEmpty == true), let eco = pgnGame.eco, !eco.isEmpty {
+        if (openingName == nil || openingName?.isEmpty == true), let eco = pgnGame.eco, !eco.isEmpty,
+           AppSettings.shared.classifyOpeningsOnImport {
             openingName = OpeningBook.shared.findByECO(eco) ?? ECODatabase.openingName(for: eco)
         }
 
@@ -153,10 +155,14 @@ final class GameRecord {
         )
     }
 
+    /// Compiled once — `from(pgnGame:pgn:)` calls this twice per game, so an inline
+    /// NSRegularExpression meant two compilations per imported game.
+    private static let whiteEloRegex = try? NSRegularExpression(pattern: "\\[WhiteElo \"(\\d+)\"\\]")
+    private static let blackEloRegex = try? NSRegularExpression(pattern: "\\[BlackElo \"(\\d+)\"\\]")
+
     /// Extract Elo rating from PGN header text
     static func extractEloFromPGN(_ pgn: String, color: String) -> Int? {
-        let pattern = "\\[\(color)Elo \"(\\d+)\"\\]"
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = color == "White" ? whiteEloRegex : blackEloRegex,
               let match = regex.firstMatch(in: pgn, range: NSRange(pgn.startIndex..., in: pgn)),
               let range = Range(match.range(at: 1), in: pgn) else { return nil }
         return Int(pgn[range])
@@ -303,6 +309,13 @@ class GameDatabase: ObservableObject {
         let games: [GameRecord]
         let rawConsumed: Int   // rows the DB actually returned — advance the offset by THIS
         let reachedEnd: Bool   // DB returned fewer rows than requested → nothing more to page
+    }
+
+    /// Every game in the store — offline library imports AND synced online games. `fetchLibraryGames`
+    /// deliberately excludes synced games (`sourceUsername == nil`); repertoire game-linking wants the
+    /// opposite, since your synced games are precisely "real play".
+    func allGames() -> [GameRecord] {
+        (try? modelContext.fetch(FetchDescriptor<GameRecord>())) ?? []
     }
 
     func fetchLibraryGames(

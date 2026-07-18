@@ -30,9 +30,26 @@ class RepertoireDatabase: ObservableObject {
             sortBy: [SortDescriptor(\.order), SortDescriptor(\.name)]
         )
         folders = (try? modelContext.fetch(folderDescriptor)) ?? []
+
+        rebuildPositionIndex()
+    }
+
+    /// Depth of nested `performBatch` calls. While non-zero, `save()` is a no-op and the single
+    /// commit happens when the outermost batch closes.
+    private var batchDepth = 0
+
+    /// Run many mutations as one commit. Node CRUD saves individually, and each save is a SwiftData
+    /// commit **plus** `objectWillChange` **plus** a full cache re-fetch — so reconciling a 500-node
+    /// repertoire meant 500 of each, and every broadcast re-ran the deviation badge's own scan.
+    func performBatch(_ body: () -> Void) {
+        batchDepth += 1
+        body()
+        batchDepth -= 1
+        if batchDepth == 0 { save() }
     }
 
     private func save() {
+        guard batchDepth == 0 else { return }   // deferred to the end of the enclosing batch
         modelContext.saveOrReport("your repertoire")
         objectWillChange.send()
         refreshCache()
@@ -228,17 +245,80 @@ class RepertoireDatabase: ObservableObject {
     func migrateTrainingIfNeeded(_ repertoire: Repertoire) {
         guard positionSchedules(for: repertoire.id).isEmpty else { return }
         var created = false
+        // Track keys in memory. `positionSchedule(repertoireId:positionHash:)` fetches every row and
+        // filters in memory, so calling it per node was O(nodes × schedules) fetches. The guard above
+        // already proved the set starts empty, so only what we insert here can collide.
+        var seenKeys = Set<Int64>()
         for node in repertoire.nodes where node.isUserMove && node.isPrimary {
             guard let stats = node.training, (stats.correctCount + stats.wrongCount) > 0 else { continue }
             guard let parent = node.parent, !parent.fen.isEmpty,
                   let board = ChessBoard(fen: parent.fen) else { continue }
             let key = Zobrist.sqliteKey(board)
-            if positionSchedule(repertoireId: repertoire.id, positionHash: key) == nil {
+            if seenKeys.insert(key).inserted {
                 modelContext.insert(PositionSchedule(repertoireId: repertoire.id, positionHash: key, stats: stats))
                 created = true
             }
         }
         if created { saveTrainingChanges() }
+    }
+
+    // MARK: - Game Links (repertoire positions you actually reached in your own games)
+
+    /// Recompute `gameLinkIds` across `repertoire`'s nodes by replaying `games` and matching on
+    /// Zobrist hash — so transposing into a prepared line counts, not just literal move order.
+    /// The root is skipped: every game trivially "reaches" the starting position.
+    ///
+    /// PGN parsing and replay run off the main thread over plain values; only the SwiftData write
+    /// comes back to the context's thread. `completion` reports how many nodes ended up linked.
+    func rebuildGameLinks(for repertoire: Repertoire, games: [GameRecord], completion: ((Int) -> Void)? = nil) {
+        // One position can sit under several nodes when the repertoire reaches it by two move orders.
+        var nodesByKey: [Int64: [RepertoireNode]] = [:]
+        for node in repertoire.nodes where node.uciMove != nil && !node.fen.isEmpty {
+            guard let board = ChessBoard(fen: node.fen) else { continue }
+            nodesByKey[Zobrist.sqliteKey(board), default: []].append(node)
+        }
+        guard !nodesByKey.isEmpty else { completion?(0); return }
+
+        // Snapshot plain values — @Model objects must not cross threads.
+        let wanted = Set(nodesByKey.keys)
+        let entries: [(id: UUID, pgn: String)] = games.map { ($0.id, $0.pgn) }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var hits: [Int64: Set<UUID>] = [:]
+            let parser = PGNParser()
+            let replay = IngestBoard()
+
+            for entry in entries {
+                guard let parsed = parser.parse(string: entry.pgn).first, !parsed.moves.isEmpty else { continue }
+                replay.reset()
+                for san in parsed.moves {
+                    // An unparseable move means the rest of the replay is untrustworthy — drop it.
+                    guard let move = replay.resolve(san) else { break }
+                    replay.apply(move)
+                    let key = replay.zobristKey()
+                    if wanted.contains(key) { hits[key, default: []].insert(entry.id) }
+                }
+            }
+
+            DispatchQueue.main.async {
+                guard let self else { return }
+                var linked = 0
+                var changed = false
+                for (key, nodes) in nodesByKey {
+                    let ids = Array(hits[key] ?? [])
+                    for node in nodes {
+                        if !ids.isEmpty { linked += 1 }
+                        // Only write nodes whose link set actually moved.
+                        if Set(node.gameLinkIds) != Set(ids) {
+                            node.gameLinkIds = ids
+                            changed = true
+                        }
+                    }
+                }
+                if changed { self.save() } else { self.objectWillChange.send() }
+                completion?(linked)
+            }
+        }
     }
 
     // MARK: - Folder CRUD
@@ -279,19 +359,26 @@ class RepertoireDatabase: ObservableObject {
         return fen
     }
 
-    /// All repertoires that contain a node at the given board position, optionally filtered by side.
-    func repertoires(matching positionKey: String, side: RepertoireSide? = nil) -> [(Repertoire, RepertoireNode)] {
-        var results: [(Repertoire, RepertoireNode)] = []
+    /// positionKey → the repertoire nodes standing on it. Rebuilt with the cache; makes the deviation
+    /// badge an O(1) dictionary hit instead of an O(repertoires × nodes) walk that re-ran — and
+    /// re-split every node's FEN — on every single board move.
+    private var positionIndex: [String: [(Repertoire, RepertoireNode)]] = [:]
+
+    private func rebuildPositionIndex() {
+        var index: [String: [(Repertoire, RepertoireNode)]] = [:]
         for rep in repertoires {
-            if let side, rep.side != side { continue }
-            for node in rep.nodes {
-                if node.fen.isEmpty { continue }
-                if Self.positionKey(fromFEN: node.fen) == positionKey {
-                    results.append((rep, node))
-                }
+            for node in rep.nodes where !node.fen.isEmpty {
+                index[Self.positionKey(fromFEN: node.fen), default: []].append((rep, node))
             }
         }
-        return results
+        positionIndex = index
+    }
+
+    /// All repertoires that contain a node at the given board position, optionally filtered by side.
+    func repertoires(matching positionKey: String, side: RepertoireSide? = nil) -> [(Repertoire, RepertoireNode)] {
+        let hits = positionIndex[positionKey] ?? []
+        guard let side else { return hits }
+        return hits.filter { $0.0.side == side }
     }
 
     /// Walk every repertoire's tree from root, replay UCI moves to compute FEN for any node that
@@ -310,6 +397,9 @@ class RepertoireDatabase: ObservableObject {
         }
         if dirty {
             modelContext.saveOrReport("your repertoire")
+            // Nodes with an empty FEN were skipped when the index was built in refreshCache();
+            // now that they have one, the index has to see them.
+            rebuildPositionIndex()
         }
     }
 
@@ -317,7 +407,7 @@ class RepertoireDatabase: ObservableObject {
         var dirty = false
         for child in node.children {
             guard let uci = child.uciMove,
-                  let move = Self.parseUCI(uci, board: board) else { continue }
+                  let move = UCI.move(uci, board: board) else { continue }
             let newBoard = board.copy()
             guard newBoard.makeMove(move) else { continue }
             if child.fen.isEmpty {
@@ -327,40 +417,6 @@ class RepertoireDatabase: ObservableObject {
             if backfillFromNode(child, board: newBoard) { dirty = true }
         }
         return dirty
-    }
-
-    private static func parseUCI(_ uci: String, board: ChessBoard) -> Move? {
-        guard uci.count >= 4 else { return nil }
-        let chars = Array(uci)
-        guard let fromFileAscii = chars[0].asciiValue,
-              let toFileAscii = chars[2].asciiValue else { return nil }
-        let fromFile = Int(fromFileAscii) - Int(Character("a").asciiValue!)
-        guard let fromRank = Int(String(chars[1])) else { return nil }
-        let toFile = Int(toFileAscii) - Int(Character("a").asciiValue!)
-        guard let toRank = Int(String(chars[3])) else { return nil }
-        let from = Position(fromFile, fromRank - 1)
-        let to = Position(toFile, toRank - 1)
-        guard let piece = board.pieceAt(from) else { return nil }
-        var promotionType: PieceType? = nil
-        if chars.count >= 5 {
-            switch chars[4] {
-            case "q": promotionType = .queen
-            case "r": promotionType = .rook
-            case "b": promotionType = .bishop
-            case "n": promotionType = .knight
-            default: break
-            }
-        }
-        let capturedPiece = board.pieceAt(to)
-        let isEnPassant = piece.type == .pawn && from.file != to.file && capturedPiece == nil
-        let isCastling = piece.type == .king && abs(from.file - to.file) == 2
-        return Move(
-            from: from, to: to, piece: piece,
-            capturedPiece: isEnPassant ? board.pieceAt(Position(to.file, from.rank)) : capturedPiece,
-            isEnPassant: isEnPassant,
-            isCastling: isCastling,
-            promotionType: promotionType
-        )
     }
 
     // MARK: - PGN Import
@@ -409,7 +465,7 @@ class RepertoireDatabase: ObservableObject {
             let newBoard = currentBoard.copy()
             guard newBoard.makeMove(move) else { break }
 
-            let uci = Self.uci(from: move)
+            let uci = UCI.string(from: move)
             var matched = currentParent.children.first(where: { $0.uciMove == uci })
 
             if matched == nil {
@@ -444,24 +500,6 @@ class RepertoireDatabase: ObservableObject {
             currentBoard = newBoard
             pgn = node.next
         }
-    }
-
-    private static func uci(from move: Move) -> String {
-        func sq(_ p: Position) -> String {
-            let file = Character(UnicodeScalar(Int(Character("a").asciiValue!) + p.file)!)
-            return "\(file)\(p.rank + 1)"
-        }
-        var s = sq(move.from) + sq(move.to)
-        if let promo = move.promotionType {
-            switch promo {
-            case .queen:  s += "q"
-            case .rook:   s += "r"
-            case .bishop: s += "b"
-            case .knight: s += "n"
-            default: break
-            }
-        }
-        return s
     }
 
     // MARK: - Preview Helper

@@ -424,7 +424,7 @@ final class DrillSession: ObservableObject {
 
     /// Apply a node's move to the authoritative board and move the cursor onto it.
     private func stepInto(_ node: RepertoireNode) {
-        if let uci = node.uciMove, let move = Self.parseUCI(uci, board: board) {
+        if let uci = node.uciMove, let move = UCI.move(uci, board: board) {
             _ = board.makeMove(move)
         }
         currentNode = node
@@ -433,56 +433,4 @@ final class DrillSession: ObservableObject {
     }
 
     // MARK: - UCI ↔ Move
-
-    private static func parseUCI(_ uci: String, board: ChessBoard) -> Move? {
-        guard uci.count >= 4 else { return nil }
-        let chars = Array(uci)
-        guard let fromFileAscii = chars[0].asciiValue,
-              let toFileAscii = chars[2].asciiValue else { return nil }
-        let fromFile = Int(fromFileAscii) - Int(Character("a").asciiValue!)
-        guard let fromRank = Int(String(chars[1])) else { return nil }
-        let toFile = Int(toFileAscii) - Int(Character("a").asciiValue!)
-        guard let toRank = Int(String(chars[3])) else { return nil }
-        let from = Position(fromFile, fromRank - 1)
-        let to = Position(toFile, toRank - 1)
-        guard let piece = board.pieceAt(from) else { return nil }
-        var promotionType: PieceType? = nil
-        if chars.count >= 5 {
-            switch chars[4] {
-            case "q": promotionType = .queen
-            case "r": promotionType = .rook
-            case "b": promotionType = .bishop
-            case "n": promotionType = .knight
-            default: break
-            }
-        }
-        let capturedPiece = board.pieceAt(to)
-        let isEnPassant = piece.type == .pawn && from.file != to.file && capturedPiece == nil
-        let isCastling = piece.type == .king && abs(from.file - to.file) == 2
-        return Move(
-            from: from, to: to, piece: piece,
-            capturedPiece: isEnPassant ? board.pieceAt(Position(to.file, from.rank)) : capturedPiece,
-            isEnPassant: isEnPassant,
-            isCastling: isCastling,
-            promotionType: promotionType
-        )
-    }
-
-    static func uci(from move: Move) -> String {
-        func sq(_ p: Position) -> String {
-            let file = Character(UnicodeScalar(Int(Character("a").asciiValue!) + p.file)!)
-            return "\(file)\(p.rank + 1)"
-        }
-        var s = sq(move.from) + sq(move.to)
-        if let promo = move.promotionType {
-            switch promo {
-            case .queen:  s += "q"
-            case .rook:   s += "r"
-            case .bishop: s += "b"
-            case .knight: s += "n"
-            default: break
-            }
-        }
-        return s
-    }
 }

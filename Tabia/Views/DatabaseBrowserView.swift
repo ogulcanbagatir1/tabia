@@ -1209,81 +1209,37 @@ struct DatabaseBrowserView: View {
     // MARK: - Table
 
     private var gamesTable: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                Section {
-                    ForEach(Array(cachedGames.enumerated()), id: \.element.id) { index, game in
-                        VStack(spacing: 0) {
-                            tableRow(game, isAlternate: index % 2 == 1)
-                                .onTapGesture {
-                                    if (NSApp.currentEvent?.clickCount ?? 1) >= 2 {
-                                        onGameSelected(game)
-                                    }
-                                    if NSEvent.modifierFlags.contains(.command) {
-                                        if selectedGameIds.contains(game.id) {
-                                            selectedGameIds.remove(game.id)
-                                        } else {
-                                            selectedGameIds.insert(game.id)
-                                        }
-                                    } else if NSEvent.modifierFlags.contains(.shift), let last = selectedGame {
-                                        let list = cachedGames
-                                        if let startIdx = list.firstIndex(where: { $0.id == last.id }),
-                                           let endIdx = list.firstIndex(where: { $0.id == game.id }) {
-                                            let range = min(startIdx, endIdx)...max(startIdx, endIdx)
-                                            for i in range {
-                                                selectedGameIds.insert(list[i].id)
-                                            }
-                                        }
-                                    } else {
-                                        selectedGameIds = [game.id]
-                                    }
-                                    selectedGame = game
-                                }
-                                .onAppear {
-                                    if game.id == cachedGames.last?.id && !allExhausted {
-                                        loadNextPage()
-                                    }
-                                }
-                                .contextMenu {
-                                    Button("Open") { onGameSelected(game) }
-                                    Button("Analyze Game") { onReviewGame(game) }
-                                    Divider()
-                                    moveToFolderMenu(gameIds: selectedGameIds.count > 1 ? selectedGameIds : [game.id])
-                                    Divider()
-                                    Button("Delete", role: .destructive) {
-                                        if selectedGameIds.count > 1 {
-                                            for id in selectedGameIds {
-                                                if let g = database.game(withId: id) {
-                                                    database.deleteGame(g)
-                                                }
-                                            }
-                                            selectedGameIds.removeAll()
-                                            reloadGames()
-                                        } else {
-                                            database.deleteGame(game)
-                                            reloadGames()
-                                        }
-                                    }
-                                }
+        GameTableList(
+            games: cachedGames,
+            selectedGameIds: $selectedGameIds,
+            selectionAnchor: $selectedGame,
+            hasMore: !allExhausted,
+            onOpen: onGameSelected,
+            onLoadMore: loadNextPage,
+            header: { tableHeader },
+            row: { game, isAlternate in tableRow(game, isAlternate: isAlternate) },
+            menu: { game in
+                Button("Open") { onGameSelected(game) }
+                Button("Analyze Game") { onReviewGame(game) }
+                Divider()
+                moveToFolderMenu(gameIds: selectedGameIds.count > 1 ? selectedGameIds : [game.id])
+                Divider()
+                Button("Delete", role: .destructive) {
+                    if selectedGameIds.count > 1 {
+                        for id in selectedGameIds {
+                            if let g = database.game(withId: id) {
+                                database.deleteGame(g)
+                            }
                         }
+                        selectedGameIds.removeAll()
+                        reloadGames()
+                    } else {
+                        database.deleteGame(game)
+                        reloadGames()
                     }
-
-                    // Loading indicator at bottom
-                    if !allExhausted {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .scaleEffect(0.7)
-                                .padding(.vertical, 8)
-                            Spacer()
-                        }
-                        .onAppear { loadNextPage() }
-                    }
-                } header: {
-                    tableHeader
                 }
             }
-        }
+        )
     }
 
     private func toggleSort(_ column: SortColumn) {

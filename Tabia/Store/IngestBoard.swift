@@ -299,8 +299,17 @@ final class IngestBoard {
         }
     }
     /// SAN promotion byte → promo code (1=Q,2=R,3=B,4=N) matching Ingestor.encodeMove.
+    /// Lowercase is accepted too: PGNParser's SAN regex whitelists `(=[QRBNqrbn])?`, so "e8=q" reaches
+    /// this path. Returning 0 there would leave a pawn on the back rank and poison every subsequent
+    /// Zobrist key in the game — silently, since resolve() would still succeed.
     private func promoCode(_ byte: UInt8) -> Int {
-        switch byte { case 81: return 1; case 82: return 2; case 66: return 3; case 78: return 4; default: return 0 }
+        switch byte {
+        case 81, 113: return 1   // Q q
+        case 82, 114: return 2   // R r
+        case 66, 98:  return 3   // B b
+        case 78, 110: return 4   // N n
+        default:      return 0
+        }
     }
     private func promoType(_ promo: Int) -> Int {
         switch promo { case 1: return QUEEN; case 2: return ROOK

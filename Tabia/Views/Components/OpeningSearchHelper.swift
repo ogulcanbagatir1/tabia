@@ -87,40 +87,6 @@ struct OpeningSearchResultRow: View {
 
 // MARK: - Opening Search Bar
 
-struct OpeningSearchBar: View {
-    @Binding var searchText: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(DS.textTertiary)
-                .font(.system(size: 12))
-
-            TextField("Search openings...", text: $searchText)
-                .textFieldStyle(.plain)
-                .font(AnnFont.serif(11, .regular))
-
-            if !searchText.isEmpty {
-                Button(action: { searchText = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(DS.textTertiary)
-                        .font(.system(size: 11))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 8)
-        .frame(height: 28)
-        .background(DS.bg)
-        .cornerRadius(DS.radiusSM)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.radiusSM)
-                .strokeBorder(DS.border, lineWidth: 1)
-        )
-        .padding(.horizontal, 12)
-    }
-}
-
 // MARK: - Opening Search Results List
 
 struct OpeningSearchResultsList: View {
@@ -163,37 +129,3 @@ struct OpeningSearchResultsList: View {
 }
 
 // MARK: - Current Opening Display (for right sidebar)
-
-struct CurrentOpeningView: View {
-    let openingName: String?
-    let eco: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("OPENING")
-                .font(AnnFont.label(10, bold: false))
-                .foregroundColor(DS.textTertiary)
-                .kerning(0.8)
-
-            if let name = openingName {
-                Text(name)
-                    .font(AnnFont.serif(14, .semibold))
-                    .foregroundColor(DS.textPrimary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let eco = eco {
-                    Text(eco)
-                        .font(AnnFont.mono(12, bold: false))
-                        .foregroundColor(DS.accent)
-                }
-            } else {
-                Text("Starting Position")
-                    .font(AnnFont.serif(13, .regular))
-                    .foregroundColor(DS.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-    }
-}

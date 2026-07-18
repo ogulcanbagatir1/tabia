@@ -137,7 +137,7 @@ struct ExplorerScreenView: View {
         while let n = cur { path.insert(n, at: 0); cur = n.parent }
         return path
     }
-    private func movesUCI() -> [String] { pathToCurrent().compactMap { $0.move.map(moveToUCI) } }
+    private func movesUCI() -> [String] { pathToCurrent().compactMap { $0.move.map(UCI.string(from:)) } }
     private func movesSAN() -> [String] {
         pathToCurrent().compactMap { $0.cachedNotation?.replacingOccurrences(of: "+", with: "").replacingOccurrences(of: "#", with: "") }
     }
@@ -149,17 +149,6 @@ struct ExplorerScreenView: View {
             out += san + " "
         }
         return out.trimmingCharacters(in: .whitespaces)
-    }
-
-    private func moveToUCI(_ move: Move) -> String {
-        let files = "abcdefgh"
-        let ff = files[files.index(files.startIndex, offsetBy: move.from.file)]
-        let tf = files[files.index(files.startIndex, offsetBy: move.to.file)]
-        var uci = "\(ff)\(move.from.rank + 1)\(tf)\(move.to.rank + 1)"
-        if let p = move.promotionType {
-            switch p { case .queen: uci += "q"; case .rook: uci += "r"; case .bishop: uci += "b"; case .knight: uci += "n"; default: break }
-        }
-        return uci
     }
 
     @discardableResult

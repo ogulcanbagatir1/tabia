@@ -66,7 +66,9 @@ struct AnnBoardArea: View {
 
     // The board (BoardView already draws its own aligned border + shadow — no extra frame here).
     private var board_: some View {
-        BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped, showLabels: false)
+        // Labels follow the "Show coordinates" preference — the compact explorer/drill boards opt out
+        // explicitly, this one does not.
+        BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped)
             .frame(width: boardSize, height: boardSize)
     }
 
@@ -92,6 +94,12 @@ struct AnnBoardArea: View {
     // MARK: Derived
 
     private var caption: String {
+        // `gameOver` is set by makeMove, so the expensive status() only runs once the cheap
+        // published flag says the game actually ended.
+        if board.gameOver {
+            let label = board.status().label
+            if !label.isEmpty { return label }
+        }
         if plyCount == 0 { return "The starting position — your move." }
         if let o = openingName, !o.isEmpty { return o }
         return "Move \(plyCount / 2 + 1)."

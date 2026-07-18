@@ -142,9 +142,12 @@ final class ReferenceDatabase: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             let accessing = url.startAccessingSecurityScopedResource()
             defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-            let n = Ingestor(store: store).ingestGames(streamingFileURL: url, onProgress: { done in
-                DispatchQueue.main.async { self.importProgress = done }
-            })
+            let n = Ingestor(store: store).ingestGames(
+                streamingFileURL: url,
+                dedup: AppSettings.shared.skipDuplicatesOnImport,
+                onProgress: { done in
+                    DispatchQueue.main.async { self.importProgress = done }
+                })
             let total = store.gameCount
             let indexed = store.indexedGameCount
             DispatchQueue.main.async {

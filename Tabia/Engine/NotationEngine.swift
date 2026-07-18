@@ -273,6 +273,7 @@ extension ChessBoard {
         blackCanCastleQueenside = other.blackCanCastleQueenside
         moveHistory = other.moveHistory
         gameOver = other.gameOver
+        adoptPositionHistory(from: other)
     }
 
     /// Convert a UCI PV to algebraic notation. Mutates a copy of self; self is untouched.

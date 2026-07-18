@@ -126,6 +126,11 @@ class ChessBoard: ObservableObject {
     var enPassantTarget: Position?
     var halfMoveClock: Int = 0
     var fullMoveNumber: Int = 1
+
+    /// Zobrist keys of every position that has occurred in this line, current one last. Drives
+    /// threefold repetition. Reset whenever the position is *set* (FEN load, new game) rather than
+    /// played, since prior occurrences no longer belong to this line.
+    private(set) var positionHistory: [UInt64] = []
     
     // Castling rights
     var whiteCanCastleKingside: Bool = true
@@ -167,8 +172,9 @@ class ChessBoard: ObservableObject {
         halfMoveClock = 0
         fullMoveNumber = 1
         gameOver = false
+        resetPositionHistory()
     }
-    
+
     func pieceAt(_ position: Position) -> Piece? {
         guard position.isValid() else { return nil }
         return squares[position.file][position.rank]
@@ -270,8 +276,74 @@ class ChessBoard: ObservableObject {
         // Switch turn
         turn = turn.opposite
         moveHistory.append(move)
-        
+        positionHistory.append(Zobrist.hash(self))
+        gameOver = status().isOver
+
         return true
+    }
+
+    /// Seed `positionHistory` with the current position. Call after setting a position directly.
+    func resetPositionHistory() {
+        positionHistory = [Zobrist.hash(self)]
+    }
+
+    /// Carry another board's repetition history across (used by `restoreState`).
+    func adoptPositionHistory(from other: ChessBoard) {
+        positionHistory = other.positionHistory
+    }
+
+    // MARK: - Terminal conditions
+
+    enum GameStatus: Equatable {
+        case ongoing
+        case checkmate(winner: PieceColor)
+        case stalemate
+        case insufficientMaterial
+        case fiftyMoveRule
+        case threefoldRepetition
+
+        var isOver: Bool { self != .ongoing }
+
+        /// PGN result tag for this outcome.
+        var resultTag: String {
+            switch self {
+            case .ongoing:                 return "*"
+            case .checkmate(let winner):   return winner == .white ? "1-0" : "0-1"
+            default:                       return "1/2-1/2"
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .ongoing:               return ""
+            case .checkmate(let winner): return winner == .white ? "White wins by checkmate" : "Black wins by checkmate"
+            case .stalemate:             return "Draw — stalemate"
+            case .insufficientMaterial:  return "Draw — insufficient material"
+            case .fiftyMoveRule:         return "Draw — fifty-move rule"
+            case .threefoldRepetition:   return "Draw — threefold repetition"
+            }
+        }
+    }
+
+    /// The position's terminal state. Checkmate and stalemate are decided for the side to move;
+    /// the draw rules are properties of the position/history and apply regardless.
+    func status() -> GameStatus {
+        let gen = MoveGenerator(board: self)
+
+        if !gen.hasAnyLegalMove(for: turn) {
+            return gen.isInCheck(color: turn) ? .checkmate(winner: turn.opposite) : .stalemate
+        }
+        if gen.isInsufficientMaterial() { return .insufficientMaterial }
+        // 100 half-moves = 50 full moves by each side.
+        if halfMoveClock >= 100 { return .fiftyMoveRule }
+        if isThreefoldRepetition() { return .threefoldRepetition }
+        return .ongoing
+    }
+
+    /// True once the current position has appeared three times in this line.
+    func isThreefoldRepetition() -> Bool {
+        guard let current = positionHistory.last else { return false }
+        return positionHistory.reduce(0) { $1 == current ? $0 + 1 : $0 } >= 3
     }
     
     func getFEN() -> String {
@@ -378,6 +450,7 @@ class ChessBoard: ObservableObject {
         fullMoveNumber = full
         moveHistory = []
         gameOver = false
+        resetPositionHistory()
         return true
     }
 

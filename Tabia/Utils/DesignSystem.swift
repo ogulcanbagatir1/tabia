@@ -400,14 +400,8 @@ struct GlassBackground: View {
 }
 
 /// Full-width content area ground (Database, Games, Settings).
-struct GlassContentBackground: View {
-    var body: some View { DS.paper }
-}
 
 /// Engine content ground.
-struct GlassEngineContentBackground: View {
-    var body: some View { DS.paper }
-}
 
 /// Side panel / column ground.
 struct GlassPanelBackground: View {
@@ -425,14 +419,6 @@ struct GlassRailBackground: View {
 }
 
 // MARK: - Lazy View (defers body evaluation)
-
-struct LazyView<Content: View>: View {
-    let build: () -> Content
-    init(_ build: @autoclosure @escaping () -> Content) {
-        self.build = build
-    }
-    var body: Content { build() }
-}
 
 /// ButtonStyle: bordered secondary (flat Annotator).
 struct GlassButtonStyle: ButtonStyle {

@@ -3,9 +3,12 @@ import SwiftUI
 struct RepertoireBrowserView: View {
     @EnvironmentObject var repertoireDB: RepertoireDatabase
     @EnvironmentObject var referenceDatabase: ReferenceDatabase
+    @EnvironmentObject var database: GameDatabase
 
     /// Open this repertoire as an analysis tab (recording mode). Wired by MainWindowView.
     var onOpen: (Repertoire) -> Void = { _ in }
+    /// Open one of your own games — from the game-link badge on a line. Wired by MainWindowView.
+    var onOpenGame: (GameRecord) -> Void = { _ in }
 
     @State private var searchText = ""
     @State private var renamingRepertoire: Repertoire?
@@ -17,6 +20,37 @@ struct RepertoireBrowserView: View {
     // The repertoire selected in the left shelf — its lines show in the center panel.
     @State private var selectedRepertoire: Repertoire?
     @State private var showingKnowledge = false
+
+    // Shelves (RepertoireFolder). The chip row above the grid narrows it to one shelf.
+    @State private var shelfFilter: ShelfFilter = .all
+    @State private var renamingFolder: RepertoireFolder?
+    @State private var folderToDelete: RepertoireFolder?
+    @State private var showingDeleteFolderAlert = false
+    @State private var showingNewShelfAlert = false
+    @State private var newShelfName = ""
+    /// Set when "New Shelf…" is picked from a book's move menu — the book lands on the new shelf.
+    @State private var pendingMoveRepertoire: Repertoire?
+
+    // Game linking — replays your games to mark which repertoire lines you actually reached.
+    @State private var isLinkingGames = false
+    /// The per-repertoire detail sheet (lines tree + Knowledge / Audit / Link Games). Its content is
+    /// `centerPanel`, which the shelf layout has no column for.
+    @State private var showingLines = false
+    @State private var showingCoverageAudit = false
+    /// The line whose game-link popover is open (only one at a time).
+    @State private var linkedPopoverNodeId: UUID?
+
+    // New repertoire (⇧⌘R / the shelf-row button). Bound from MainWindowView so the menu command
+    // can request the sheet even when this screen wasn't mounted at the time.
+    @Binding var pendingNewRepertoire: Bool
+    @State private var showingNewRepertoireAlert = false
+    @State private var newRepertoireName = ""
+
+    enum ShelfFilter: Hashable {
+        case all
+        case unfiled
+        case folder(UUID)
+    }
 
     // Per-repertoire SM-2 knowledge (due/coverage/drilled…) + the 7-day due forecast, computed
     // from the position schedules and cached so cards and the training rail don't re-fetch on render.
@@ -53,7 +87,11 @@ struct RepertoireBrowserView: View {
         .onAppear {
             refreshKnowledge()
             if selectedRepertoire == nil { selectedRepertoire = repertoireDB.repertoires.first }
+            consumePendingNewRepertoire()
         }
+        // ⇧⌘R arrives while another screen is mounted, so the request is carried in as a flag and
+        // picked up here once this screen actually exists.
+        .onChange(of: pendingNewRepertoire) { _, _ in consumePendingNewRepertoire() }
         .onChange(of: repertoireDB.repertoires.count) { _, _ in
             refreshKnowledge()
             if selectedRepertoire == nil { selectedRepertoire = repertoireDB.repertoires.first }
@@ -82,13 +120,57 @@ struct RepertoireBrowserView: View {
         } message: {
             Text("This will permanently delete this repertoire and all its lines.")
         }
-        .sheet(isPresented: $showingKnowledge) {
-            if let rep = selectedRepertoire {
-                RepertoireStatsView(repertoire: rep, repertoireDB: repertoireDB,
-                                    onClose: { showingKnowledge = false },
-                                    preloaded: knowledge[rep.id])
+        .alert("New Repertoire", isPresented: $showingNewRepertoireAlert) {
+            TextField("Name", text: $newRepertoireName)
+            Button("Cancel", role: .cancel) { newRepertoireName = "" }
+            Button("For White") { createRepertoire(side: .white) }
+            Button("For Black") { createRepertoire(side: .black) }
+        } message: {
+            Text("It opens on the Analysis board in recording mode — every move you play is saved into it.")
+        }
+        .alert("New Shelf", isPresented: $showingNewShelfAlert) {
+            TextField("Shelf name", text: $newShelfName)
+            Button("Cancel", role: .cancel) { pendingMoveRepertoire = nil; newShelfName = "" }
+            Button("Create") {
+                let name = newShelfName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    let folder = repertoireDB.createFolder(name: name)
+                    // Created from a book's move menu — file that book onto the new shelf.
+                    if let rep = pendingMoveRepertoire {
+                        repertoireDB.moveRepertoire(rep, toFolder: folder.id)
+                    }
+                }
+                pendingMoveRepertoire = nil
+                newShelfName = ""
             }
         }
+        .alert("Rename Shelf", isPresented: Binding(
+            get: { renamingFolder != nil },
+            set: { if !$0 { renamingFolder = nil } }
+        )) {
+            TextField("Shelf name", text: $newShelfName)
+            Button("Cancel", role: .cancel) { renamingFolder = nil }
+            Button("Rename") {
+                let name = newShelfName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let folder = renamingFolder, !name.isEmpty {
+                    repertoireDB.renameFolder(folder, to: name)
+                }
+                renamingFolder = nil
+            }
+        }
+        .alert("Delete Shelf", isPresented: $showingDeleteFolderAlert) {
+            Button("Delete", role: .destructive) {
+                if let folder = folderToDelete {
+                    if shelfFilter == .folder(folder.id) { shelfFilter = .all }
+                    repertoireDB.deleteFolder(folder, deleteRepertoires: false)
+                }
+                folderToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { folderToDelete = nil }
+        } message: {
+            Text("The shelf is removed. Its repertoires are kept and become Unfiled.")
+        }
+        .sheet(isPresented: $showingLines) { repertoireDetailSheet }
     }
 
     // MARK: - Shelf (R1) — "Your Books" grid + training rail
@@ -100,7 +182,10 @@ struct RepertoireBrowserView: View {
                  + Text("— \(repertoireWord)").font(AnnFont.voice(22)).foregroundColor(DS.ink40))
                 Text(aggregateStatLine).font(AnnFont.mono(10)).tracking(0.3).foregroundColor(DS.ink40)
             }
-            .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 20)
+            .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 14)
+
+            shelfChips
+                .padding(.bottom, 18)
 
             ScrollView {
                 // Explicit leading VStack: a ScrollView with multiple children wraps them in an
@@ -113,7 +198,11 @@ struct RepertoireBrowserView: View {
                                     Button("Open") { onOpen(rep) }
                                     Button("Drill") { startDrill(for: rep) }
                                     Divider()
+                                    // Knowledge / Audit / Link Games all live inside this sheet.
+                                    Button("Lines & Stats…") { selectedRepertoire = rep; showingLines = true }
+                                    Divider()
                                     Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
+                                    moveToShelfMenu(rep)
                                     Divider()
                                     Button("Delete…", role: .destructive) { repertoireToDelete = rep; showingDeleteAlert = true }
                                 }
@@ -146,6 +235,38 @@ struct RepertoireBrowserView: View {
 
     // MARK: - Center — selected repertoire's lines (read-only preview; "Open" loads it into Analysis)
 
+    /// The detail sheet. Knowledge and Audit hang off THIS view rather than the shelf, so presenting
+    /// them from inside stacks cleanly instead of racing the sheet that is already up.
+    private var repertoireDetailSheet: some View {
+        VStack(spacing: 0) {
+            centerPanel
+
+            HStack {
+                Spacer()
+                Button(action: { showingLines = false }) { Text("Done") }
+                    .buttonStyle(GlassButtonStyle())
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(14)
+            .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
+        }
+        .frame(width: 780, height: 660)
+        .background(DS.paper)
+        .sheet(isPresented: $showingKnowledge) {
+            if let rep = selectedRepertoire {
+                RepertoireStatsView(repertoire: rep, repertoireDB: repertoireDB,
+                                    onClose: { showingKnowledge = false },
+                                    preloaded: knowledge[rep.id])
+            }
+        }
+        .sheet(isPresented: $showingCoverageAudit) {
+            if let rep = selectedRepertoire {
+                CoverageGapView(repertoire: rep, referenceDB: referenceDatabase,
+                                onClose: { showingCoverageAudit = false })
+            }
+        }
+    }
+
     private var centerPanel: some View {
         VStack(spacing: 0) {
             if let rep = selectedRepertoire {
@@ -156,9 +277,22 @@ struct RepertoireBrowserView: View {
                     }
                     Spacer()
                     if let k = knowledge[rep.id], k.dueNow > 0 { dueChip(k.dueNow) }
+                    Button(action: { linkGames(for: rep) }) {
+                        if isLinkingGames {
+                            ProgressView().controlSize(.small).tint(DS.redAccent)
+                        } else {
+                            Text("Link Games")
+                        }
+                    }
+                    .buttonStyle(GlassButtonStyle())
+                    .disabled(isLinkingGames)
+                    .help("Replay your games and mark the lines you actually reached")
                     Button(action: { showingKnowledge = true }) { Text("Knowledge") }
                         .buttonStyle(GlassButtonStyle())
-                    Button(action: { onOpen(rep) }) { Text("Open") }
+                    Button(action: { showingCoverageAudit = true }) { Text("Audit") }
+                        .buttonStyle(GlassButtonStyle())
+                        .help("Check this repertoire against the reference database for unanswered popular replies")
+                    Button(action: { showingLines = false; onOpen(rep) }) { Text("Open") }
                         .buttonStyle(GlassButtonStyle())
                 }
                 .padding(.horizontal, 26).padding(.vertical, 18)
@@ -228,6 +362,29 @@ struct RepertoireBrowserView: View {
                 Text(row.node.annotation).font(AnnFont.voice(13)).foregroundColor(DS.ink40).lineLimit(1)
             }
             Spacer(minLength: 6)
+            if !row.node.gameLinkIdStrings.isEmpty {
+                let n = row.node.gameLinkIdStrings.count
+                Button(action: {
+                    linkedPopoverNodeId = linkedPopoverNodeId == row.node.id ? nil : row.node.id
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "flag.checkered").font(.system(size: 8, weight: .semibold))
+                        Text("\(n)").font(AnnFont.mono(9.5, bold: true))
+                    }
+                    .foregroundColor(DS.ink60)
+                    .padding(.horizontal, 5).padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: DS.rBar, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("\(n) of your games reached this position — click to list them")
+                .popover(isPresented: Binding(
+                    get: { linkedPopoverNodeId == row.node.id },
+                    set: { if !$0 && linkedPopoverNodeId == row.node.id { linkedPopoverNodeId = nil } }
+                ), arrowEdge: .bottom) {
+                    linkedGamesPopover(row.node)
+                }
+            }
             if row.node.isUserMove {
                 Text(row.node.isPrimary ? "MAIN" : "ALT")
                     .font(AnnFont.label(8.5)).tracking(8.5 * 0.12).foregroundColor(DS.ink40)
@@ -283,8 +440,194 @@ struct RepertoireBrowserView: View {
     // MARK: - Grid (reuses rootDatabaseCard styling)
 
     private var filtered: [Repertoire] {
-        guard !searchText.isEmpty else { return repertoireDB.repertoires }
-        return repertoireDB.repertoires.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        let onShelf: [Repertoire]
+        switch shelfFilter {
+        case .all:
+            onShelf = repertoireDB.repertoires
+        case .unfiled:
+            onShelf = repertoireDB.repertoires(in: nil)
+        case .folder(let id):
+            // A shelf deleted out from under the selection falls back to everything.
+            onShelf = repertoireDB.folders.contains { $0.id == id }
+                ? repertoireDB.repertoires(in: id)
+                : repertoireDB.repertoires
+        }
+        guard !searchText.isEmpty else { return onShelf }
+        return onShelf.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    // MARK: - New Repertoire
+
+    /// The shelf the new repertoire should land on — whichever one is currently filtered to.
+    private var activeShelfFolder: RepertoireFolder? {
+        guard case .folder(let id) = shelfFilter else { return nil }
+        return repertoireDB.folders.first { $0.id == id }
+    }
+
+    private func consumePendingNewRepertoire() {
+        guard pendingNewRepertoire else { return }
+        pendingNewRepertoire = false
+        newRepertoireName = ""
+        showingNewRepertoireAlert = true
+    }
+
+    private func createRepertoire(side: RepertoireSide) {
+        let trimmed = newRepertoireName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rep = repertoireDB.createRepertoire(
+            name: trimmed.isEmpty ? "New Repertoire" : trimmed,
+            side: side,
+            folder: activeShelfFolder
+        )
+        newRepertoireName = ""
+        selectedRepertoire = rep
+        onOpen(rep)   // straight into recording mode — moves you play are saved into it
+    }
+
+    // MARK: - Game Linking
+
+    /// The games recorded on a line. Links can outlive the games themselves (deleted from the
+    /// library after linking), so resolve rather than trusting the stored count.
+    private func linkedGamesPopover(_ node: RepertoireNode) -> some View {
+        let games = node.gameLinkIds.compactMap { database.game(withId: $0) }
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("YOUR GAMES HERE")
+                .font(AnnFont.label(9)).tracking(9 * 0.14).foregroundColor(DS.ink40)
+                .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 8)
+
+            if games.isEmpty {
+                Text("These games are no longer in your library. Re-run Link Games to refresh.")
+                    .font(AnnFont.voice(12.5)).foregroundColor(DS.ink40)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14).padding(.bottom, 14)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(games, id: \.id) { game in
+                            Button(action: {
+                                linkedPopoverNodeId = nil
+                                onOpenGame(game)
+                            }) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(game.white) — \(game.black)")
+                                        .font(AnnFont.serif(13)).foregroundColor(DS.ink).lineLimit(1)
+                                    Text("\(game.result)  ·  \(game.date)")
+                                        .font(AnnFont.mono(10)).foregroundColor(DS.ink40)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 14).padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .frame(maxHeight: 240)
+            }
+        }
+        .frame(width: 290)
+        .background(DS.paper)
+    }
+
+    /// Replay every game in the store against this repertoire and mark the nodes reached.
+    private func linkGames(for rep: Repertoire) {
+        guard !isLinkingGames else { return }
+        isLinkingGames = true
+        repertoireDB.rebuildGameLinks(for: rep, games: database.allGames()) { _ in
+            isLinkingGames = false
+        }
+    }
+
+    // MARK: - Shelves (RepertoireFolder)
+
+    private var unfiledCount: Int { repertoireDB.repertoires(in: nil).count }
+
+    private var shelfChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                shelfChip(title: "All", count: repertoireDB.repertoireCount, filter: .all)
+
+                ForEach(repertoireDB.folders, id: \.id) { folder in
+                    shelfChip(title: folder.name,
+                              count: repertoireDB.repertoiresInFolderCount(folder.id),
+                              filter: .folder(folder.id))
+                        .contextMenu {
+                            Button("Rename…") { newShelfName = folder.name; renamingFolder = folder }
+                            Divider()
+                            Button("Delete…", role: .destructive) {
+                                folderToDelete = folder
+                                showingDeleteFolderAlert = true
+                            }
+                        }
+                }
+
+                // Keep the chip while it's the active filter, even once it empties out.
+                if unfiledCount > 0 || shelfFilter == .unfiled {
+                    shelfChip(title: "Unfiled", count: unfiledCount, filter: .unfiled)
+                }
+
+                addButton(title: "Shelf", help: "New shelf") {
+                    newShelfName = ""; pendingMoveRepertoire = nil; showingNewShelfAlert = true
+                }
+                addButton(title: "Repertoire", help: "New repertoire (⇧⌘R)") {
+                    newRepertoireName = ""; showingNewRepertoireAlert = true
+                }
+            }
+            .padding(.horizontal, 32)
+        }
+    }
+
+    private func addButton(title: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "plus").font(.system(size: 10, weight: .semibold))
+                Text(title).font(AnnFont.label(10)).tracking(0.9)
+            }
+            .foregroundColor(DS.ink60)
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .background(DS.paperRaised, in: Capsule())
+            .overlay(Capsule().strokeBorder(DS.borderChip, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private func shelfChip(title: String, count: Int, filter: ShelfFilter) -> some View {
+        let isSelected = shelfFilter == filter
+
+        return Button(action: { withAnimation(DS.quickFade) { shelfFilter = filter } }) {
+            HStack(spacing: 6) {
+                Text(title).font(AnnFont.serif(13, .regular))
+                Text("\(count)").font(AnnFont.mono(10))
+                    .foregroundColor(isSelected ? DS.ink60 : DS.ink25)
+            }
+            .foregroundColor(isSelected ? DS.ink : DS.ink60)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(isSelected ? DS.selectedWash : DS.paperRaised, in: Capsule())
+            .overlay(Capsule().strokeBorder(isSelected ? DS.ink40 : DS.borderChip, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func moveToShelfMenu(_ rep: Repertoire) -> some View {
+        Menu("Move to Shelf") {
+            ForEach(repertoireDB.folders, id: \.id) { folder in
+                Button(folder.name) { repertoireDB.moveRepertoire(rep, toFolder: folder.id) }
+                    .disabled(rep.folder?.id == folder.id)
+            }
+            if !repertoireDB.folders.isEmpty { Divider() }
+            Button("Unfiled") { repertoireDB.moveRepertoire(rep, toFolder: nil) }
+                .disabled(rep.folder == nil)
+            Divider()
+            Button("New Shelf…") {
+                pendingMoveRepertoire = rep
+                newShelfName = ""
+                showingNewShelfAlert = true
+            }
+        }
     }
 
     // MARK: - Right rail — Training Queue + 7-day forecast (R1)
@@ -512,13 +855,18 @@ struct RepertoireBrowserView: View {
                     .font(AnnFont.serif(20, .semibold))
                     .foregroundColor(DS.textPrimary)
 
-                Text("Build a line on the Analysis board, then Save it as a repertoire. It lands here, ready to drill.")
+                Text("Start one here, or build a line on the Analysis board and Save it as a repertoire. Either way it lands here, ready to drill.")
                     .font(AnnFont.serif(13))
                     .foregroundColor(DS.textTertiary)
                     .lineSpacing(4)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 360)
             }
+
+            Button(action: { newRepertoireName = ""; showingNewRepertoireAlert = true }) {
+                Text("New Repertoire")
+            }
+            .buttonStyle(GlassButtonStyle())
 
             Spacer()
         }

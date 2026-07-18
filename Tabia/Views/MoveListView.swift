@@ -636,24 +636,6 @@ struct MoveButton: View, Equatable {
 
 // MARK: - Navigation Button
 
-struct NavigationButton: View {
-    let icon: String
-    let action: () -> Void
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(isEnabled ? DS.textSecondary : DS.textMuted)
-                .glassIconButton(size: 24)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: - Empty State
 
 struct EmptyMoveListView: View {
@@ -781,53 +763,6 @@ struct InlineNoteEditorView: View {
 }
 
 // MARK: - Legacy Note Editor (popover fallback)
-
-struct NoteEditorView: View {
-    @Binding var noteText: String
-    let onSave: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        VStack(spacing: DS.spacingMD) {
-            HStack {
-                Text("Move Note")
-                    .font(DS.titleFont)
-                Spacer()
-            }
-
-            TextEditor(text: $noteText)
-                .font(AnnFont.serif(13))
-                .frame(minHeight: 80, maxHeight: 150)
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .background(
-                    RoundedRectangle(cornerRadius: DS.radiusSM)
-                        .fill(Color(NSColor.textBackgroundColor))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.radiusSM)
-                        .strokeBorder(DS.border, lineWidth: 1)
-                )
-
-            HStack {
-                Button("Cancel") {
-                    onCancel()
-                }
-                .buttonStyle(GlassButtonStyle())
-
-                Spacer()
-
-                Button("Save") {
-                    onSave()
-                }
-                .buttonStyle(GlassPrimaryButtonStyle())
-                .disabled(noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && noteText.isEmpty)
-            }
-        }
-        .padding(DS.spacingLG)
-        .frame(width: 280)
-    }
-}
 
 // MARK: - Custom Context Menu (matches Pencil design)
 

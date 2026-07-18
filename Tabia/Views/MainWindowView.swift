@@ -29,7 +29,10 @@ struct MainWindowView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var didRestoreTabs = false
 
-    @State private var autoAnalyze = true
+    // Auto-analyze lives in AppSettings so the Preferences toggle and the in-app ⌃A toggle are the
+    // same switch, and the choice survives relaunch.
+    /// Set by ⇧⌘R; consumed by RepertoireBrowserView once that screen is mounted.
+    @State private var pendingNewRepertoire = false
     @State private var showingSidebar = true
     @State private var showingSaveSheet = false
     @State private var showingSetupPosition = false
@@ -138,7 +141,9 @@ struct MainWindowView: View {
                         reviewGame(game)
                     })
                 case .repertoire:
-                    RepertoireBrowserView(onOpen: { rep in openRepertoireInTab(rep) })
+                    RepertoireBrowserView(onOpen: { rep in openRepertoireInTab(rep) },
+                                          onOpenGame: { game in openGameInTab(game) },
+                                          pendingNewRepertoire: $pendingNewRepertoire)
                 case .chesscom:
                     ChessComBrowserView(onGameSelected: { game in
                         openGameInTab(game)
@@ -250,7 +255,7 @@ struct MainWindowView: View {
                     engine.evaluation = cachedEval
                 }
 
-                if autoAnalyze && !gameAnalyzer.isAnalyzing {
+                if settings.autoAnalyze && !gameAnalyzer.isAnalyzing {
                     evaluatePositionDebounced()
                 }
             }
@@ -274,7 +279,7 @@ struct MainWindowView: View {
                     gameTree.currentNode.evaluation = eval
 
                     // Start look-ahead for the next position in the game tree
-                    if autoAnalyze, lookAheadNodeId == nil,
+                    if settings.autoAnalyze, lookAheadNodeId == nil,
                        let nextChild = gameTree.currentNode.children.first {
                         lookAheadNodeId = nextChild.id
                         let nextBoard = nextChild.boardState.copy()
@@ -536,22 +541,7 @@ struct MainWindowView: View {
     /// After Save As creates a repertoire, bind this tab to it by matching the live tree to the new
     /// repertoire's nodes (move-by-move), so plain Save reconciles into it instead of forking again.
     private func linkTabToRepertoire(_ rep: Repertoire) {
-        repNodeMap.removeAll()
-        if let rootRepId = rep.rootNodeId,
-           let rootRep = rep.nodes.first(where: { $0.id == rootRepId }) {
-            repNodeMap[gameTree.root.id] = rootRep.id
-            func match(_ gameNode: GameNode, _ repNode: RepertoireNode) {
-                for child in gameNode.children {
-                    guard let move = child.move else { continue }
-                    let uci = repertoireUCI(from: move)
-                    if let repChild = repNode.children.first(where: { $0.uciMove == uci }) {
-                        repNodeMap[child.id] = repChild.id
-                        match(child, repChild)
-                    }
-                }
-            }
-            match(gameTree.root, rootRep)
-        }
+        repNodeMap = repertoireNodeMap(root: gameTree.root, repertoire: rep)
         currentGameId = nil
         activeRepertoire = rep
         let s = windowModel.active
@@ -562,6 +552,29 @@ struct MainWindowView: View {
         s.title = rep.name
         s.isDirty = false
         windowModel.objectWillChange.send()
+    }
+
+    /// Match a live tree against a repertoire's nodes move-by-move, producing the gameNode → repNode
+    /// bridge that `reconcileRepertoire` needs. Used both when Save As mints a repertoire and when a
+    /// repertoire tab is restored from disk — the restored tree is rebuilt from PGN, so its node ids
+    /// are fresh and the persisted map would be meaningless.
+    private func repertoireNodeMap(root: GameNode, repertoire rep: Repertoire) -> [UUID: UUID] {
+        guard let rootRepId = rep.rootNodeId,
+              let rootRep = rep.nodes.first(where: { $0.id == rootRepId }) else { return [:] }
+
+        var map: [UUID: UUID] = [root.id: rootRep.id]
+        func match(_ gameNode: GameNode, _ repNode: RepertoireNode) {
+            for child in gameNode.children {
+                guard let move = child.move else { continue }
+                let uci = UCI.string(from: move)
+                if let repChild = repNode.children.first(where: { $0.uciMove == uci }) {
+                    map[child.id] = repChild.id
+                    match(child, repChild)
+                }
+            }
+        }
+        match(root, rootRep)
+        return map
     }
 
     // MARK: - Repertoire recording (open a repertoire as an analysis tab; moves persist as prep)
@@ -607,7 +620,7 @@ struct MainWindowView: View {
         // Primary (main) line first, so the board's main line mirrors the repertoire's.
         for childRep in repNode.children.sorted(by: { $0.isPrimary && !$1.isPrimary }) {
             guard let uci = childRep.uciMove,
-                  let move = repertoireMove(fromUCI: uci, board: gameNode.boardState) else { continue }
+                  let move = UCI.move(uci, board: gameNode.boardState) else { continue }
             gameTree.currentNode = gameNode
             guard gameTree.addMove(move, notation: childRep.san) else { continue }
             let newGameNode = gameTree.currentNode
@@ -621,16 +634,26 @@ struct MainWindowView: View {
     /// were removed from the board. Runs on every structural edit of a repertoire tab, so it catches
     /// every path (board, move-list context menu, ⌫ menu command) uniformly.
     private func reconcileRepertoire(_ rep: Repertoire) {
+        repertoireDB.performBatch { reconcileRepertoireBody(rep) }
+    }
+
+    private func reconcileRepertoireBody(_ rep: Repertoire) {
         // 1. Collect every live gameNode reachable from the root.
         var liveNodes: [UUID: GameNode] = [:]
         func collect(_ n: GameNode) { liveNodes[n.id] = n; for c in n.children { collect(c) } }
         collect(gameTree.root)
 
+        // Index the repertoire's nodes once. This used to be a `rep.nodes.first(where:)` linear scan
+        // per tree node, three times over — O(n²) on every save. Nodes created below are added here
+        // too, since a child's parent may have been minted earlier in this same pass.
+        var repNodesById = Dictionary(rep.nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
         // 2. Delete repertoire nodes whose gameNode no longer exists (SwiftData cascades the subtree).
         let orphanedGameIds = repNodeMap.keys.filter { liveNodes[$0] == nil }
         for gameId in orphanedGameIds {
-            if let repId = repNodeMap[gameId], let repNode = rep.nodes.first(where: { $0.id == repId }) {
+            if let repId = repNodeMap[gameId], let repNode = repNodesById[repId] {
                 repertoireDB.deleteNode(repNode)
+                repNodesById[repId] = nil
             }
             repNodeMap[gameId] = nil
         }
@@ -645,13 +668,13 @@ struct MainWindowView: View {
                 let shouldBePrimary = isUserMove && child.id == firstChildId
                 if repNodeMap[child.id] == nil,
                    let parentRepId = repNodeMap[gameNode.id],
-                   let parentRep = rep.nodes.first(where: { $0.id == parentRepId }),
+                   let parentRep = repNodesById[parentRepId],
                    let move = child.move {
                     let ownership: NodeOwnership = isUserMove ? .mineMain : .opponentCritical
                     let newRepNode = RepertoireNode(
                         repertoire: rep,
                         parent: parentRep,
-                        uciMove: repertoireUCI(from: move),
+                        uciMove: UCI.string(from: move),
                         san: child.cachedNotation,
                         fen: child.boardState.getFEN(),
                         isUserMove: isUserMove,
@@ -660,9 +683,10 @@ struct MainWindowView: View {
                     )
                     newRepNode.annotation = child.comment
                     repNodeMap[child.id] = newRepNode.id
+                    repNodesById[newRepNode.id] = newRepNode
                     repertoireDB.insertNode(newRepNode, into: rep, parent: parentRep)
                 } else if let repId = repNodeMap[child.id],
-                          let repNode = rep.nodes.first(where: { $0.id == repId }) {
+                          let repNode = repNodesById[repId] {
                     // Flush note edits + promote (main-line) changes back to the repertoire.
                     var changed = false
                     if repNode.annotation != child.comment { repNode.annotation = child.comment; changed = true }
@@ -675,51 +699,6 @@ struct MainWindowView: View {
         addChildren(gameTree.root)
 
         windowModel.active.repNodeMap = repNodeMap
-    }
-
-    private func repertoireMove(fromUCI uci: String, board: ChessBoard) -> Move? {
-        guard uci.count >= 4 else { return nil }
-        let chars = Array(uci)
-        guard let fromFileAscii = chars[0].asciiValue, let toFileAscii = chars[2].asciiValue,
-              let fromRank = Int(String(chars[1])), let toRank = Int(String(chars[3])) else { return nil }
-        let from = Position(Int(fromFileAscii) - Int(Character("a").asciiValue!), fromRank - 1)
-        let to = Position(Int(toFileAscii) - Int(Character("a").asciiValue!), toRank - 1)
-        guard let piece = board.pieceAt(from) else { return nil }
-        var promotionType: PieceType? = nil
-        if chars.count >= 5 {
-            switch chars[4] {
-            case "q": promotionType = .queen
-            case "r": promotionType = .rook
-            case "b": promotionType = .bishop
-            case "n": promotionType = .knight
-            default: break
-            }
-        }
-        let capturedPiece = board.pieceAt(to)
-        let isEnPassant = piece.type == .pawn && from.file != to.file && capturedPiece == nil
-        let isCastling = piece.type == .king && abs(to.file - from.file) == 2
-        return Move(from: from, to: to, piece: piece,
-                    capturedPiece: isEnPassant ? board.pieceAt(Position(to.file, from.rank)) : capturedPiece,
-                    isEnPassant: isEnPassant, isCastling: isCastling, promotionType: promotionType)
-    }
-
-    private func repertoireUCI(from move: Move) -> String {
-        let files = "abcdefgh"
-        func sq(_ p: Position) -> String {
-            let f = files[files.index(files.startIndex, offsetBy: p.file)]
-            return "\(f)\(p.rank + 1)"
-        }
-        var s = sq(move.from) + sq(move.to)
-        if let promo = move.promotionType {
-            switch promo {
-            case .queen: s += "q"
-            case .rook: s += "r"
-            case .bishop: s += "b"
-            case .knight: s += "n"
-            default: break
-            }
-        }
-        return s
     }
 
     private func cycleTab(_ delta: Int) {
@@ -783,7 +762,8 @@ struct MainWindowView: View {
                 whiteRating: s.whiteRating, blackRating: s.blackRating,
                 event: s.event, result: s.result, timeClass: s.timeClass,
                 openingName: s.openingName, openingECO: s.openingECO,
-                gameId: s.currentGameId?.uuidString))
+                gameId: s.currentGameId?.uuidString,
+                repertoireId: s.repertoireId?.uuidString))
         }
         let payload = PersistedTabSet(tabs: out, activeIndex: windowModel.activeIndex)
         if let data = try? JSONEncoder().encode(payload) {
@@ -817,6 +797,14 @@ struct MainWindowView: View {
             s.event = pt.event; s.result = pt.result; s.timeClass = pt.timeClass
             s.openingName = pt.openingName; s.openingECO = pt.openingECO
             s.currentGameId = pt.gameId.flatMap { UUID(uuidString: $0) }
+            // Rebind the repertoire link. The tree was just rebuilt from PGN with fresh node ids, so
+            // the bridge has to be re-derived by matching moves. A repertoire deleted since the last
+            // launch drops the link rather than leaving a dangling id.
+            if let repId = pt.repertoireId.flatMap({ UUID(uuidString: $0) }),
+               let rep = repertoireDB.repertoires.first(where: { $0.id == repId }) {
+                s.repertoireId = repId
+                s.repNodeMap = repertoireNodeMap(root: s.rootNode, repertoire: rep)
+            }
             sessions.append(s)
         }
         guard !sessions.isEmpty else { return }
@@ -1080,7 +1068,7 @@ struct MainWindowView: View {
                     AnalysisPanelView(
                         multiEngine: multiEngine,
                         gameTree: gameTree,
-                        autoAnalyze: $autoAnalyze,
+                        autoAnalyze: $settings.autoAnalyze,
                         gameAnalyzer: gameAnalyzer,
                         onStartAnalysis: startGameAnalysis,
                         onCancelAnalysis: cancelGameAnalysis,
@@ -1141,7 +1129,7 @@ struct MainWindowView: View {
             multiEngine.reconfigure()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            if autoAnalyze {
+            if settings.autoAnalyze {
                 evaluatePositionDebounced()
             }
         }
@@ -1206,7 +1194,7 @@ struct MainWindowView: View {
 
         // Use debounced evaluation — onChange may also trigger it,
         // but the debounce ensures only one evaluation runs
-        if autoAnalyze {
+        if settings.autoAnalyze {
             evaluatePositionDebounced()
         }
     }
@@ -1282,12 +1270,34 @@ struct MainWindowView: View {
          .tabiaScreenAnalysis, .tabiaScreenExplorer, .tabiaScreenRepertoire, .tabiaScreenMyGames,
          .tabiaScreenLibrary, .tabiaSetUpPosition, .tabiaFullReview, .tabiaToggleEngine,
          .tabiaToggleAutoAnalyze, .tabiaDeleteMove, .tabiaAnnBrilliant, .tabiaAnnGood,
-         .tabiaAnnInteresting, .tabiaAnnDubious, .tabiaAnnMistake, .tabiaAnnBlunder]
+         .tabiaAnnInteresting, .tabiaAnnDubious, .tabiaAnnMistake, .tabiaAnnBlunder,
+         // Screen-scoped commands: intercepted here only to switch screens first, then re-posted
+         // for the freshly mounted view to handle (see routeToScreen).
+         .tabiaNewRepertoire, .tabiaNewDatabase, .tabiaLibraryToggleFilters, .tabiaSyncGames]
             .map { NotificationCenter.default.publisher(for: $0) }
     )
 
+    /// Screen-scoped commands are handled by a child view that only exists while its screen is
+    /// mounted, so firing one from another screen used to vanish. Switch first, then re-post on the
+    /// next runloop turn for the now-mounted view. Re-entry is safe: the second pass sees the screen
+    /// already active and falls through to the child's own receiver.
+    private func routeToScreen(_ screen: AppScreen, then name: Notification.Name) -> Bool {
+        guard activeScreen != screen else { return false }
+        activeScreen = screen
+        DispatchQueue.main.async { NotificationCenter.default.post(name: name, object: nil) }
+        return true
+    }
+
     private func handleMenuCommand(_ name: Notification.Name) {
         switch name {
+        case .tabiaNewRepertoire:
+            _ = routeToScreen(.repertoire, then: name)
+            // The flag survives the screen switch; RepertoireBrowserView picks it up on appear.
+            pendingNewRepertoire = true
+        case .tabiaNewDatabase, .tabiaLibraryToggleFilters:
+            _ = routeToScreen(.database, then: name)
+        case .tabiaSyncGames:
+            _ = routeToScreen(.chesscom, then: name)
         case .tabiaNewGame:        resetGame(); activeScreen = .analysis
         case .tabiaOpenPGN:        openPGNFromPanel()
         case .tabiaSavePGN:        savePGNToFile()
@@ -1314,7 +1324,7 @@ struct MainWindowView: View {
         case .tabiaFullReview:       activeScreen = .analysis; startGameAnalysis()
         case .tabiaToggleEngine:
             if multiEngine.anyEngineAvailable { multiEngine.stopAll() } else { startEngineIfConfigured() }
-        case .tabiaToggleAutoAnalyze: autoAnalyze.toggle()
+        case .tabiaToggleAutoAnalyze: settings.autoAnalyze.toggle()
         case .tabiaDeleteMove:
             if gameTree.currentNode.parent != nil {
                 gameTree.deleteFromNode(gameTree.currentNode); syncBoardWithGameTree()
@@ -1369,7 +1379,11 @@ struct MainWindowView: View {
         var headers: [String: String] = [:]
         if !whiteName.isEmpty { headers["White"] = whiteName }
         if !blackName.isEmpty { headers["Black"] = blackName }
-        try? gameTree.toPGN(headers: headers).write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try gameTree.toPGN(headers: headers).write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            AppErrorReporter.report("Couldn't save the PGN to \(url.lastPathComponent).", error: error)
+        }
     }
 
     /// Load a FEN from the clipboard as a fresh game (menu: Paste FEN).
@@ -1551,7 +1565,7 @@ struct MainWindowView: View {
         multiEngine.stopAll()
 
         // Resume normal analysis if auto-analyze is on
-        if autoAnalyze {
+        if settings.autoAnalyze {
             evaluatePositionDebounced()
         }
     }
@@ -1609,7 +1623,7 @@ struct MainWindowView: View {
 
         for pathNode in pathToCurrentNode {
             if let move = pathNode.move {
-                let uci = moveToUCI(move)
+                let uci = UCI.string(from: move)
                 moves.append(uci)
             }
         }
@@ -1626,29 +1640,6 @@ struct MainWindowView: View {
             current = node.parent
         }
         return path.reversed()
-    }
-
-    private func moveToUCI(_ move: Move) -> String {
-        let files = "abcdefgh"
-        let fromFile = files[files.index(files.startIndex, offsetBy: move.from.file)]
-        let fromRank = move.from.rank + 1
-        let toFile = files[files.index(files.startIndex, offsetBy: move.to.file)]
-        let toRank = move.to.rank + 1
-
-        var uci = "\(fromFile)\(fromRank)\(toFile)\(toRank)"
-
-        // Add promotion piece if applicable
-        if let promotion = move.promotionType {
-            switch promotion {
-            case .queen: uci += "q"
-            case .rook: uci += "r"
-            case .bishop: uci += "b"
-            case .knight: uci += "n"
-            default: break
-            }
-        }
-
-        return uci
     }
 
     /// Parse and apply a single UCI move (e.g. "e2e4") to the board and game tree
@@ -1739,126 +1730,13 @@ struct MainWindowView: View {
 
         // Single debounced evaluation — onChange will also call evaluatePositionDebounced,
         // but the debounce mechanism ensures only the last one runs
-        if autoAnalyze {
+        if settings.autoAnalyze {
             evaluatePositionDebounced()
         }
     }
 }
 
 // MARK: - Board Status Bar
-
-struct BoardStatusBar: View {
-    @ObservedObject var board: ChessBoard
-    @ObservedObject var engine: StockfishEngine
-    @Binding var isBoardFlipped: Bool
-    let whiteName: String
-    let blackName: String
-    let whiteRating: String
-    let blackRating: String
-    let onNewGame: () -> Void
-    let onSave: () -> Void
-
-    private var whiteDisplayName: String {
-        whiteName.isEmpty ? "White" : whiteName
-    }
-
-    private var blackDisplayName: String {
-        blackName.isEmpty ? "Black" : blackName
-    }
-
-    private var evalText: String {
-        guard let eval = engine.evaluation else { return "—" }
-        if abs(eval) >= 10000 {
-            let mateIn = Int(abs(eval) - 10000)
-            if mateIn == 0 { return eval > 0 ? "1-0" : "0-1" }
-            return "\(eval > 0 ? "+" : "-")M\(mateIn)"
-        }
-        let pv = eval / 100.0
-        if abs(pv) < 0.05 { return "0.0" }
-        return String(format: "%+.1f", pv)
-    }
-
-    private var evalColor: Color {
-        guard let eval = engine.evaluation else { return DS.evalNeutral }
-        let pv = eval / 100.0
-        if abs(pv) < 0.3 { return DS.evalNeutral }
-        return eval > 0 ? DS.evalWhiteWinning : DS.evalBlackWinning
-    }
-
-    private var evalTextColor: Color {
-        guard let eval = engine.evaluation else { return .white }
-        let pv = eval / 100.0
-        if abs(pv) < 0.3 { return .white }
-        return eval > 0 ? .black : .white
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            // Toolbar buttons (left group)
-            HStack(spacing: 6) {
-                toolbarButton(icon: "arrow.counterclockwise", action: onNewGame, help: "New Game")
-                toolbarButton(icon: "square.and.arrow.down", action: onSave, help: "Save Game")
-            }
-
-            Spacer()
-
-            // Player info (center)
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(Color(hex: 0xECECEC))
-                    .frame(width: 10, height: 10)
-                Text("\(whiteDisplayName)\(!whiteRating.isEmpty ? " (\(whiteRating))" : "")")
-                    .font(AnnFont.serif(12, .medium))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
-
-                Text("vs")
-                    .font(AnnFont.serif(11, .regular))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.2))
-
-                Circle()
-                    .fill(Color(hex: 0x262626))
-                    .overlay(Circle().strokeBorder(Color(hex: 0xFFFFFF, opacity: 0.2), lineWidth: 1))
-                    .frame(width: 10, height: 10)
-                Text("\(blackDisplayName)\(!blackRating.isEmpty ? " (\(blackRating))" : "")")
-                    .font(AnnFont.serif(12, .medium))
-                    .foregroundColor(Color(hex: 0xFFFFFF, opacity: 0.93))
-
-                RepertoireDeviationBadge(board: board)
-            }
-
-            Spacer()
-
-            // Right group
-            toolbarButton(
-                icon: "arrow.up.arrow.down",
-                action: { isBoardFlipped.toggle() },
-                isActive: isBoardFlipped,
-                help: isBoardFlipped ? "View as White" : "View as Black"
-            )
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 42)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
-        }
-    }
-
-    private func toolbarButton(icon: String, action: @escaping () -> Void, isActive: Bool = false, help: String) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .regular))
-                .foregroundColor(isActive ? DS.accent : Color(hex: 0xFFFFFF, opacity: 0.67))
-                .frame(width: 30, height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.white.opacity(0.13))
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-    }
-}
 
 #Preview {
     MainWindowView()

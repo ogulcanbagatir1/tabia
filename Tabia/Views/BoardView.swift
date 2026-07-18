@@ -50,9 +50,13 @@ struct BoardView: View {
     let legalMoveColor = Color.black.opacity(0.12)
     let captureColor = Color(red: 0.80, green: 0.26, blue: 0.26)
 
+    /// `showLabels` is the board's capability (compact boards opt out); the user preference decides
+    /// within that. Both must agree for coordinates to render.
+    var labelsVisible: Bool { showLabels && settings.showCoordinates }
+
     // Coordinate label size (collapses to 0 when labels are hidden)
-    var labelWidth: CGFloat { showLabels ? 20 : 0 }
-    var labelHeight: CGFloat { showLabels ? 18 : 0 }
+    var labelWidth: CGFloat { labelsVisible ? 20 : 0 }
+    var labelHeight: CGFloat { labelsVisible ? 18 : 0 }
 
     var body: some View {
         GeometryReader { geometry in
@@ -75,7 +79,7 @@ struct BoardView: View {
                     VStack(spacing: 0) {
                         HStack(spacing: 0) {
                             // Left rank numbers
-                            if showLabels {
+                            if labelsVisible {
                                 VStack(spacing: 0) {
                                     ForEach(displayRanks, id: \.self) { rank in
                                         Text("\(rank + 1)")
@@ -109,7 +113,8 @@ struct BoardView: View {
                                                     piece: squarePiece(at: position),
                                                     isLight: (file + rank) % 2 != 0,
                                                     isSelected: selectedSquare == position,
-                                                    isLegalMove: legalMoves.contains(where: { $0.to == position }),
+                                                    isLegalMove: settings.highlightLegalMoves
+                                                        && legalMoves.contains(where: { $0.to == position }),
                                                     isLastMove: isLastMoveSquare(position),
                                                     isHighlighted: highlightedSquares.contains(position),
                                                     isDragging: isDragging && draggedFrom == position,
@@ -251,7 +256,7 @@ struct BoardView: View {
                         }
 
                         // Bottom file letters
-                        if showLabels {
+                        if labelsVisible {
                             HStack(spacing: 0) {
                                 Spacer().frame(width: labelWidth)
                                 ForEach(displayFiles, id: \.self) { file in
@@ -711,39 +716,6 @@ class KeyboardMonitorView: NSView {
 }
 
 // MARK: - Board With Evaluation Bar
-
-struct BoardWithEvalBar: View {
-    @ObservedObject var board: ChessBoard
-    @ObservedObject var gameTree: GameTree
-    @ObservedObject var engine: StockfishEngine
-    var fixedBoardSize: CGFloat? = nil // If provided, use this size; otherwise calculate from geometry
-    var explorerArrow: BoardArrow? = nil // Optional explorer arrow to show
-    var isFlipped: Bool = false // Board orientation
-
-    // Coordinate label size (must match BoardView)
-    let labelWidth: CGFloat = 20
-    let labelHeight: CGFloat = 18
-    let evalBarWidth: CGFloat = 24
-    let spacing: CGFloat = 16
-
-    var body: some View {
-        GeometryReader { geometry in
-            // Use fixed size if provided, otherwise calculate from available height
-            let boardSize: CGFloat = fixedBoardSize ?? max(geometry.size.height - labelHeight - 20, 300)
-
-            HStack(alignment: .center, spacing: spacing) {
-                // Evaluation bar - matches board height exactly
-                EvaluationBar(engine: engine, barHeight: boardSize)
-                    .frame(width: evalBarWidth, height: boardSize)
-
-                // Chess board with fixed size
-                BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped)
-                    .frame(width: boardSize + labelWidth, height: boardSize + labelHeight)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        }
-    }
-}
 
 // MARK: - Arrow Shape
 

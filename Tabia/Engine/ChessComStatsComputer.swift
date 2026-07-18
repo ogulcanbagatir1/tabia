@@ -345,7 +345,7 @@ struct ColorStats: Codable, Hashable {
 
 enum ChessComStatsComputer {
 
-    static func compute(games: [GameRecord], username: String) -> ChessComStats {
+    static func compute(games: [GameRecord], username: String, presorted: Bool = false) -> ChessComStats {
         let lowerUsername = username.lowercased()
 
         // Classify each game
@@ -385,7 +385,7 @@ enum ChessComStatsComputer {
         var monthCounts: [String: (year: Int, month: Int, count: Int)] = [:]
 
         // Streaks (games sorted by date, oldest first)
-        let sortedGames = games.sorted { $0.dateAdded < $1.dateAdded }
+        let sortedGames = presorted ? games : games.sorted { $0.dateAdded < $1.dateAdded }
 
         var currentWinStreak = 0, bestWinStreak = 0
         var currentLossStreak = 0, worstLossStreak = 0
@@ -635,18 +635,23 @@ enum ChessComStatsComputer {
     static func computeAllVariants(games: [GameRecord], username: String) -> [String: ChessComStats] {
         var result: [String: ChessComStats] = [:]
 
+        // Sort once and reuse. compute() needs oldest-first for streaks, and grouping a sorted array
+        // preserves order, so every per-time-class slice is sorted too. Each of the five passes used
+        // to re-sort the entire library.
+        let sorted = games.sorted { $0.dateAdded < $1.dateAdded }
+
         // "all" — no filter
-        result["all"] = compute(games: games, username: username)
+        result["all"] = compute(games: sorted, username: username, presorted: true)
 
         // Group games by time class
         var byTimeClass: [String: [GameRecord]] = [:]
-        for game in games {
+        for game in sorted {
             let tc = game.timeClass ?? "unknown"
             byTimeClass[tc, default: []].append(game)
         }
 
         for (tc, tcGames) in byTimeClass {
-            result[tc] = compute(games: tcGames, username: username)
+            result[tc] = compute(games: tcGames, username: username, presorted: true)
         }
 
         return result
@@ -670,10 +675,24 @@ enum ChessComStatsComputer {
         }
     }
 
+    /// Compiled header regexes, cached per key. These run once per game per stats variant — five
+    /// passes over the whole library — so compiling them inline meant six-figure regex compilations
+    /// on the main thread at the end of every sync.
+    private static let regexLock = NSLock()
+    nonisolated(unsafe) private static var regexCache: [String: NSRegularExpression] = [:]
+
+    private static func headerRegex(_ pattern: String) -> NSRegularExpression? {
+        regexLock.lock()
+        defer { regexLock.unlock() }
+        if let cached = regexCache[pattern] { return cached }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        regexCache[pattern] = regex
+        return regex
+    }
+
     private static func extractUserRating(from pgn: String, userPlayedWhite: Bool) -> Int? {
         let key = userPlayedWhite ? "WhiteElo" : "BlackElo"
-        let pattern = "\\[\(key) \"(\\d+)\"\\]"
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = headerRegex("\\[\(key) \"(\\d+)\"\\]"),
               let match = regex.firstMatch(in: pgn, range: NSRange(pgn.startIndex..., in: pgn)),
               let range = Range(match.range(at: 1), in: pgn) else { return nil }
         return Int(pgn[range])
@@ -681,8 +700,7 @@ enum ChessComStatsComputer {
 
     /// Extract a PGN header value by key (e.g. "Opening", "ECO", "ECOUrl")
     private static func extractHeader(_ key: String, from pgn: String) -> String? {
-        let pattern = "\\[\(key) \"([^\"]+)\"\\]"
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = headerRegex("\\[\(key) \"([^\"]+)\"\\]"),
               let match = regex.firstMatch(in: pgn, range: NSRange(pgn.startIndex..., in: pgn)),
               let range = Range(match.range(at: 1), in: pgn) else { return nil }
         let value = String(pgn[range])

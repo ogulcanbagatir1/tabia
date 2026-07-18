@@ -140,12 +140,23 @@ class GameAnalyzer: ObservableObject {
         for node in mainLineNodes {
             uciMovesAtPosition.append(uciMoves)
             if let move = node.move {
-                uciMoves.append(moveToUCI(move))
+                uciMoves.append(UCI.string(from: move))
             }
         }
 
-        analysisDepth = 20
-        analysisMovetime = Self.gameAnalysisMovetime
+        // Honour Settings › Engines › Review depth. Movetime moves with depth: a deeper cap is
+        // pointless if the engine is cut off at the same 350ms.
+        switch AppSettings.shared.reviewDepthRaw {
+        case "fast":
+            analysisDepth = 14
+            analysisMovetime = 150
+        case "deep":
+            analysisDepth = 26
+            analysisMovetime = 800
+        default:   // "balanced"
+            analysisDepth = 20
+            analysisMovetime = Self.gameAnalysisMovetime
+        }
         currentMoveIndex = 0
         evaluations = []
         topMoves = []
@@ -157,28 +168,6 @@ class GameAnalyzer: ObservableObject {
 
         // Return first position (root) for evaluation
         return positions[0]
-    }
-
-    private func moveToUCI(_ move: Move) -> String {
-        let files = "abcdefgh"
-        let fromFile = files[files.index(files.startIndex, offsetBy: move.from.file)]
-        let fromRank = move.from.rank + 1
-        let toFile = files[files.index(files.startIndex, offsetBy: move.to.file)]
-        let toRank = move.to.rank + 1
-
-        var uci = "\(fromFile)\(fromRank)\(toFile)\(toRank)"
-
-        if let promotion = move.promotionType {
-            switch promotion {
-            case .queen: uci += "q"
-            case .rook: uci += "r"
-            case .bishop: uci += "b"
-            case .knight: uci += "n"
-            default: break
-            }
-        }
-
-        return uci
     }
 
     /// Called when the engine finishes evaluating a position.
@@ -292,7 +281,7 @@ class GameAnalyzer: ObservableObject {
             // Get UCI of played move
             let playedUCI: String?
             if let move = mainLineNodes[i].move {
-                playedUCI = moveToUCI(move)
+                playedUCI = UCI.string(from: move)
             } else {
                 playedUCI = nil
             }
