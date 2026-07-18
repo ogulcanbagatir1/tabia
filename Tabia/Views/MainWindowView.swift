@@ -170,7 +170,15 @@ struct MainWindowView: View {
                                                  set: { if !$0 { tabPendingClose = nil } }),
                             titleVisibility: .visible) {
             Button("Save…") {
-                if let i = tabPendingClose { if i != windowModel.activeIndex { selectTab(i) }; showingSaveSheet = true }
+                if let i = tabPendingClose {
+                    if i != windowModel.activeIndex { selectTab(i) }
+                    if activeRepertoire != nil {
+                        saveActiveTab()          // update the repertoire, then close
+                        performCloseTab(i)
+                    } else {
+                        showingSaveSheet = true
+                    }
+                }
                 tabPendingClose = nil
             }
             Button("Don't Save", role: .destructive) {
@@ -215,10 +223,6 @@ struct MainWindowView: View {
             // A structural edit (move added / deleted / promoted) makes the active board dirty —
             // unless we're mid-load/swap. Dirty drives the amber tab dot + close-save prompt (§3.3).
             if !suppressDirty { windowModel.active.isDirty = true }
-            // If this tab is recording into a repertoire, mirror the board edit (add/delete) into it.
-            if !isHydratingRep, !isSyncingBoard, let rep = activeRepertoire {
-                reconcileRepertoire(rep)
-            }
         }
         .onChange(of: gameTree.currentNode.id) { _, _ in
             refreshMoveSequences()
@@ -475,6 +479,17 @@ struct MainWindowView: View {
         }
         newTab()
         loadGame(game)
+    }
+
+    /// The Save action for the active tab. A repertoire-linked tab writes its edits back into that
+    /// repertoire (explicit save — nothing persists until you ask); any other tab opens the Save sheet.
+    private func saveActiveTab() {
+        if let rep = activeRepertoire {
+            reconcileRepertoire(rep)
+            windowModel.active.isDirty = false
+        } else {
+            showingSaveSheet = true
+        }
     }
 
     // MARK: - Repertoire recording (open a repertoire as an analysis tab; moves persist as prep)
@@ -950,7 +965,8 @@ struct MainWindowView: View {
                         boardIconButton("arrow.up.arrow.down", "Flip Board (⇧⌘F)") { isBoardFlipped.toggle() }
                         boardIconButton("arrow.counterclockwise", "Reset Board (⌘N)") { resetGame() }
                         boardIconButton("square.grid.3x3", "Set Up Position") { showingSetupPosition = true }
-                        boardIconButton("square.and.arrow.down", "Save Game (⌘S)") { showingSaveSheet = true }
+                        boardIconButton("square.and.arrow.down",
+                                        activeRepertoire != nil ? "Save to Repertoire (⌘S)" : "Save Game (⌘S)") { saveActiveTab() }
                     }
                     .padding(.top, 16)
                     .padding(.trailing, 20)

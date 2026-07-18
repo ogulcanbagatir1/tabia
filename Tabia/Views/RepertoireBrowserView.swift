@@ -108,15 +108,15 @@ struct RepertoireBrowserView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)], spacing: 18) {
                         ForEach(filtered) { rep in
-                            Button(action: { onOpen(rep) }) {
-                                bookCard(rep)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
-                                Divider()
-                                Button("Delete…", role: .destructive) { repertoireToDelete = rep; showingDeleteAlert = true }
-                            }
+                            bookCard(rep)
+                                .contextMenu {
+                                    Button("Open") { onOpen(rep) }
+                                    Button("Drill") { startDrill(for: rep) }
+                                    Divider()
+                                    Button("Rename…") { newName = rep.name; renamingRepertoire = rep }
+                                    Divider()
+                                    Button("Delete…", role: .destructive) { repertoireToDelete = rep; showingDeleteAlert = true }
+                                }
                         }
                     }
                     // Cap the grid so cards stay a readable size on wide screens instead of stretching
@@ -322,14 +322,8 @@ struct RepertoireBrowserView: View {
                 queueStat("\(mature)", "MATURE")
                 queueStat("\(averageRetention)%", "RETENTION")
             }
-            Button(action: beginDrill) {
-                Text("BEGIN DRILL")
-                    .font(AnnFont.label(11)).tracking(11 * 0.12).foregroundColor(DS.onRed)
-                    .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    .background(DS.redAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            Text("Drill a book from its card on the left.")
+                .font(AnnFont.voice(11.5)).foregroundColor(DS.ink40)
         }
         .padding(.horizontal, 20).padding(.vertical, 18)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DS.paperRaised))
@@ -404,6 +398,12 @@ struct RepertoireBrowserView: View {
                 Text("\(cov)% COVERED").font(AnnFont.mono(10.5)).foregroundColor(DS.ink60).fixedSize()
             }
             Text(revisedLine(rep.dateModified)).font(AnnFont.mono(9.5)).foregroundColor(DS.ink25)
+
+            HStack(spacing: 8) {
+                cardButton("Edit", filled: false) { onOpen(rep) }
+                cardButton("Drill", filled: true) { startDrill(for: rep) }
+            }
+            .padding(.top, 4)
         }
         .padding(.horizontal, 20).padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -411,6 +411,21 @@ struct RepertoireBrowserView: View {
             .fill(selected ? DS.selectedMove : DS.paperRaised))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
             .strokeBorder(selected ? DS.redAccent : DS.hairline, lineWidth: selected ? 1.5 : 1))
+    }
+
+    private func cardButton(_ title: String, filled: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(AnnFont.label(10.5)).tracking(10.5 * 0.1)
+                .foregroundColor(filled ? DS.onRed : DS.ink)
+                .frame(maxWidth: .infinity).padding(.vertical, 8)
+                .background(filled ? DS.redAccent : DS.fieldBg,
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(filled ? Color.clear : DS.hairline, lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func statSpan(_ value: String, _ label: String) -> some View {
@@ -458,14 +473,6 @@ struct RepertoireBrowserView: View {
         return (0..<7).map { i in
             fmt.string(from: cal.date(byAdding: .day, value: i, to: today) ?? today).uppercased()
         }
-    }
-
-    private func beginDrill() {
-        // Drill the repertoire with the most cards due (fall back to the first book).
-        guard let target = repertoireDB.repertoires.max(by: {
-            (knowledge[$0.id]?.dueNow ?? 0) < (knowledge[$1.id]?.dueNow ?? 0)
-        }) ?? repertoireDB.repertoires.first else { return }
-        startDrill(for: target)
     }
 
     private func startDrill(for rep: Repertoire) {
