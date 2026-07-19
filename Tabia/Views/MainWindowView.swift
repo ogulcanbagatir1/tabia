@@ -94,33 +94,8 @@ struct MainWindowView: View {
     // Explorer source toggle
     @State private var explorerSource: ExplorerSource = .lichess
     @State private var explorerSearchText = ""
-
-    // Computed arrow from engine's best move suggestion
-    private var engineArrow: BoardArrow? {
-        guard settings.showBestMoveArrow,
-              let firstLine = multiEngine.primaryEngine.analysisLines.first,
-              let uciMove = firstLine.pvMoves.first,
-              uciMove.count >= 4 else {
-            return nil
-        }
-
-        let chars = Array(uciMove)
-        guard let fromFileAscii = chars[0].asciiValue,
-              let toFileAscii = chars[2].asciiValue else { return nil }
-
-        let fromFile = Int(fromFileAscii) - Int(Character("a").asciiValue!)
-        guard let fromRank = Int(String(chars[1])) else { return nil }
-        let toFile = Int(toFileAscii) - Int(Character("a").asciiValue!)
-        guard let toRank = Int(String(chars[3])) else { return nil }
-
-        let from = Position(fromFile, fromRank - 1)
-        let to = Position(toFile, toRank - 1)
-
-        guard from.isValid() && to.isValid() else { return nil }
-
-        // Blue-indigo color for engine suggestion arrow
-        return BoardArrow(from: from, to: to, color: DS.accent.opacity(0.7))
-    }
+    // The best-move arrow now lives in EngineArrowBoard (a leaf that observes the engine), so the
+    // window body no longer reads the engine's per-tick analysisLines. See AnnBoardArea.swift.
 
     // Sidebar constraints
     private let minExplorerWidth: CGFloat = 280
@@ -412,7 +387,8 @@ struct MainWindowView: View {
 
     private func tabIndicator(for session: BoardSession, active: Bool) -> TabLeadingIndicator {
         if active {
-            if multiEngine.primaryEngine.isFrozen { return .frozen }
+            // Coarse mirrors on the manager — the window never touches the engine's fine eval stream.
+            if multiEngine.selectedIsFrozen { return .frozen }
             if multiEngine.selectedIsThinking { return .engineLive }
             return session.isDirty ? .dirty : .none
         }
@@ -1097,8 +1073,7 @@ struct MainWindowView: View {
                         blackRating: blackRating,
                         openingName: currentOpeningName,
                         plyCount: cachedSAN.count,
-                        isFlipped: isBoardFlipped,
-                        explorerArrow: engineArrow
+                        isFlipped: isBoardFlipped
                     )
                     .padding(.vertical, 20)
                     Spacer(minLength: 0)
@@ -1126,6 +1101,7 @@ struct MainWindowView: View {
                 VStack(spacing: 0) {
                     AnalysisPanelView(
                         multiEngine: multiEngine,
+                        engine: multiEngine.primaryEngine,
                         gameTree: gameTree,
                         autoAnalyze: $settings.autoAnalyze,
                         gameAnalyzer: gameAnalyzer,

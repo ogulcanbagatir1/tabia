@@ -23,13 +23,19 @@ class MultiEngineManager: ObservableObject {
     /// onChange(of:) for the game-analysis pump and look-ahead logic.
     @Published private(set) var selectedIsThinking: Bool = false
 
+    /// Coarse mirror of the selected engine's frozen state, for the titlebar tab indicator. Kept as
+    /// a manager-level @Published (like selectedIsThinking) so the window sees frozen transitions
+    /// WITHOUT observing the engine's high-frequency eval/PV stream.
+    @Published private(set) var selectedIsFrozen: Bool = false
+
     // MARK: - Private
 
-    /// Subscriptions for forwarding objectWillChange from each engine.
-    private var engineCancellables: [UUID: AnyCancellable] = [:]
-
-    /// Subscription for tracking the selected engine's isThinking.
+    /// Coarse per-selection mirrors of the selected engine's thinking/frozen flags. The manager
+    /// deliberately does NOT forward the engine's per-tick objectWillChange (evaluation/depth/PV):
+    /// those reach only the leaf views that observe the engine directly (EvalBarView,
+    /// AnalysisPanelView, EngineEvalRow), so an analysing engine never re-runs MainWindowView.body.
     private var selectedThinkingCancellable: AnyCancellable?
+    private var selectedFrozenCancellable: AnyCancellable?
 
     /// A dummy engine used as a fallback when no engine is selected,
     /// so views that expect a non-optional StockfishEngine always work.
@@ -78,10 +84,11 @@ class MultiEngineManager: ObservableObject {
             slot.engine.stop()
         }
         slots.removeAll()
-        engineCancellables.removeAll()
         selectedThinkingCancellable = nil
+        selectedFrozenCancellable = nil
         selectedId = nil
         selectedIsThinking = false
+        selectedIsFrozen = false
     }
 
     // MARK: - Engine Management
@@ -93,19 +100,10 @@ class MultiEngineManager: ObservableObject {
         engine.engineConfig = config
         let slot = EngineSlot(id: config.id, config: config, engine: engine)
 
-        // Forward objectWillChange from this engine so SwiftUI re-renders.
-        // THROTTLED: Stockfish publishes evaluation/depth/PV lines many times per second
-        // during analysis; forwarding each one re-renders the entire MainWindowView (all three
-        // columns + board). Coalesce to ~10 Hz (latest wins) so the live eval stays responsive
-        // without turning every info line into a full-window relayout. Combined with the
-        // source-level dedup in StockfishEngine, this is what keeps the analysis screen fluid.
-        let cancellable = engine.objectWillChange
-            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-        engineCancellables[config.id] = cancellable
-
+        // The engine's per-tick objectWillChange is NOT forwarded to the manager. Forwarding it (even
+        // throttled) re-ran MainWindowView.body ~10x/sec during analysis, because the window observes
+        // the manager. Live eval/PV/depth now reaches only the views that observe the engine directly
+        // — EvalBarView, AnalysisPanelView, EngineEvalRow — so the rest of the window stays still.
         slots.append(slot)
 
         if selectedId == nil {
@@ -124,11 +122,7 @@ class MultiEngineManager: ObservableObject {
         //    in-flight cloud API Tasks from updating @Published properties later.
         engine.stopAnalysis()
 
-        // 2. Sever objectWillChange forwarding so engine.stop() doesn't
-        //    trigger SwiftUI re-renders with stale state.
-        engineCancellables.removeValue(forKey: id)
-
-        // 3. Compute new selection before mutating the array.
+        // 2. Compute new selection before mutating the array.
         let needsNewSelection = selectedId == id
         let newSelectedId: UUID?
         if needsNewSelection {
@@ -142,23 +136,23 @@ class MultiEngineManager: ObservableObject {
             newSelectedId = selectedId
         }
 
-        // 4. Remove the slot from the array.
+        // 3. Remove the slot from the array.
         slots.remove(at: idx)
 
-        // 5. Apply new selection and rebind thinking in one pass.
+        // 4. Apply new selection and rebind the coarse mirrors in one pass.
         if needsNewSelection {
             selectedId = newSelectedId
-            bindSelectedThinking()
+            bindSelectedFlags()
         }
 
-        // 6. Stop the engine process last, after all published state is consistent.
+        // 5. Stop the engine process last, after all published state is consistent.
         engine.stop()
     }
 
     func selectEngine(id: UUID) {
         guard slots.contains(where: { $0.id == id }) else { return }
         selectedId = id
-        bindSelectedThinking()
+        bindSelectedFlags()
     }
 
     /// Re-adds or restarts all engines. Called when engine configs change globally.
@@ -237,24 +231,36 @@ class MultiEngineManager: ObservableObject {
 
     // MARK: - Private Helpers
 
-    private func bindSelectedThinking() {
+    /// Mirror the selected engine's coarse thinking/frozen flags into the manager's own @Published,
+    /// so the window observes only these two transitions — not the engine's per-tick eval stream.
+    private func bindSelectedFlags() {
         selectedThinkingCancellable?.cancel()
+        selectedFrozenCancellable?.cancel()
         selectedThinkingCancellable = nil
+        selectedFrozenCancellable = nil
 
         guard let engine = selectedEngine else {
             selectedIsThinking = false
+            selectedIsFrozen = false
             return
         }
 
-        // Sync current value
+        // Sync current values
         selectedIsThinking = engine.isThinking
+        selectedIsFrozen = engine.isFrozen
 
-        // Observe future changes
+        // Observe future changes (deduped, so each mirror fires only on a real transition)
         selectedThinkingCancellable = engine.$isThinking
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] value in
                 self?.selectedIsThinking = value
+            }
+        selectedFrozenCancellable = engine.$isFrozen
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] value in
+                self?.selectedIsFrozen = value
             }
     }
 }

@@ -18,7 +18,6 @@ struct AnnBoardArea: View {
     let openingName: String?
     let plyCount: Int
     let isFlipped: Bool
-    var explorerArrow: BoardArrow? = nil
 
     // Fixed player-row height so the top and bottom rows are always identical boxes (independent of
     // whose turn it is or whether a rating is present) — this is what keeps them the SAME distance
@@ -65,10 +64,10 @@ struct AnnBoardArea: View {
     }
 
     // The board (BoardView already draws its own aligned border + shadow — no extra frame here).
+    // Wrapped in the engine-observing arrow leaf so the best-move arrow updates live WITHOUT this
+    // container observing the engine (labels follow the "Show coordinates" preference).
     private var board_: some View {
-        // Labels follow the "Show coordinates" preference — the compact explorer/drill boards opt out
-        // explicitly, this one does not.
-        BoardView(board: board, gameTree: gameTree, explorerArrow: explorerArrow, isFlipped: isFlipped)
+        EngineArrowBoard(engine: engine, board: board, gameTree: gameTree, isFlipped: isFlipped)
             .frame(width: boardSize, height: boardSize)
     }
 
@@ -112,6 +111,47 @@ struct AnnBoardArea: View {
         var num = n, out = ""
         for (v, s) in table { while num >= v { out += s; num -= v } }
         return out
+    }
+}
+
+// MARK: - Engine best-move arrow (leaf-only engine observer for the board)
+
+/// Supplies BoardView with the engine's best-move arrow. This is the ONLY board-column view that
+/// observes the engine, so an eval tick recomputes just the arrow VALUE here; BoardView's stored
+/// properties are value-diffable and BoardArrow is Equatable by geometry, so SwiftUI skips
+/// BoardView.body whenever the suggested move is unchanged — the 64-square grid is not torn down per
+/// tick. Moving this out of MainWindowView is what lets the window stop observing the engine while
+/// the arrow stays live.
+private struct EngineArrowBoard: View {
+    @ObservedObject var engine: StockfishEngine
+    @ObservedObject private var settings = AppSettings.shared
+    let board: ChessBoard
+    let gameTree: GameTree
+    let isFlipped: Bool
+
+    var body: some View {
+        BoardView(board: board, gameTree: gameTree, explorerArrow: arrow, isFlipped: isFlipped)
+    }
+
+    /// The engine's top-PV first move as a board arrow, or nil when the arrow is disabled or there is
+    /// no line yet. Same conversion the window used to do inline — a bare UCI square pair, no piece.
+    private var arrow: BoardArrow? {
+        guard settings.showBestMoveArrow,
+              let uci = engine.analysisLines.first?.pvMoves.first,
+              uci.count >= 4 else { return nil }
+
+        let chars = Array(uci)
+        guard let fromFileAscii = chars[0].asciiValue,
+              let toFileAscii = chars[2].asciiValue,
+              let fromRank = Int(String(chars[1])),
+              let toRank = Int(String(chars[3])) else { return nil }
+
+        let a = Int(Character("a").asciiValue!)
+        let from = Position(Int(fromFileAscii) - a, fromRank - 1)
+        let to = Position(Int(toFileAscii) - a, toRank - 1)
+        guard from.isValid() && to.isValid() else { return nil }
+
+        return BoardArrow(from: from, to: to, color: DS.accent.opacity(0.7))
     }
 }
 

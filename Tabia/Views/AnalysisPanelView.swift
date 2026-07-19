@@ -2,6 +2,10 @@ import SwiftUI
 
 struct AnalysisPanelView: View {
     @ObservedObject var multiEngine: MultiEngineManager
+    /// The selected engine, observed directly. The manager no longer forwards per-tick eval updates,
+    /// so this subscription is what keeps the panel's live eval/PV/depth current; the manager is
+    /// observed only for structural changes (slots, selection). Passed as multiEngine.primaryEngine.
+    @ObservedObject var engine: StockfishEngine
     @ObservedObject var gameTree: GameTree
     @Binding var autoAnalyze: Bool
     @ObservedObject var gameAnalyzer: GameAnalyzer
@@ -22,9 +26,9 @@ struct AnalysisPanelView: View {
         return Int(Double(gameAnalyzer.currentMoveIndex) / Double(gameAnalyzer.totalMoves) * 100)
     }
 
-    private var selectedEngine: StockfishEngine {
-        multiEngine.primaryEngine
-    }
+    /// The observed engine and multiEngine.primaryEngine are the same object; reading through the
+    /// observed reference keeps the live-eval reads and the subscription on one identity.
+    private var selectedEngine: StockfishEngine { engine }
 
     private var hasNoEngine: Bool {
         settings.engines.isEmpty && !multiEngine.anyEngineAvailable && multiEngine.slots.isEmpty
@@ -141,7 +145,11 @@ struct AnalysisPanelView: View {
                             .glassButtonSmallPrimary()
                     }
                     .buttonStyle(.plain)
-                    .disabled(!multiEngine.anyEngineAvailable)
+                    // A full review runs on the SELECTED engine (startGameAnalysis), so gate on its
+                    // availability — which this panel observes directly, so it stays reactive. Gating
+                    // on `anyEngineAvailable` would both go stale (non-selected engines aren't observed
+                    // now) and wrongly enable when the selected engine can't actually analyse.
+                    .disabled(!selectedEngine.isEngineAvailable)
                 }
             }
         }
@@ -156,6 +164,7 @@ struct AnalysisPanelView: View {
         VStack(spacing: 0) {
             ForEach(multiEngine.slots) { slot in
                 EngineEvalRow(
+                    engine: slot.engine,
                     slot: slot,
                     isSelected: slot.id == multiEngine.selectedId,
                     onSelect: { multiEngine.selectEngine(id: slot.id) },
@@ -261,13 +270,14 @@ struct AnalysisPanelView: View {
 // MARK: - Engine Eval Row (compact row per engine showing just eval)
 
 struct EngineEvalRow: View {
+    /// Observed directly so each row's eval updates on ITS engine's ticks — independent of the
+    /// manager, which no longer forwards them. `slot` carries id/config; `engine` == slot.engine.
+    @ObservedObject var engine: StockfishEngine
     let slot: MultiEngineManager.EngineSlot
     let isSelected: Bool
     let onSelect: () -> Void
     let onRemove: () -> Void
     let canRemove: Bool
-
-    private var engine: StockfishEngine { slot.engine }
 
     /// Build an eval text from the engine's current evaluation
     private var evalText: String {
@@ -464,6 +474,7 @@ struct AnalysisLinePlaceholder: View {
 
     return AnalysisPanelView(
         multiEngine: multiEngine,
+        engine: multiEngine.primaryEngine,
         gameTree: gameTree,
         autoAnalyze: .constant(true),
         gameAnalyzer: analyzer,
