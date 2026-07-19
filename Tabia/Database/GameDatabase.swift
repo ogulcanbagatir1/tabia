@@ -16,13 +16,17 @@ struct ImportResult {
 final class GameFolder {
     @Attribute(.unique) var id: UUID
     var name: String
+    /// One user-authored sentence shown on the shelf card. Optional with a default, which is the
+    /// kind of schema change SwiftData migrates on its own — existing rows simply read nil.
+    var summary: String?
     var dateCreated: Date
     @Relationship(deleteRule: .nullify, inverse: \GameRecord.folder)
     var games: [GameRecord] = []
 
-    init(id: UUID = UUID(), name: String, dateCreated: Date = Date()) {
+    init(id: UUID = UUID(), name: String, summary: String? = nil, dateCreated: Date = Date()) {
         self.id = id
         self.name = name
+        self.summary = summary
         self.dateCreated = dateCreated
     }
 }
@@ -864,6 +868,14 @@ class GameDatabase: ObservableObject {
 
     func renameFolder(_ folder: GameFolder, to newName: String) {
         folder.name = newName
+        save()
+    }
+
+    /// Name and shelf description together — the edit sheet sets both.
+    func updateFolder(_ folder: GameFolder, name: String, summary: String?) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { folder.name = trimmed }
+        folder.summary = summary
         save()
     }
 

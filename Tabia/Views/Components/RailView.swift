@@ -4,9 +4,16 @@ import SwiftUI
 // Replaces the centered masthead nav. `T.` wordmark on top, 5 line-icon nav items with a 2px red
 // left bar on the active one, gear pinned at the bottom → Settings.
 
-struct RailView: View {
+struct RailView: View, Equatable {
     @Binding var selected: AppScreen
     var onSettings: () -> Void
+
+    /// The rail draws one thing: which section is active. Without this it rebuilt on every window
+    /// render — measured 12 times per 2 s while the engine ticked, for a view that had not changed.
+    /// `onSettings` is excluded: it is a pure forwarder, so a fresh closure never means a new render.
+    nonisolated static func == (lhs: RailView, rhs: RailView) -> Bool {
+        lhs.selected == rhs.selected
+    }
 
     /// The five sections, in spec order.
     private static let items: [AppScreen] = [.analysis, .repertoire, .chesscom, .database]

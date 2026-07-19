@@ -91,6 +91,7 @@ struct DatabaseBrowserView: View {
     @State private var newDatabaseName = ""
     @State private var fileUnfiledIntoNew = false
     @State private var newFolderName = ""
+    @State private var newFolderSummary = ""
     @State private var renamingFolder: GameFolder?
     @State private var showingDeleteFolderAlert = false
     @State private var folderToDelete: GameFolder?
@@ -267,18 +268,22 @@ struct DatabaseBrowserView: View {
                 }
             }
         }
-        .alert("Rename Database", isPresented: Binding(
+        .alert("Edit Database", isPresented: Binding(
             get: { renamingFolder != nil },
             set: { if !$0 { renamingFolder = nil } }
         )) {
             TextField("Database name", text: $newFolderName)
+            TextField("Description (optional)", text: $newFolderSummary)
             Button("Cancel", role: .cancel) { renamingFolder = nil }
-            Button("Rename") {
+            Button("Save") {
                 if let folder = renamingFolder {
-                    database.renameFolder(folder, to: newFolderName)
+                    let summary = newFolderSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+                    database.updateFolder(folder, name: newFolderName, summary: summary.isEmpty ? nil : summary)
                 }
                 renamingFolder = nil
             }
+        } message: {
+            Text("The description appears under the name on the shelf.")
         }
         .alert("Delete Database", isPresented: $showingDeleteFolderAlert) {
             Button("Delete", role: .destructive) {
@@ -498,12 +503,13 @@ struct DatabaseBrowserView: View {
 
             ForEach(database.folders.sorted { $0.name < $1.name }, id: \.id) { folder in
                 ShelfCard(name: folder.name,
+                          summary: folder.summary,
                           gameCount: state.folderCounts[folder.id],
                           footnote: shelfFootnote(for: folder)) {
                     navigation = .folder(folder.id)
                 }
                 .contextMenu {
-                    Button("Rename…") { newFolderName = folder.name; renamingFolder = folder }
+                    Button("Edit…") { newFolderName = folder.name; newFolderSummary = folder.summary ?? ""; renamingFolder = folder }
                     Button("Export…") { exportingFolder = folder; showingExportFormatPicker = true }
                     Divider()
                     Button("Delete…", role: .destructive) {
@@ -1385,11 +1391,13 @@ struct DatabaseBrowserView: View {
                     .foregroundColor(DS.textTertiary)
 
                 VStack(spacing: 8) {
-                    Text("No Games in Library")
+                    Text(currentFolderId == nil ? "No Games in Library" : "This database is empty")
                         .font(AnnFont.serif(20, .semibold))
                         .foregroundColor(DS.textPrimary)
 
-                    Text("Import PGN files or create a new database to start organizing your chess games")
+                    Text(currentFolderId == nil
+                         ? "Import PGN files to start organizing your chess games"
+                         : "Import a PGN file to fill it.")
                         .font(AnnFont.serif(13))
                         .foregroundColor(DS.textTertiary)
                         .lineSpacing(4)
@@ -1397,8 +1405,12 @@ struct DatabaseBrowserView: View {
                         .frame(maxWidth: 340)
                 }
 
-                Button(action: { showingNewDatabaseSheet = true }) {
-                    Text("Create Database")
+                // Inside an empty database you want to fill THIS one, not make another.
+                Button(action: {
+                    pendingImportFolderId = currentFolderId
+                    showingImportPicker = true
+                }) {
+                    Text("Import PGN")
                         .font(AnnFont.label(13))
                         .tracking(13 * 0.1)
                         .foregroundColor(.white)

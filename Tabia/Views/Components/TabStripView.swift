@@ -5,11 +5,18 @@ import SwiftUI
 // inactive tabs are quiet with a right hairline. Leading indicator: green pulse (engine live) /
 // `‖` (frozen background eval) / amber dot (unsaved).
 
-enum TabLeadingIndicator {
+enum TabLeadingIndicator: Equatable {
     case none, engineLive, frozen, dirty
 }
 
-struct BoardTabView: View {
+struct BoardTabView: View, Equatable {
+    /// A tab shows a title, a state dot and a width. Rebuilding every tab on every window render —
+    /// measured 25 times per 2 s with two tabs open — bought nothing.
+    nonisolated static func == (lhs: BoardTabView, rhs: BoardTabView) -> Bool {
+        lhs.title == rhs.title && lhs.active == rhs.active && lhs.indicator == rhs.indicator
+            && lhs.showClose == rhs.showClose && lhs.width == rhs.width
+    }
+
     let title: String
     let active: Bool
     var indicator: TabLeadingIndicator = .none

@@ -180,11 +180,13 @@ struct MainWindowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+
             // Masthead — wordmark · centered nav tabs · contextual actions + settings gear.
             // Hidden in Drill mode (focused mode) — handled inside RepertoireBrowserView's drill.
             titlebarStrip
             HStack(spacing: 0) {
                 RailView(selected: $activeScreen, onSettings: openSettingsWindow)
+                    .equatable()
                 screenStack
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -373,6 +375,7 @@ struct MainWindowView: View {
                                 onClose: { closeTab(index) },
                                 onRename: { renameTab(index, $0) }
                             )
+                            .equatable()
                         }
                         NewTabButton(action: { newTab() })
                     }
@@ -1151,6 +1154,7 @@ struct MainWindowView: View {
                         onSetUpPosition: { showingSetupPosition = true },
                         onDropPGNText: { loadGameFromPGN($0) }
                     )
+                    .equatable()
                 }
                 .frame(width: finalRightSidebarWidth)
                 .background(GlassPanelBackground())

@@ -1,7 +1,19 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct MoveListView: View {
+struct MoveListView: View, Equatable {
+    /// The move column renders from the tree and a handful of header strings. It observes the tree
+    /// directly, so real changes still redraw it; this only stops the window's own renders — engine
+    /// ticks included — from rebuilding it. Closures are excluded as pure forwarders.
+    nonisolated static func == (lhs: MoveListView, rhs: MoveListView) -> Bool {
+        lhs.gameTree === rhs.gameTree
+            && lhs.whiteName == rhs.whiteName && lhs.blackName == rhs.blackName
+            && lhs.event == rhs.event && lhs.openingName == rhs.openingName
+            && lhs.eco == rhs.eco && lhs.result == rhs.result
+            && lhs.showReview == rhs.showReview && lhs.reviewTimeClass == rhs.reviewTimeClass
+            && lhs.gameAnalyzer === rhs.gameAnalyzer
+    }
+
     @ObservedObject var gameTree: GameTree
     // Optional game metadata — shown as an editorial header above the moves when a game is loaded.
     var whiteName: String = ""
