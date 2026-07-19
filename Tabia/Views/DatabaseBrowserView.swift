@@ -9,10 +9,77 @@ struct DatabaseBrowserView: View {
     /// Load the game into Analysis and immediately run a full game review.
     var onReviewGame: (GameRecord) -> Void = { _ in }
 
+    /// Survives leaving the screen. See BrowserStates.swift for the ownership rule.
+    @ObservedObject var state: DatabaseBrowserState
+
+    // Forwarding accessors: the body reads and writes these exactly as before, they just live in
+    // `state` now. `nonmutating set` works because `state` is a reference.
+    private var navigation: Navigation {
+        get { state.navigation } nonmutating set { state.navigation = newValue }
+    }
+    private var selectedGameIds: Set<UUID> {
+        get { state.selectedGameIds } nonmutating set { state.selectedGameIds = newValue }
+    }
+    private var selectedGame: GameRecord? {
+        get { state.selectedGame } nonmutating set { state.selectedGame = newValue }
+    }
+    private var rootSearchText: String {
+        get { state.rootSearchText } nonmutating set { state.rootSearchText = newValue }
+    }
+    private var sidebarCollapsed: Bool {
+        get { state.sidebarCollapsed } nonmutating set { state.sidebarCollapsed = newValue }
+    }
+    private var filterWhite: String {
+        get { state.filterWhite } nonmutating set { state.filterWhite = newValue }
+    }
+    private var filterBlack: String {
+        get { state.filterBlack } nonmutating set { state.filterBlack = newValue }
+    }
+    private var filterResult: String? {
+        get { state.filterResult } nonmutating set { state.filterResult = newValue }
+    }
+    private var filterWhiteEloRange: ClosedRange<Double> {
+        get { state.filterWhiteEloRange } nonmutating set { state.filterWhiteEloRange = newValue }
+    }
+    private var filterBlackEloRange: ClosedRange<Double> {
+        get { state.filterBlackEloRange } nonmutating set { state.filterBlackEloRange = newValue }
+    }
+    private var filterDateFrom: String {
+        get { state.filterDateFrom } nonmutating set { state.filterDateFrom = newValue }
+    }
+    private var filterDateTo: String {
+        get { state.filterDateTo } nonmutating set { state.filterDateTo = newValue }
+    }
+    private var filterEvent: String {
+        get { state.filterEvent } nonmutating set { state.filterEvent = newValue }
+    }
+    private var filterOpening: String {
+        get { state.filterOpening } nonmutating set { state.filterOpening = newValue }
+    }
+    private var appliedFilter: GameFilter {
+        get { state.appliedFilter } nonmutating set { state.appliedFilter = newValue }
+    }
+    private var sortColumn: SortColumn {
+        get { state.sortColumn } nonmutating set { state.sortColumn = newValue }
+    }
+    private var sortAscending: Bool {
+        get { state.sortAscending } nonmutating set { state.sortAscending = newValue }
+    }
+    private var cachedGames: [GameRecord] {
+        get { state.cachedGames } nonmutating set { state.cachedGames = newValue }
+    }
+    private var totalCount: Int {
+        get { state.totalCount } nonmutating set { state.totalCount = newValue }
+    }
+    private var dbOffset: Int {
+        get { state.dbOffset } nonmutating set { state.dbOffset = newValue }
+    }
+    private var allExhausted: Bool {
+        get { state.allExhausted } nonmutating set { state.allExhausted = newValue }
+    }
+
+    // Transient UI — deliberately still @State, so it resets when you come back.
     @State private var indexingFolder: GameFolder?
-    @State private var navigation: Navigation = .allGames
-    @State private var selectedGameIds: Set<UUID> = []
-    @State private var selectedGame: GameRecord?
     @State private var showingImportPicker = false
     @State private var showingPGNImportSheet = false
     @State private var pendingImportURLs: [URL] = []
@@ -31,20 +98,10 @@ struct DatabaseBrowserView: View {
     @State private var showingExportFormatPicker = false
     @State private var isDropTargeted = false
     @State private var showingFilters = false
-    @State private var rootSearchText = ""
-    @State private var sidebarCollapsed = false
-    @State private var hoveredRowId: UUID? = nil
+    /// Held, not observed — ⌘⇧O fires it and only the pill re-renders.
+    @State private var switcherTrigger = SwitcherTrigger()
 
     // Filters
-    @State private var filterWhite: String = ""
-    @State private var filterBlack: String = ""
-    @State private var filterResult: String? = nil
-    @State private var filterWhiteEloRange: ClosedRange<Double> = 0...3000
-    @State private var filterBlackEloRange: ClosedRange<Double> = 0...3000
-    @State private var filterDateFrom: String = ""
-    @State private var filterDateTo: String = ""
-    @State private var filterEvent: String = ""
-    @State private var filterOpening: String = ""
 
     // Picker popovers
     @State private var showingWhitePlayerPicker = false
@@ -53,20 +110,13 @@ struct DatabaseBrowserView: View {
     @State private var showingEventPicker = false
 
     // Applied filter (what's actually used for queries)
-    @State private var appliedFilter = GameFilter()
 
     // Filter card height (measured from tallest card)
     @State private var filterCardHeight: CGFloat = 0
 
     // Sorting
-    @State private var sortColumn: SortColumn = .date
-    @State private var sortAscending = false
 
     // Pagination
-    @State private var cachedGames: [GameRecord] = []
-    @State private var totalCount: Int = 0
-    @State private var dbOffset: Int = 0
-    @State private var allExhausted = false
     @State private var isLoadingGames = false
     @State private var reloadTask: Task<Void, Never>?
     private let pageSize = 50
@@ -110,37 +160,51 @@ struct DatabaseBrowserView: View {
         buildGameFilter() != appliedFilter
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                if sidebarCollapsed {
-                    collapsedSidebarRail
-                } else {
-                    librarySidebar
-                        .frame(width: 280)
-                        .background(DS.paper)
-                        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
-                }
-                Group {
-                    switch navigation {
-                    case .reference:
-                        ReferenceBrowseView(
-                            onBack: { navigation = .allGames },
-                            onOpen: { onReferenceGameSelected($0) }
-                        )
-                    default:
-                        tableView
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+    /// Changes whenever the library gains/loses games or databases — the trigger for recounting.
+    private var libraryRevision: Int {
+        database.libraryGameCount &* 1000 &+ database.folders.count
+    }
+
+    /// The module's content plus the commands that drive it. Split out of `body` because the full
+    /// modifier chain — sheets, alerts, importers, drop targets — is one expression, and past a
+    /// certain length Swift's type checker gives up on it.
+    private var navigationContent: some View {
+        // No sidebar: the module is a Shelf ↔ Ledger swap. One to three databases could never fill a
+        // 300px panel, so that width goes to the content instead.
+        Group {
+            switch navigation {
+            case .root:
+                shelfView
+            case .reference:
+                ReferenceBrowseView(
+                    onBack: { navigation = .root },
+                    onOpen: { onReferenceGameSelected($0) }
+                )
+            default:
+                tableView
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onReceive(NotificationCenter.default.publisher(for: .tabiaLibraryToggleFilters)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { showingFilters.toggle() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .tabiaLibraryImportPGN)) { _ in
             showingImportPicker = true
         }
+        // ⌘⇧O anywhere in the module opens the switcher; inside a database ⌘[ goes back to the shelf.
+        .background {
+            Group {
+                Button("") { if navigation != .root { switcherTrigger.fire() } }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
+                Button("") { if navigation != .root { navigation = .root } }
+                    .keyboardShortcut("[", modifiers: .command)
+            }
+            .opacity(0)
+        }
+    }
+
+    var body: some View {
+        navigationContent
         .onReceive(NotificationCenter.default.publisher(for: .tabiaNewDatabase)) { _ in
             showingNewDatabaseSheet = true
         }
@@ -277,6 +341,13 @@ struct DatabaseBrowserView: View {
                 reloadGames()
             }
         }
+        // Data loading is deliberately NOT in onAppear: it runs after the screen is on screen, so a
+        // transition is never waiting on a query.
+        .task(id: libraryRevision) {
+            await Task.yield()               // let the screen paint first
+            await refreshFolderCountsIfNeeded()
+            measureStoreSizeIfNeeded()       // one file stat, cheap, and last in line
+        }
         .onChange(of: navigation) { _, _ in reloadGames() }
         .onChange(of: sortColumn) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: sortAscending) { _, _ in scheduleReload(debounce: false) }
@@ -308,367 +379,155 @@ struct DatabaseBrowserView: View {
     // MARK: - Library sidebar (D1) — the old "Databases" grid folded into a sidebar
 
     // Thin rail shown when the library sidebar is collapsed — one tap brings it back.
-    private var collapsedSidebarRail: some View {
+    /// Count each database once, not once per render. Refreshed when the library size changes.
+    /// Fill in the per-database numbers AFTER the screen is on screen, one database at a time.
+    ///
+    /// Navigation must never wait on data. These are unindexed relationship queries — two per
+    /// database — so doing them in one synchronous pass blocked the transition for 50–90 ms with a
+    /// single small library, and would scale linearly with the number of databases. Yielding between
+    /// each keeps every main-actor turn short: the shelf paints immediately, counts land as they
+    /// arrive, and a hundred databases cost a hundred short turns instead of one long freeze.
+    private func refreshFolderCountsIfNeeded() async {
+        guard state.countsRevision != libraryRevision else { return }
+        state.countsRevision = libraryRevision
+
+        for folder in database.folders {
+            guard !Task.isCancelled else { return }
+            state.folderCounts[folder.id] = database.gamesInFolderCount(folder.id)
+            // Sorted dateAdded-descending, so one row is the newest.
+            state.folderLastChanged[folder.id] = database.gamesInFolder(folder.id, limit: 1).first?.dateAdded
+            await Task.yield()
+        }
+
+        guard !Task.isCancelled else { return }
+        state.libraryLastChanged = database.fetchLibraryGames(
+            folderId: nil,
+            sortDescriptor: SortDescriptor(\.dateAdded, order: .reverse),
+            limit: 1, offset: 0
+        ).games.first?.dateAdded
+    }
+
+    private func folderCount(_ id: UUID) -> Int { state.folderCounts[id] ?? 0 }
+
+    /// "EDITED 3 DAYS AGO" from the newest game, falling back to when the database was made.
+    private func shelfFootnote(for folder: GameFolder) -> String {
+        if let changed = state.folderLastChanged[folder.id] {
+            return "EDITED \(relativeTimeString(changed).uppercased())"
+        }
+        return "CREATED \(relativeTimeString(folder.dateCreated).uppercased())"
+    }
+
+    /// Stat the SwiftData store once per window. Includes the -wal/-shm siblings, which can hold a
+    /// meaningful share of the total right after a big import.
+    private func measureStoreSizeIfNeeded() {
+        guard state.storeSizeText == nil else { return }
+        let realHome = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) } ?? NSHomeDirectory()
+        let base = URL(fileURLWithPath: realHome, isDirectory: true)
+            .appendingPathComponent("Library/Containers/com.ogulcan.Tabia/Data/Library/Application Support/default.store")
+
+        var total: Int64 = 0
+        for suffix in ["", "-wal", "-shm"] {
+            let path = base.path + suffix
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+               let size = attrs[.size] as? Int64 {
+                total += size
+            }
+        }
+        guard total > 0 else { return }
+        state.storeSizeText = ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
+    }
+
+    // MARK: - Shelf (D6)
+
+    private var shelfView: some View {
         VStack(spacing: 0) {
-            Button(action: { withAnimation(DS.quickFade) { sidebarCollapsed = false } }) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(DS.ink60)
-                    .frame(width: 26, height: 26)
-                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Show library")
-            .padding(.top, 16)
-            Spacer(minLength: 0)
-        }
-        .frame(width: 46)
-        .frame(maxHeight: .infinity)
-        .background(DS.paper)
-        .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
-    }
-
-    private var librarySidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        AnnLabel("Library", size: 10, tracking: 0.14, bold: true, color: DS.ink40)
-                        Spacer()
-                        Button(action: { showingNewDatabaseSheet = true }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(DS.ink60)
-                                .frame(width: 20, height: 20)
-                                .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("New database")
-                        Button(action: { withAnimation(DS.quickFade) { sidebarCollapsed = true } }) {
-                            Image(systemName: "sidebar.left")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(DS.ink60)
-                                .frame(width: 20, height: 20)
-                                .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("Hide library")
-                    }
-                    .padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 8)
-
-                    sidebarRow(icon: "tray.full", name: "All Games", count: database.libraryGameCount,
-                               isSelected: navigation == .allGames) { navigation = .allGames }
-
-                    ForEach(database.folders.sorted { $0.name < $1.name }, id: \.id) { folder in
-                        sidebarRow(icon: "cylinder", name: folder.name, count: database.gamesInFolderCount(folder.id),
-                                   subtitle: folderIndexSubtitle(folder),
-                                   isSelected: navigation == .folder(folder.id)) { navigation = .folder(folder.id) }
-                            .contextMenu {
-                                Button(dbIndex.isIndexed(folder.id) ? "Rebuild Opening Index" : "Build Opening Index") {
-                                    startIndexing(folder)
-                                }
-                                .disabled(dbIndex.isIndexing)
-                                Button("Rename…") { newFolderName = folder.name; renamingFolder = folder }
-                                Button("Export…") { exportingFolder = folder; showingExportFormatPicker = true }
-                                Divider()
-                                Button("Delete…", role: .destructive) {
-                                    folderToDelete = folder
-                                    showingDeleteFolderAlert = true
-                                }
-                            }
-                    }
-
-                    if referenceDatabase.gameCount > 0 {
-                        sidebarRow(icon: "books.vertical.fill", name: referenceDatabase.displayName,
-                                   count: referenceDatabase.gameCount, subtitle: "read-only",
-                                   isSelected: navigation == .reference) { navigation = .reference }
-                    }
-
+                VStack(alignment: .leading, spacing: 22) {
+                    shelfHeader
+                    shelfGrid
                 }
-                .padding(.horizontal, 8)
-            }
-            VStack(alignment: .leading, spacing: 5) {
-                Text("The reference database is read-only — a re-download replaces it.")
-                    .font(AnnFont.voice(11.5)).foregroundColor(DS.ink40)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("\(database.folders.count + 1) DATABASES · \(formattedGameCount(database.libraryGameCount)) GAMES")
-                    .font(AnnFont.mono(9)).foregroundColor(DS.ink25)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
-        }
-    }
-
-    private func sidebarRow(icon: String, name: String, count: Int, subtitle: String? = nil,
-                            isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name).font(AnnFont.serif(16, .regular)).foregroundColor(DS.ink).lineLimit(1)
-                    if let subtitle {
-                        Text(subtitle.uppercased()).font(AnnFont.label(8)).tracking(0.8).foregroundColor(DS.ink40)
-                    }
-                }
-                Spacer(minLength: 6)
-                Text(count.formatted()).font(AnnFont.mono(11)).foregroundColor(DS.ink25)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(isSelected ? DS.selectedMove : Color.clear, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-
-    private var rootView: some View {
-        VStack(spacing: 0) {
-            // Card grid or empty state
-            if database.libraryGameCount == 0 && database.folders.isEmpty {
-                emptyState
-            } else {
-            // Header
-            HStack {
-                HStack(spacing: 12) {
-                    Image(systemName: "cylinder")
-                        .font(.system(size: 18))
-                        .foregroundColor(DS.ink60)
-                    Text("Databases")
-                        .font(AnnFont.serif(16, .semibold))
-                        .foregroundColor(DS.ink)
-                }
-
-                Spacer()
-
-                HStack(spacing: 10) {
-                    // Search field
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14))
-                            .foregroundColor(DS.ink25)
-                        TextField("Search databases...", text: $rootSearchText)
-                            .textFieldStyle(.plain)
-                            .font(AnnFont.serif(12))
-                        if !rootSearchText.isEmpty {
-                            Button(action: { rootSearchText = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(DS.ink25)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(width: 220, height: 32)
-                    .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(DS.hairline, lineWidth: 1)
-                    )
-
-                    // Create Database button
-                    Button(action: { showingNewDatabaseSheet = true }) {
-                        Text("Create Database")
-                    }
-                    .buttonStyle(GlassPrimaryButtonStyle())
-                }
-            }
-            .padding(.horizontal, 28)
-            .frame(height: 52)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DS.hairline).frame(height: 1)
-            }
-
-            ScrollView {
-                LazyVGrid(columns: [
-                    GridItem(.adaptive(minimum: 400, maximum: 500), spacing: 20)
-                ], spacing: 16) {
-                    // All Games card
-                    if rootSearchText.isEmpty || "all games".localizedCaseInsensitiveContains(rootSearchText) {
-                        rootDatabaseCard(
-                            name: "All Games",
-                            subtitle: "All databases",
-                            icon: "tray.full",
-                            gameCount: database.libraryGameCount,
-                            color: DS.accent,
-                            lastModified: nil
-                        ) {
-                            navigation = .allGames
-                        }
-                    }
-
-                    // Reference database (read-only, backed by SQLite) — appears once downloaded.
-                    if referenceDatabase.gameCount > 0,
-                       rootSearchText.isEmpty || referenceDatabase.displayName.localizedCaseInsensitiveContains(rootSearchText) {
-                        rootDatabaseCard(
-                            name: referenceDatabase.displayName,
-                            subtitle: "Reference · read-only",
-                            icon: "books.vertical.fill",
-                            gameCount: referenceDatabase.gameCount,
-                            color: DS.accent,
-                            lastModified: nil
-                        ) {
-                            navigation = .reference
-                        }
-                    }
-
-                    ForEach(Array(filteredRootFolders.enumerated()), id: \.element.id) { index, folder in
-                        rootDatabaseCard(
-                            name: folder.name,
-                            subtitle: nil,
-                            icon: "cylinder",
-                            gameCount: database.gamesInFolderCount(folder.id),
-                            color: rootCardColor(for: index),
-                            lastModified: folder.dateCreated
-                        ) {
-                            navigation = .folder(folder.id)
-                        }
-                        .contextMenu {
-                            Button("Rename...") {
-                                newFolderName = folder.name
-                                renamingFolder = folder
-                            }
-                            Button("Export...") {
-                                exportingFolder = folder
-                                showingExportFormatPicker = true
-                            }
-                            Divider()
-                            Button("Delete...", role: .destructive) {
-                                folderToDelete = folder
-                                showingDeleteFolderAlert = true
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 28)
+                .padding(.horizontal, 40).padding(.vertical, 30)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: .infinity)
-            } // end else (has games/folders)
 
-            // Status bar
-            rootStatusBar
+            shelfStatusBar
+        }
+        .background(DS.paper)
+    }
+
+    private var shelfHeader: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            (Text("Library").font(AnnFont.serif(26, .semibold)).foregroundColor(DS.ink)
+             + Text(" — every game you keep, shelved.").font(AnnFont.voice(24)).foregroundColor(DS.ink60))
+            Text(shelfStatLine)
+                .font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
         }
     }
 
-    private var filteredRootFolders: [GameFolder] {
-        let sorted = database.folders.sorted(by: { $0.name < $1.name })
-        if rootSearchText.isEmpty { return sorted }
-        return sorted.filter { $0.name.localizedCaseInsensitiveContains(rootSearchText) }
+    /// Databases here means real stores — the folders plus the reference DB. "All Games" is a view
+    /// across them, not one of them.
+    private var databaseCount: Int {
+        database.folders.count + (referenceDatabase.gameCount > 0 ? 1 : 0)
     }
 
-    private func rootCardColor(for index: Int) -> Color {
-        let colors: [Color] = [DS.accentGreen, DS.accentOrange, DS.accentPurple, DS.accentRed, DS.accentTeal, DS.accent]
-        return colors[index % colors.count]
+    private var shelfStatLine: String {
+        var parts = ["\(databaseCount) DATABASES",
+                     "\(database.libraryGameCount.formatted()) GAMES"]
+        if let size = state.storeSizeText { parts.append("LOCAL — \(size)") }
+        return parts.joined(separator: " · ")
     }
 
-    private func rootDatabaseCard(
-        name: String,
-        subtitle: String?,
-        icon: String,
-        gameCount: Int,
-        color: Color,
-        lastModified: Date?,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 0) {
-                // Card Header
-                HStack(spacing: 12) {
-                    Image(systemName: icon)
-                        .font(.system(size: 18))
-                        .foregroundColor(.white)
-                        .frame(width: 36, height: 36)
-                        .background(color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(name)
-                            .font(AnnFont.serif(14, .semibold))
-                            .foregroundColor(DS.ink)
-                            .lineLimit(1)
-                        if let subtitle = subtitle, !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(AnnFont.serif(11))
-                                .foregroundColor(DS.ink40)
-                                .lineLimit(1)
-                        }
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.hairline).frame(height: 1)
-                }
-
-                // Card Body
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("Games")
-                            .font(AnnFont.serif(12))
-                            .foregroundColor(DS.ink40)
-                        Spacer()
-                        Text(formattedGameCount(gameCount))
-                            .font(AnnFont.mono(13, bold: true))
-                            .foregroundColor(DS.ink)
-                    }
-
-                    HStack {
-                        Text("Last modified")
-                            .font(AnnFont.serif(12))
-                            .foregroundColor(DS.ink40)
-                        Spacer()
-                        Text(lastModified != nil ? relativeTimeString(lastModified!) : "-")
-                            .font(AnnFont.mono(12))
-                            .foregroundColor(DS.ink60)
-                    }
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
+    private var shelfGrid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18), count: 3), spacing: 18) {
+            ShelfCard(name: "All Games",
+                      summary: "Everything in the library, across every database.",
+                      gameCount: database.libraryGameCount,
+                      footnote: state.libraryLastChanged.map { "EDITED \(relativeTimeString($0).uppercased())" }) {
+                navigation = .allGames
             }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(DS.paperRaised)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(DS.hairline, lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.19), radius: 10, x: 0, y: 4)
+
+            if referenceDatabase.gameCount > 0 {
+                ShelfCard(name: referenceDatabase.displayName,
+                          badge: .readOnly,
+                          summary: "Master games for opening research. Replaced wholesale on re-download.",
+                          gameCount: referenceDatabase.gameCount) {
+                    navigation = .reference
+                }
+            }
+
+            ForEach(database.folders.sorted { $0.name < $1.name }, id: \.id) { folder in
+                ShelfCard(name: folder.name,
+                          gameCount: state.folderCounts[folder.id],
+                          footnote: shelfFootnote(for: folder)) {
+                    navigation = .folder(folder.id)
+                }
+                .contextMenu {
+                    Button("Rename…") { newFolderName = folder.name; renamingFolder = folder }
+                    Button("Export…") { exportingFolder = folder; showingExportFormatPicker = true }
+                    Divider()
+                    Button("Delete…", role: .destructive) {
+                        folderToDelete = folder
+                        showingDeleteFolderAlert = true
+                    }
+                }
+            }
+
+            NewShelfCard { showingNewDatabaseSheet = true }
         }
-        .buttonStyle(.plain)
     }
 
-    private var rootStatusBar: some View {
+    private var shelfStatusBar: some View {
         HStack {
-            Text("\(database.folders.count + 1) databases · \(formattedGameCount(database.libraryGameCount)) games")
-                .font(AnnFont.mono(11))
-                .foregroundColor(DS.ink25)
-
+            Text("\(databaseCount) DATABASES · \(database.libraryGameCount.formatted()) GAMES")
+                .font(AnnFont.mono(9.5)).foregroundColor(DS.ink40)
             Spacer()
-
-            let formatter = DateFormatter()
-            let _ = formatter.dateFormat = "MMM d, yyyy"
-            Text("Last synced: \(formatter.string(from: Date()))")
-                .font(AnnFont.mono(11))
-                .foregroundColor(DS.ink25)
         }
         .padding(.horizontal, 28)
-        .frame(height: 28)
-        .background(DS.chrome)
-        .overlay(alignment: .top) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
-        }
+        .frame(height: DS.statusBarHeight)
+        .background(DS.paperRaised)
+        .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
-
     private func formattedGameCount(_ count: Int) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -686,6 +545,7 @@ struct DatabaseBrowserView: View {
     private var tableView: some View {
         ZStack(alignment: .trailing) {
             VStack(spacing: 0) {
+                ledgerHeaderBar
                 if hasContextActions { tableHeaderBar }
 
                 if cachedGames.isEmpty && !isLoadingGames {
@@ -764,7 +624,11 @@ struct DatabaseBrowserView: View {
         isLoadingGames = true
 
         Task { @MainActor in
+            // Yield first so opening a database paints the empty ledger immediately; the count and
+            // the first page arrive right after instead of holding up the transition.
+            await Task.yield()
             totalCount = database.libraryGamesCount(folderId: currentFolderId)
+            await Task.yield()
             performLoad(targetCount: pageSize)
         }
     }
@@ -848,6 +712,91 @@ struct DatabaseBrowserView: View {
         }
     }
 
+    // MARK: - Ledger header (D7)
+
+    /// A quiet toolbar, not a hero: back to the shelf, the database name as a switcher, and the
+    /// live count. The pill is the primary navigation — you jump sideways without going back first.
+    private var ledgerHeaderBar: some View {
+        HStack(spacing: 8) {
+            Button(action: { navigation = .root }) {
+                Text("‹")
+                    .font(AnnFont.mono(13))
+                    .foregroundColor(DS.ink40)
+                    .padding(.horizontal, 9).padding(.top, 2).padding(.bottom, 4)
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(DS.borderChip, lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Back to the shelf — ⌘[")
+
+            DatabaseSwitcherPill(title: currentFolderName,
+                                 entries: switcherEntries,
+                                 onNewDatabase: { showingNewDatabaseSheet = true },
+                                 trigger: switcherTrigger)
+
+            Text(ledgerMeta)
+                .font(AnnFont.mono(10.5)).foregroundColor(DS.ink40)
+
+            Spacer(minLength: 8)
+
+            filterChip
+        }
+        .padding(.horizontal, 28).padding(.vertical, 11)
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    /// Filters live in the ledger header, not the masthead: they only mean anything inside a database.
+    private var filterChip: some View {
+        let active = hasActiveFilters
+        let label = active ? "FILTERS · \(activeFilterCount)" : "FILTERS"
+        let tint: Color = active ? DS.redAccent : DS.ink60
+        let border: Color = active ? DS.redAccent : DS.borderChip
+
+        return Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showingFilters.toggle() } }) {
+            HStack(spacing: 5) {
+                Image(systemName: "slider.horizontal.3").font(.system(size: 11, weight: .regular))
+                Text(label).font(AnnFont.mono(10.5, bold: active))
+            }
+            .foregroundColor(tint)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(border, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Filter this database — ⌥⌘F")
+    }
+
+    /// Built from the cached counts, so opening the switcher costs no queries.
+    private var switcherEntries: [SwitcherEntry] {
+        var entries: [SwitcherEntry] = [
+            SwitcherEntry(id: "all", name: "All Games", count: database.libraryGameCount,
+                          isCurrent: navigation == .allGames, select: { navigation = .allGames })
+        ]
+        for folder in database.folders.sorted(by: { $0.name < $1.name }) {
+            entries.append(SwitcherEntry(id: folder.id.uuidString, name: folder.name,
+                                         count: folderCount(folder.id),
+                                         isCurrent: navigation == .folder(folder.id),
+                                         select: { navigation = .folder(folder.id) }))
+        }
+        if referenceDatabase.gameCount > 0 {
+            entries.append(SwitcherEntry(id: "reference", name: referenceDatabase.displayName,
+                                         count: referenceDatabase.gameCount, readOnly: true,
+                                         isCurrent: navigation == .reference,
+                                         select: { navigation = .reference }))
+        }
+        return entries
+    }
+
+    private var ledgerMeta: String {
+        let n = navigation == .allGames ? database.libraryGameCount : totalCount
+        var parts = ["\(n.formatted()) GAMES"]
+        if navigation == .reference { parts.append("READ-ONLY") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Jump straight to another database without returning to the shelf.
     // MARK: - Data
 
     private var currentFolderName: String {
@@ -867,15 +816,8 @@ struct DatabaseBrowserView: View {
     // MARK: - Opening index (per-database)
 
     private func folderIsStale(_ folder: GameFolder) -> Bool {
-        dbIndex.isStale(folder.id, currentCount: database.gamesInFolderCount(folder.id))
+        dbIndex.isStale(folder.id, currentCount: folderCount(folder.id))
     }
-
-    private func folderIndexSubtitle(_ folder: GameFolder) -> String? {
-        if dbIndex.indexingFolderId == folder.id { return "indexing…" }
-        guard dbIndex.isIndexed(folder.id) else { return nil }
-        return folderIsStale(folder) ? "index out of date" : "indexed"
-    }
-
     @ViewBuilder
     private func indexToolbarButton(_ folder: GameFolder) -> some View {
         let building = dbIndex.indexingFolderId == folder.id
@@ -990,7 +932,7 @@ struct DatabaseBrowserView: View {
                 VStack(spacing: 0) {
                     // White Player
                     filterSection(title: "White Player") {
-                        filterSearchField(text: $filterWhite, placeholder: "Search players...")
+                        filterSearchField(text: $state.filterWhite, placeholder: "Search players...")
                         filterSelectableList(
                             pickerType: .whitePlayer,
                             selectedValue: filterWhite,
@@ -1000,7 +942,7 @@ struct DatabaseBrowserView: View {
 
                     // Black Player
                     filterSection(title: "Black Player") {
-                        filterSearchField(text: $filterBlack, placeholder: "Search players...")
+                        filterSearchField(text: $state.filterBlack, placeholder: "Search players...")
                         filterSelectableList(
                             pickerType: .blackPlayer,
                             selectedValue: filterBlack,
@@ -1009,7 +951,7 @@ struct DatabaseBrowserView: View {
                     }
 
                     // White Elo (eloContent includes its own header row)
-                    eloContent(label: "White Elo", range: $filterWhiteEloRange)
+                    eloContent(label: "White Elo", range: $state.filterWhiteEloRange)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
                         .overlay(alignment: .bottom) {
@@ -1017,7 +959,7 @@ struct DatabaseBrowserView: View {
                         }
 
                     // Black Elo
-                    eloContent(label: "Black Elo", range: $filterBlackEloRange)
+                    eloContent(label: "Black Elo", range: $state.filterBlackEloRange)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
                         .overlay(alignment: .bottom) {
@@ -1026,7 +968,7 @@ struct DatabaseBrowserView: View {
 
                     // Tournament
                     filterSection(title: "Tournament") {
-                        filterSearchField(text: $filterEvent, placeholder: "Search tournaments...")
+                        filterSearchField(text: $state.filterEvent, placeholder: "Search tournaments...")
                         filterSelectableList(
                             pickerType: .event,
                             selectedValue: filterEvent,
@@ -1041,7 +983,7 @@ struct DatabaseBrowserView: View {
                             .foregroundColor(DS.ink40)
                             .kerning(1.3)
 
-                        filterSearchField(text: $filterOpening, placeholder: "Search openings...")
+                        filterSearchField(text: $state.filterOpening, placeholder: "Search openings...")
                         filterSelectableList(
                             pickerType: .opening,
                             selectedValue: filterOpening,
@@ -1209,15 +1151,22 @@ struct DatabaseBrowserView: View {
     // MARK: - Table
 
     private var gamesTable: some View {
+        // One width read drives both the header and every row, so their columns can't drift apart.
+        GeometryReader { geo in
+            gamesTable(cols: LedgerColumns(totalWidth: geo.size.width))
+        }
+    }
+
+    private func gamesTable(cols: LedgerColumns) -> some View {
         GameTableList(
             games: cachedGames,
-            selectedGameIds: $selectedGameIds,
-            selectionAnchor: $selectedGame,
+            selectedGameIds: $state.selectedGameIds,
+            selectionAnchor: $state.selectedGame,
             hasMore: !allExhausted,
             onOpen: onGameSelected,
             onLoadMore: loadNextPage,
-            header: { tableHeader },
-            row: { game, isAlternate in tableRow(game, isAlternate: isAlternate) },
+            header: { tableHeader(cols) },
+            row: { game, isAlternate in tableRow(game, isAlternate: isAlternate, cols: cols) },
             menu: { game in
                 Button("Open") { onGameSelected(game) }
                 Button("Analyze Game") { onReviewGame(game) }
@@ -1286,138 +1235,128 @@ struct DatabaseBrowserView: View {
         if let e = game.eco, !e.isEmpty { return "" }   // ECO chip stands alone
         return "—"
     }
+    // MARK: - Ledger table (D7)
 
-    private var tableHeader: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 4) { Text("White").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.white) }
-                .padding(.horizontal, 8)
-                .frame(width: 180, alignment: .leading)
-                .contentShape(Rectangle()).onTapGesture { toggleSort(.white) }
-
-            HStack(spacing: 4) { Text("Black").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.black) }
-                .padding(.horizontal, 8)
-                .frame(width: 180, alignment: .leading)
-                .contentShape(Rectangle()).onTapGesture { toggleSort(.black) }
-
-            HStack(spacing: 4) { Text("Result").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.result) }
-                .padding(.horizontal, 8)
-                .frame(width: 80, alignment: .leading)
-                .contentShape(Rectangle()).onTapGesture { toggleSort(.result) }
-
-            HStack(spacing: 4) { Text("Opening").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.opening) }
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle()).onTapGesture { toggleSort(.opening) }
-
-            HStack(spacing: 4) { Text("Event").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.event) }
-                .padding(.horizontal, 8)
-                .frame(width: 150, alignment: .leading)
-                .contentShape(Rectangle()).onTapGesture { toggleSort(.event) }
-
-            HStack(spacing: 4) { Text("Date").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.textSecondary); sortArrow(.date) }
-                .padding(.horizontal, 8)
-                .frame(width: 124, alignment: .leading)
-                .contentShape(Rectangle()).onTapGesture { toggleSort(.date) }
-
-            Color.clear.frame(width: 90)
+    private func tableHeader(_ cols: LedgerColumns) -> some View {
+        HStack(spacing: LedgerColumns.gap) {
+            headerCell("WHITE", .white, width: cols.white)
+            headerCell("BLACK", .black, width: cols.black)
+            headerCell("RESULT", .result, width: cols.result)
+            headerCell("OPENING", .opening, width: cols.opening)
+            headerCell("EVENT", .event, width: cols.event)
+            headerCell("DATE", .date, width: cols.date)
+            // Annotation mark and the action button carry no label.
+            Color.clear.frame(width: cols.mark, height: 1)
+            Color.clear.frame(width: cols.action, height: 1)
         }
-        .padding(.horizontal, 24)
-        .frame(height: 34)
+        .padding(.horizontal, LedgerColumns.hPadding)
+        .padding(.top, 12).padding(.bottom, 8)
         .background(DS.paper)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    private func headerCell(_ title: String, _ column: SortColumn, width: CGFloat) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(AnnFont.label(9)).tracking(9 * 0.14)
+                .foregroundColor(DS.ink40)
+            if sortColumn == column {
+                Text(sortAscending ? "↑" : "↓")
+                    .font(AnnFont.mono(9)).foregroundColor(DS.ink40)
+            }
+        }
+        .frame(width: width, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { toggleSort(column) }
+    }
+
+    private func tableRow(_ game: GameRecord, isAlternate: Bool = false, cols: LedgerColumns) -> some View {
+        LedgerRowChrome(isAlternate: isAlternate) {
+            tableRowCells(game, cols: cols)
         }
     }
 
-    private func tableRow(_ game: GameRecord, isAlternate: Bool = false) -> some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Circle().fill(DS.boardWhitePiece).frame(width: 9, height: 9)
-                    .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
-                Text(game.white).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
-            }
-            .padding(.horizontal, 8)
-            .frame(width: 180, alignment: .leading)
+    private func tableRowCells(_ game: GameRecord, cols: LedgerColumns) -> some View {
+        HStack(spacing: LedgerColumns.gap) {
+            playerCell(game.white, isWhite: true, width: cols.white)
+            playerCell(game.black, isWhite: false, width: cols.black)
+
+            Text(resultDisplay(game.result))
+                .font(AnnFont.mono(11, bold: true))
+                .foregroundColor(DS.inkSoft)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 1)
+                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .strokeBorder(DS.borderChip, lineWidth: 1))
+                .frame(width: cols.result)
 
             HStack(spacing: 6) {
-                Circle().fill(DS.boardBlackPiece).frame(width: 9, height: 9)
-                    .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
-                Text(game.black).font(AnnFont.serif(12)).foregroundColor(DS.textPrimary).lineLimit(1)
-            }
-            .padding(.horizontal, 8)
-            .frame(width: 180, alignment: .leading)
-
-            HStack {
-                Text(resultDisplay(game.result))
-                    .font(AnnFont.mono(10.5, bold: true))
-                    .foregroundColor(DS.ink)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-            }
-            .padding(.horizontal, 8)
-            .frame(width: 80, alignment: .leading)
-
-            HStack(spacing: 8) {
                 if let eco = game.eco, !eco.isEmpty {
                     Text(eco)
-                        .font(AnnFont.mono(9.5, bold: true)).tracking(0.3)
-                        .foregroundColor(DS.ink40)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+                        .font(AnnFont.mono(10, bold: true))
+                        .foregroundColor(DS.ink60)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(DS.borderChip, lineWidth: 1))
                 }
                 Text(openingText(game))
-                    .font(AnnFont.voice(12.5)).foregroundColor(DS.ink60).lineLimit(1)
+                    .font(AnnFont.voice(13.5)).foregroundColor(DS.inkSoft)
+                    .lineLimit(1).truncationMode(.tail)
             }
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: cols.opening, alignment: .leading)
 
             Text(cleanField(game.event))
-                .font(AnnFont.serif(12)).foregroundColor(DS.textSecondary).lineLimit(1)
-                .padding(.horizontal, 8)
-                .frame(width: 150, alignment: .leading)
+                .font(AnnFont.serif(13.5)).foregroundColor(DS.ink60)
+                .lineLimit(1).truncationMode(.tail)
+                .frame(width: cols.event, alignment: .leading)
 
             Text(game.date.isEmpty ? formatDate(game.dateAdded) : game.date)
-                .font(AnnFont.mono(11)).foregroundColor(DS.textTertiary).lineLimit(1)
-                .padding(.horizontal, 8)
-                .frame(width: 124, alignment: .leading)
+                .font(AnnFont.mono(10.5)).foregroundColor(DS.ink60)
+                .lineLimit(1)
+                .frame(width: cols.date, alignment: .leading)
 
-            // Analyze / accuracy — far-right, fixed-width so it never shifts the other columns.
-            // Reviewed games show white/black accuracy dots; unreviewed games show the Analyze button.
-            Color.clear.frame(width: 90, height: 1)
-                .overlay(alignment: .trailing) {
-                    if game.analysisData == nil {
-                        Button(action: { onReviewGame(game) }) {
-                            Text("Analyze")
-                                .font(AnnFont.label(9)).tracking(0.3)
-                                .foregroundColor(DS.redAccent)
-                                .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.trailing, 8)
-                    } else {
-                        accDotsBadge(white: game.analysisData?.whiteAccuracy ?? 0,
-                                     black: game.analysisData?.blackAccuracy ?? 0)
-                            .padding(.trailing, 8)
-                    }
-                }
-        }
-        .padding(.horizontal, 24)
-        .frame(height: 38)
-        .background(
-            selectedGameIds.contains(game.id) ? DS.accentLight
-            : (hoveredRowId == game.id ? DS.hoverWash : Color.clear)
-        )
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            if hovering { hoveredRowId = game.id }
-            else if hoveredRowId == game.id { hoveredRowId = nil }
+            // Annotation mark — present only when the game carries notes.
+            Text(game.tags.isEmpty ? "" : "※")
+                .font(AnnFont.mono(11)).foregroundColor(DS.redAccent)
+                .frame(width: cols.mark)
+
+            analyzeCell(game).frame(width: cols.action)
         }
     }
 
+    private func playerCell(_ name: String, isWhite: Bool, width: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(isWhite ? DS.boardWhitePiece : DS.boardBlackPiece)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().strokeBorder(DS.boardBlackPiece, lineWidth: isWhite ? 1.5 : 0))
+            Text(name)
+                .font(AnnFont.serif(14.5, .medium)).foregroundColor(DS.ink)
+                .lineLimit(1).truncationMode(.tail)
+        }
+        .frame(width: width, alignment: .leading)
+    }
+
+    /// Reviewed games show their accuracy dots; unreviewed ones offer the review.
+    @ViewBuilder
+    private func analyzeCell(_ game: GameRecord) -> some View {
+        if let data = game.analysisData {
+            accDotsBadge(white: data.whiteAccuracy, black: data.blackAccuracy)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        } else {
+            Button(action: { onReviewGame(game) }) {
+                Text("ANALYZE")
+                    .font(AnnFont.label(9)).tracking(9 * 0.1)
+                    .foregroundColor(DS.redAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(DS.redAccent.opacity(0.45), lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
     private func moveToFolderMenu(gameIds: Set<UUID>) -> some View {
         Menu("Move to...") {
             ForEach(database.folders.sorted(by: { $0.name < $1.name })) { folder in

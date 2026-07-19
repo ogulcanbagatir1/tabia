@@ -149,7 +149,6 @@ struct TabiaApp: App {
                 menuItem("nav.end")
                 Divider()
                 menuItem("screen.analysis")
-                menuItem("screen.explorer")
                 menuItem("screen.repertoire")
                 menuItem("screen.chesscom")
                 menuItem("screen.database")

@@ -5,6 +5,16 @@ import SwiftUI
 
 extension ChessComBrowserView {
 
+    /// Seed the dedup set from BOTH handles. The two syncs can now run at the same time and share
+    /// this set (every mutation is on the main actor), so seeding it for one handle only would make
+    /// the other platform treat everything it already has as new.
+    func seedSeenSourceUrls() {
+        var urls = Set<String>()
+        if !savedUsername.isEmpty { urls.formUnion(database.existingChessComSourceUrls(for: savedUsername)) }
+        if !lichessUsername.isEmpty { urls.formUnion(database.existingChessComSourceUrls(for: lichessUsername)) }
+        seenSourceUrls = urls
+    }
+
     // MARK: - Progressive Sync
 
     func startProgressiveSync(fullImport: Bool) {
@@ -12,7 +22,7 @@ extension ChessComBrowserView {
         importedCount = 0
         syncTimeClassCounts = [:]
         recentlyImportedGames = []
-        seenSourceUrls = database.existingChessComSourceUrls(for: savedUsername)
+        seedSeenSourceUrls()
 
         let username = savedUsername
 
@@ -34,7 +44,6 @@ extension ChessComBrowserView {
             }
 
             await MainActor.run {
-                self.recomputeAndCacheStats(for: username)
                 self.lastSyncTimestamp = Date().timeIntervalSince1970
                 self.isSyncing = false
                 self.reloadGames()
@@ -65,7 +74,6 @@ extension ChessComBrowserView {
             }
 
             await MainActor.run {
-                self.recomputeAndCacheStats(for: username)
                 self.lastSyncTimestamp = Date().timeIntervalSince1970
                 self.isSyncing = false
                 self.reloadGames()
@@ -126,10 +134,8 @@ extension ChessComBrowserView {
             importedCount = 0
             syncTimeClassCounts = [:]
             recentlyImportedGames = []
-            // Lichess can sync on its own, so seed the dedup set here too — otherwise it would be
-            // empty and every already-imported game would look new.
-            seenSourceUrls = database.existingChessComSourceUrls(for: lichessUsername)
         }
+        seedSeenSourceUrls()
 
         let username = lichessUsername
         let token = settings.lichessToken.isEmpty ? nil : settings.lichessToken
@@ -280,14 +286,10 @@ extension ChessComBrowserView {
         return records
     }
 
-    private func recomputeAndCacheStats(for username: String) {
-        let allGames = database.fetchChessComGames(for: username)
-        let allVariants = ChessComStatsComputer.computeAllVariants(games: allGames, username: username)
-        let cached = ChessComCachedStats(
-            username: username.lowercased(),
-            statsData: allVariants,
-            gameCount: allGames.count
-        )
-        database.saveCachedStats(cached)
-    }
+    /// Recompute stats for ONE platform's games under `username`.
+    ///
+    /// Ratings are platform-specific — a 2000 on Lichess is not a 2000 on Chess.com — so the two are
+    /// computed and stored separately. `statsData` keys are namespaced `"<platform>.<variant>"`;
+    /// unprefixed keys are the legacy single-platform layout and are still read as a fallback.
+    /// The row itself stays keyed by username (its unique attribute), so no schema change.
 }

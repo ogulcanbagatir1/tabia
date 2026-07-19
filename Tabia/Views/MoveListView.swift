@@ -227,6 +227,11 @@ struct VerticalMoveTreeView: View, Equatable {
 
         // Accumulate pairs of white/black moves into rows
         var pendingWhiteNode: GameNode? = nil
+        // Variations branching at a WHITE move wait here until Black has replied, so the sideline is
+        // drawn below the finished pair. Emitting it immediately used to split the move pair: White
+        // was flushed as a half-row, the sideline went in between, and Black's main-line reply was
+        // pushed onto its own "3. …" row.
+        var pendingVariations: [VariationItem] = []
 
         while let nd = currentNode {
             let children = nd.children
@@ -255,33 +260,22 @@ struct VerticalMoveTreeView: View, Equatable {
                 }
             }
 
-            // Check for variations
+            // Collect variations at this ply; they are emitted once the row they belong to is whole.
             if children.count > 1 {
-                // Flush pending white-only row before variations
-                if let whiteNode = pendingWhiteNode, !isWhite {
-                    // Already handled above
-                    _ = whiteNode
-                } else if let whiteNode = pendingWhiteNode, isWhite {
-                    // White move has variations — flush it as a half-row
-                    currentRows.append(MoveRowData(
-                        moveNumber: moveNumber,
-                        whiteNode: whiteNode,
-                        blackNode: nil
-                    ))
-                    pendingWhiteNode = nil
-                }
-
-                var variationItems: [VariationItem] = []
                 for i in 1..<children.count {
-                    variationItems.append(VariationItem(
+                    pendingVariations.append(VariationItem(
                         node: children[i],
                         moveNumber: moveNumber,
                         isWhiteMove: isWhite
                     ))
                 }
+            }
 
-                segments.append(Segment(rows: currentRows, variations: variationItems))
+            // A Black move closes the pair, so anything pending can now be drawn beneath it.
+            if !isWhite, !pendingVariations.isEmpty {
+                segments.append(Segment(rows: currentRows, variations: pendingVariations))
                 currentRows = []
+                pendingVariations = []
             }
 
             // Advance
@@ -299,6 +293,12 @@ struct VerticalMoveTreeView: View, Equatable {
                 whiteNode: whiteNode,
                 blackNode: nil
             ))
+        }
+
+        // The line ended on White, so its variations never got a closing Black move.
+        if !pendingVariations.isEmpty {
+            segments.append(Segment(rows: currentRows, variations: pendingVariations))
+            currentRows = []
         }
 
         // Final segment

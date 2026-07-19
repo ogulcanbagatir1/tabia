@@ -520,7 +520,7 @@ struct NewDatabaseSheet: View {
 }
 
 #Preview {
-    DatabaseBrowserView(onGameSelected: { _ in })
+    DatabaseBrowserView(onGameSelected: { _ in }, state: DatabaseBrowserState())
         .environmentObject(GameDatabase.preview())
         .environmentObject(ReferenceDatabase())
         .frame(width: 900, height: 600)

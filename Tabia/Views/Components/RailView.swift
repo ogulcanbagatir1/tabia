@@ -9,9 +9,9 @@ struct RailView: View {
     var onSettings: () -> Void
 
     /// The five sections, in spec order.
-    private static let items: [AppScreen] = [.analysis, .explorer, .repertoire, .chesscom, .database]
+    private static let items: [AppScreen] = [.analysis, .repertoire, .chesscom, .database]
 
-    private var railBg: Color { DS.adaptive(light: 0xEFE8D8, dark: 0x17130D) }
+    private var railBg: Color { DS.railBg }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,7 +34,7 @@ struct RailView: View {
             RailButton(icon: "gearshape", label: "Settings", active: false, action: onSettings)
                 .padding(.bottom, 10)
         }
-        .frame(width: 84)
+        .frame(width: DS.railWidth)
         .frame(maxHeight: .infinity)
         .background(railBg)
         .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
@@ -51,7 +51,6 @@ private struct RailItem: View {
     private var icon: String {
         switch screen {
         case .analysis:   return "square.grid.2x2"
-        case .explorer:   return "arrow.triangle.branch"
         case .repertoire: return "book"
         case .chesscom:   return "text.alignleft"
         case .database:   return "cylinder"
@@ -75,11 +74,22 @@ private struct RailItem: View {
                 Text(label.uppercased())
                     .font(AnnFont.label(8.5)).tracking(8.5 * 0.10)
             }
-            .foregroundColor(active ? DS.ink : (hover ? DS.ink : DS.ink40))
+            // Icon and label both take the accent when selected.
+            .foregroundColor(active ? DS.redAccent : (hover ? DS.ink : DS.ink40))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
+            // A 7% accent wash bleeding off the selection bar and fading out across the item — no
+            // radius, no end line, so it reads as a glow rather than a filled pill.
+            .background(
+                LinearGradient(
+                    colors: active
+                        ? [DS.redAccent.opacity(0.07), DS.redAccent.opacity(0)]
+                        : [Color.clear, Color.clear],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
             .overlay(alignment: .leading) {
-                // The red-underline idiom, rotated 90° → a 2px bar on the active item's left edge.
+                // Always 2px, transparent at rest, so selecting never shifts the layout.
                 Rectangle().fill(active ? DS.redAccent : Color.clear).frame(width: 2)
             }
             .contentShape(Rectangle())
@@ -107,5 +117,19 @@ private struct RailButton: View {
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .help(label)
+    }
+}
+
+// MARK: - Screen layer
+
+extension View {
+    /// One screen inside the persistent stack: the active one is visible and interactive, the rest
+    /// stay built but inert. `allowsHitTesting(false)` matters — otherwise an off-screen layer would
+    /// still swallow clicks.
+    func screenLayer(active: Bool) -> some View {
+        self
+            .opacity(active ? 1 : 0)
+            .allowsHitTesting(active)
+            .accessibilityHidden(!active)
     }
 }

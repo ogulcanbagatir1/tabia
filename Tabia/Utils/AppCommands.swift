@@ -26,7 +26,6 @@ extension Notification.Name {
 
     // Screen switching
     static let tabiaScreenAnalysis   = Notification.Name("tabia.screen.analysis")
-    static let tabiaScreenExplorer   = Notification.Name("tabia.screen.explorer")
     static let tabiaScreenRepertoire = Notification.Name("tabia.screen.repertoire")
     static let tabiaScreenMyGames    = Notification.Name("tabia.screen.chesscom")
     static let tabiaScreenLibrary    = Notification.Name("tabia.screen.database")

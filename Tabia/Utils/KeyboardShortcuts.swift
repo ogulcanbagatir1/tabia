@@ -104,10 +104,9 @@ enum ShortcutRegistry {
     static let all: [ShortcutDef] = [
         // Screens
         ShortcutDef(id: "screen.analysis",   category: "Screens", name: "Analysis",          detail: "Board, engine and move list",              notification: "tabia.screen.analysis",   def: Chord(key: "1", mods: ["command"])),
-        ShortcutDef(id: "screen.explorer",   category: "Screens", name: "Opening Explorer",   detail: "Masters & your games by position",         notification: "tabia.screen.explorer",   def: Chord(key: "2", mods: ["command"])),
-        ShortcutDef(id: "screen.repertoire", category: "Screens", name: "Repertoire",         detail: "Your opening trees and drills",            notification: "tabia.screen.repertoire", def: Chord(key: "3", mods: ["command"])),
-        ShortcutDef(id: "screen.chesscom",   category: "Screens", name: "My Games",           detail: "Synced Chess.com & Lichess games",         notification: "tabia.screen.chesscom",   def: Chord(key: "4", mods: ["command"])),
-        ShortcutDef(id: "screen.database",   category: "Screens", name: "Library",            detail: "Imported games and databases",             notification: "tabia.screen.database",   def: Chord(key: "5", mods: ["command"])),
+        ShortcutDef(id: "screen.repertoire", category: "Screens", name: "Repertoire",         detail: "Your opening trees and drills",            notification: "tabia.screen.repertoire", def: Chord(key: "2", mods: ["command"])),
+        ShortcutDef(id: "screen.chesscom",   category: "Screens", name: "My Games",           detail: "Synced Chess.com & Lichess games",         notification: "tabia.screen.chesscom",   def: Chord(key: "3", mods: ["command"])),
+        ShortcutDef(id: "screen.database",   category: "Screens", name: "Library",            detail: "Imported games and databases",             notification: "tabia.screen.database",   def: Chord(key: "4", mods: ["command"])),
 
         // Game
         ShortcutDef(id: "game.new",     category: "Game", name: "New Game",           detail: "Reset to the starting position",           notification: "tabia.newGame",        def: Chord(key: "n", mods: ["command"])),

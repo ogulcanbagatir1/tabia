@@ -63,15 +63,15 @@ struct BoardTabView: View {
                     .help("Close tab — ⌘W")
                 }
             }
-            .padding(.leading, 14).padding(.trailing, 10)
+            // Tighten the gutters once tabs start shrinking, so the title keeps as much room as possible.
+            .padding(.leading, width < 140 ? 8 : 14)
+            .padding(.trailing, width < 140 ? 6 : 10)
             .frame(width: width, height: DS.titlebarHeight)
             .background(active ? activeBg : (hover ? hoverBg : Color.clear))
-            .overlay(alignment: .top) {
-                // Inset 2px red top edge marks the active tab.
-                if active { Rectangle().fill(DS.redAccent).frame(height: 2) }
-            }
+            // The active tab is marked by its background alone — it fuses with the content below.
+            // Trailing divider only. A leading one on the active tab doubled up with the divider the
+            // previous tab (or the rail, for tab 1) already draws, reading as a 2px misaligned seam.
             .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
-            .overlay(alignment: .leading) { if active { Rectangle().fill(DS.hairline).frame(width: 1) } }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -101,12 +101,10 @@ struct NewTabButton: View {
     @State private var hover = false
     var body: some View {
         Button(action: action) {
+            // Bare glyph — no chip, no border. Hover is carried by the icon's own colour.
             Image(systemName: "plus").font(.system(size: 13, weight: .medium))
-                .foregroundColor(DS.ink60)
+                .foregroundColor(hover ? DS.ink : DS.ink40)
                 .frame(width: 30, height: 26)
-                .background(hover ? DS.adaptive(light: 0xE4DBC6, dark: 0x241E14) : Color.clear,
-                           in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

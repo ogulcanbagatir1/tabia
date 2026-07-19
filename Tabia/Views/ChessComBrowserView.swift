@@ -15,19 +15,68 @@ struct ChessComBrowserView: View {
     @AppStorage("lichess_username") var lichessUsername: String = ""
     @AppStorage("lichess_last_sync") var lichessLastSync: Double = 0
 
-    @State private var cachedGames: [GameRecord] = []
-    @State private var totalGameCount: Int = 0
+    /// Survives leaving the screen. See BrowserStates.swift for the ownership rule.
+    @ObservedObject var state: ChessComBrowserState
+
+    // Forwarding accessors — the body is unchanged; these fields just live in `state` now.
+    private var selectedGameIds: Set<UUID> {
+        get { state.selectedGameIds } nonmutating set { state.selectedGameIds = newValue }
+    }
+    private var lastSelectedGame: GameRecord? {
+        get { state.lastSelectedGame } nonmutating set { state.lastSelectedGame = newValue }
+    }
+    private var cachedRatings: [String: Int] {
+        get { state.cachedRatings } nonmutating set { state.cachedRatings = newValue }
+    }
+    private var sortColumn: SortColumn {
+        get { state.sortColumn } nonmutating set { state.sortColumn = newValue }
+    }
+    private var sortAscending: Bool {
+        get { state.sortAscending } nonmutating set { state.sortAscending = newValue }
+    }
+    private var sortedGames: [GameRecord] {
+        get { state.sortedGames } nonmutating set { state.sortedGames = newValue }
+    }
+    private var filterTimeControl: String {
+        get { state.filterTimeControl } nonmutating set { state.filterTimeControl = newValue }
+    }
+    private var filterResult: String {
+        get { state.filterResult } nonmutating set { state.filterResult = newValue }
+    }
+    private var filterColor: String {
+        get { state.filterColor } nonmutating set { state.filterColor = newValue }
+    }
+    private var filterOpening: String {
+        get { state.filterOpening } nonmutating set { state.filterOpening = newValue }
+    }
+    private var filterDateFrom: Date? {
+        get { state.filterDateFrom } nonmutating set { state.filterDateFrom = newValue }
+    }
+    private var filterDateTo: Date? {
+        get { state.filterDateTo } nonmutating set { state.filterDateTo = newValue }
+    }
+    private var filterSource: String {
+        get { state.filterSource } nonmutating set { state.filterSource = newValue }
+    }
+    private var cachedGames: [GameRecord] {
+        get { state.cachedGames } nonmutating set { state.cachedGames = newValue }
+    }
+    private var totalGameCount: Int {
+        get { state.totalGameCount } nonmutating set { state.totalGameCount = newValue }
+    }
+    private var dbOffset: Int {
+        get { state.dbOffset } nonmutating set { state.dbOffset = newValue }
+    }
+    private var allDbGamesExhausted: Bool {
+        get { state.allDbGamesExhausted } nonmutating set { state.allDbGamesExhausted = newValue }
+    }
+
     @State private var isLoadingGames = false
-    @State private var dbOffset: Int = 0
-    @State private var allDbGamesExhausted = false
     @State private var reloadTask: Task<Void, Never>?
     private let pageSize = 50
     private let dbBatchSize = 200
 
-    @State private var cachedRatings: [String: Int] = [:]
     @State private var showingImportSheet = false
-    @State private var selectedGameIds: Set<UUID> = []
-    @State private var lastSelectedGame: GameRecord?
     @State private var showingMoveToFolder = false
     @State private var newFolderName = ""
 
@@ -42,23 +91,13 @@ struct ChessComBrowserView: View {
     @State var syncTask: Task<Void, Never>?
 
     // Sorting
-    @State private var sortColumn: SortColumn = .date
-    @State private var sortAscending = false
     /// Cached sort of `cachedGames`; kept in sync by resortGames().
-    @State private var sortedGames: [GameRecord] = []
 
     enum SortColumn: String {
         case white, black, date, result, opening, timeControl, source
     }
 
     // Filters
-    @State private var filterTimeControl: String = "All"
-    @State private var filterResult: String = "All"
-    @State private var filterColor: String = "All"
-    @State private var filterOpening: String = ""
-    @State private var filterDateFrom: Date? = nil
-    @State private var filterDateTo: Date? = nil
-    @State private var filterSource: String = "All"
 
     // Lichess sync state
     @State var isLichessSyncing = false
@@ -115,9 +154,8 @@ struct ChessComBrowserView: View {
             }
             loadRatings()
         }
-        // Ratings are keyed off the games' account handle — (re)load once the games are in.
-        .onChange(of: cachedGames.count) { _, n in
-            if n > 0 && cachedRatings.isEmpty { loadRatings() }
+        // Ratings no longer depend on the loaded games — only the per-account counts do.
+        .onChange(of: cachedGames.count) { _, _ in
             cacheAccountSummaries()
         }
         .onChange(of: isSyncing) { was, now in
@@ -127,6 +165,9 @@ struct ChessComBrowserView: View {
                 if !savedUsername.isEmpty { s.chessComLastSynced = stamp }
                 if !lichessUsername.isEmpty { s.lichessLastSynced = stamp }
                 cacheAccountSummaries()
+                // Stats were just recomputed; the cards read from that cache, and the onChange below
+                // only fires while `cachedRatings` is still empty.
+                loadRatings()
             }
         }
         // The masthead "Sync Now" button drives the sync from here.
@@ -482,10 +523,19 @@ struct ChessComBrowserView: View {
 
                 Spacer(minLength: 12)
 
-                // Compact rating chips (Sync lives in the masthead now)
-                ratingChip("Bullet", cachedRatings["bullet"], dot: DS.qInaccuracy)
-                ratingChip("Blitz", cachedRatings["blitz"], dot: DS.ink40)
-                ratingChip("Rapid", cachedRatings["rapid"], dot: DS.redAccent)
+                // Compact rating chips, one group per connected platform (Sync lives in the masthead).
+                ForEach(connectedPlatforms, id: \.id) { platform in
+                    HStack(spacing: 8) {
+                        if connectedPlatforms.count > 1 {
+                            Text(platform.label.uppercased())
+                                .font(AnnFont.label(8.5)).tracking(8.5 * 0.14)
+                                .foregroundColor(DS.ink40)
+                        }
+                        ratingChip("Bullet", cachedRatings["\(platform.id).bullet"], dot: DS.qInaccuracy)
+                        ratingChip("Blitz", cachedRatings["\(platform.id).blitz"], dot: DS.ink40)
+                        ratingChip("Rapid", cachedRatings["\(platform.id).rapid"], dot: DS.redAccent)
+                    }
+                }
 
                 Menu {
                     if !savedUsername.isEmpty {
@@ -755,13 +805,18 @@ struct ChessComBrowserView: View {
         .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
     }
 
-    private var statsCardsRow: some View {
-        HStack(spacing: 16) {
-            statsCard(category: "Bullet", dotColor: DS.ink40)
-            statsCard(category: "Blitz", dotColor: DS.ink40)
-            statsCard(category: "Rapid", dotColor: DS.ink40)
-        }
-        .frame(maxWidth: .infinity)
+    struct ConnectedPlatform: Identifiable {
+        let id: String      // "chesscom" | "lichess" — also the ratings-key prefix
+        let label: String
+    }
+
+    /// The platforms with a handle set, in display order. The label only shows when both are
+    /// connected; with a single account it would be noise.
+    private var connectedPlatforms: [ConnectedPlatform] {
+        var out: [ConnectedPlatform] = []
+        if !savedUsername.isEmpty { out.append(ConnectedPlatform(id: "chesscom", label: "Chess.com")) }
+        if !lichessUsername.isEmpty { out.append(ConnectedPlatform(id: "lichess", label: "Lichess")) }
+        return out
     }
 
     /// The handle the chess.com games were actually synced under — the authoritative key for stats /
@@ -781,59 +836,19 @@ struct ChessComBrowserView: View {
         if !lichessUsername.isEmpty { s.lichessGameCount = database.chessComGamesCount(for: lichessUsername) }
     }
 
+    /// Current ratings, read from each platform's own profile endpoint. Chess.com and Lichess numbers
+    /// are never merged — they are different scales.
     private func loadRatings() {
-        let username = accountHandle
-        guard !username.isEmpty else { return }
-        // GameDatabase is main-actor-bound, so run this small cached-stats lookup on the main actor
-        // rather than a detached task — Swift 6 rejects touching `database` from off-actor.
+        let chessCom = savedUsername
+        let lichess = lichessUsername
+        guard !chessCom.isEmpty || !lichess.isEmpty else { return }
         Task { @MainActor in
-            guard let cached = database.fetchAllCachedStats(for: username) else { return }
-            var ratings: [String: Int] = [:]
-            for tc in ["bullet", "blitz", "rapid"] {
-                if let allStats = cached.statsData["all"],
-                   let tcStats = allStats.timeControlStats[tc] {
-                    ratings[tc] = tcStats.currentRating
-                } else if let stats = cached.statsData[tc],
-                          let tcStats = stats.timeControlStats[tc] {
-                    ratings[tc] = tcStats.currentRating
-                }
-            }
-            cachedRatings = ratings
+            let fetched = await RatingsService.fetch(chessComHandle: chessCom, lichessHandle: lichess)
+            // A failed platform returns nothing; keep whatever we already had rather than blanking it.
+            guard !fetched.isEmpty else { return }
+            cachedRatings = cachedRatings.merging(fetched) { _, new in new }
         }
     }
-
-    private func statsCard(category: String, dotColor: Color) -> some View {
-        let rating = cachedRatings[category.lowercased()]
-
-        return HStack(spacing: 14) {
-            Circle()
-                .fill(dotColor)
-                .frame(width: 10, height: 10)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(category)
-                    .font(AnnFont.label(11))
-                    .tracking(11 * 0.1)
-                    .foregroundColor(DS.ink40)
-                Text(verbatim: rating != nil ? String(rating!) : "-")
-                    .font(AnnFont.mono(22, bold: true))
-                    .foregroundColor(DS.ink)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(DS.paperRaised)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DS.hairline, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.19), radius: 10, x: 0, y: 4)
-    }
-
     // MARK: - Filter Pills
 
     private var filterPillsRow: some View {
@@ -883,8 +898,8 @@ struct ChessComBrowserView: View {
     private var gamesList: some View {
         GameTableList(
             games: sortedGames,
-            selectedGameIds: $selectedGameIds,
-            selectionAnchor: $lastSelectedGame,
+            selectedGameIds: $state.selectedGameIds,
+            selectionAnchor: $state.lastSelectedGame,
             hasMore: hasMorePages,
             onOpen: onGameSelected,
             onLoadMore: loadNextPage,
@@ -953,11 +968,19 @@ struct ChessComBrowserView: View {
     }
 
     /// Player name with the reviewed accuracy in parentheses, e.g. "BidiBoy1 (91.4)".
+    /// `primary` = the White seat. The piece dot mirrors the Library table so the two lists read
+    /// the same way.
     private func ccNameCell(_ name: String, primary: Bool, width: CGFloat) -> some View {
-        Text(name).font(AnnFont.serif(13, primary ? .medium : .regular)).foregroundColor(primary ? DS.ink : DS.ink60)
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .frame(width: width, alignment: .leading)
+        HStack(spacing: 6) {
+            Circle().fill(primary ? DS.boardWhitePiece : DS.boardBlackPiece)
+                .frame(width: 9, height: 9)
+                .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
+            Text(name).font(AnnFont.serif(13, primary ? .medium : .regular))
+                .foregroundColor(primary ? DS.ink : DS.ink60)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .frame(width: width, alignment: .leading)
     }
 
     /// White (top) + black (bottom) accuracy dots for a reviewed game, shown in the far-right cell.
@@ -984,9 +1007,16 @@ struct ChessComBrowserView: View {
             ccNameCell(game.white, primary: true, width: CCW.white)
             ccNameCell(game.black, primary: false, width: CCW.black)
 
-            Text(chessComResultDisplay(game.result))
-                .font(AnnFont.mono(12, bold: true)).foregroundColor(chessComResultColor(game))
-                .padding(.horizontal, 8).frame(width: CCW.result, alignment: .leading)
+            // Same bordered chip as the Library table.
+            HStack {
+                Text(chessComResultDisplay(game.result))
+                    .font(AnnFont.mono(10.5, bold: true))
+                    .foregroundColor(DS.ink)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
+            }
+            .padding(.horizontal, 8).frame(width: CCW.result, alignment: .leading)
 
             Text(game.opening ?? game.eco ?? "—")
                 .font(AnnFont.voice(12.5)).foregroundColor(DS.ink60).lineLimit(1)
@@ -1065,18 +1095,6 @@ struct ChessComBrowserView: View {
         default: return result
         }
     }
-
-    private func chessComResultColor(_ game: GameRecord) -> Color {
-        let username = game.sourceUsername ?? savedUsername.lowercased()
-        let userPlayedWhite = game.white.lowercased() == username
-        let userWon = (userPlayedWhite && game.result == "1-0") || (!userPlayedWhite && game.result == "0-1")
-        let userLost = (userPlayedWhite && game.result == "0-1") || (!userPlayedWhite && game.result == "1-0")
-        // Results stay monochrome (no traffic-light win/loss): the win reads in full ink, the rest muted.
-        if userWon { return DS.ink }
-        if userLost { return DS.ink40 }
-        return DS.ink40
-    }
-
     private func chessComTimeClassLabel(_ timeClass: String?) -> String {
         guard let tc = timeClass else { return "-" }
         return tc.capitalized
@@ -1178,12 +1196,13 @@ struct ChessComBrowserView: View {
     // MARK: - Actions
 
     private func refreshGames() {
-        // Sync Chess.com if connected
-        if !savedUsername.isEmpty {
+        // Both accounts sync, independently. The Lichess arm used to be gated on `!isSyncing`, but
+        // startProgressiveSync sets that flag synchronously — so whenever Chess.com was connected,
+        // Lichess silently never synced at all.
+        if !savedUsername.isEmpty && !service.isLoading {
             startProgressiveSync(fullImport: false)
         }
-        // Sync Lichess if connected
-        if !lichessUsername.isEmpty && !isSyncing {
+        if !lichessUsername.isEmpty && !lichessService.isLoading {
             startLichessSync(fullImport: false)
         }
     }
@@ -1509,7 +1528,7 @@ private struct ChessComFilterCardHeightKey: PreferenceKey {
 }
 
 #Preview {
-    ChessComBrowserView(onGameSelected: { _ in })
+    ChessComBrowserView(onGameSelected: { _ in }, state: ChessComBrowserState())
         .environmentObject(GameDatabase.preview())
         .frame(width: 800, height: 600)
 }

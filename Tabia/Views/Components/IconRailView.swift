@@ -4,7 +4,6 @@ import SwiftUI
 
 enum AppScreen: String, CaseIterable {
     case analysis
-    case explorer
     case repertoire
     case chesscom
     case database
@@ -12,12 +11,11 @@ enum AppScreen: String, CaseIterable {
     case settings
 
     /// The five centered masthead nav tabs (Engines + Settings live in separate windows).
-    static let navTabs: [AppScreen] = [.analysis, .explorer, .repertoire, .chesscom, .database]
+    static let navTabs: [AppScreen] = [.analysis, .repertoire, .chesscom, .database]
 
     var icon: String {
         switch self {
         case .analysis:   return "square.grid.2x2"
-        case .explorer:   return "book.closed"
         case .database:   return "cylinder"
         case .repertoire: return "books.vertical"
         case .chesscom:   return "globe"
@@ -30,7 +28,6 @@ enum AppScreen: String, CaseIterable {
     var navLabel: String {
         switch self {
         case .analysis:   return "Analysis"
-        case .explorer:   return "Explorer"
         case .repertoire: return "Repertoire"
         case .chesscom:   return "My Games"
         case .database:   return "Library"

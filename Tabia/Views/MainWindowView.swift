@@ -33,6 +33,15 @@ struct MainWindowView: View {
     // same switch, and the choice survives relaunch.
     /// Set by ⇧⌘R; consumed by RepertoireBrowserView once that screen is mounted.
     @State private var pendingNewRepertoire = false
+    /// Screens built so far. See `screenStack`.
+    @State private var visitedScreens: Set<AppScreen> = []
+
+    // Screen state that has to outlive the screen. Deliberately `@State` and not `@StateObject`:
+    // this keeps the object alive for the window without subscribing to it, so a filter change in
+    // the Library never invalidates MainWindowView — only the Library, and only while it is mounted.
+    @State private var databaseState = DatabaseBrowserState()
+    @State private var chessComState = ChessComBrowserState()
+    @State private var repertoireState = RepertoireBrowserState()
     @State private var showingSidebar = true
     @State private var showingSaveSheet = false
     @State private var showingSetupPosition = false
@@ -118,6 +127,57 @@ struct MainWindowView: View {
     private let minRightSidebarWidth: CGFloat = 300
     private let iconRailWidth: CGFloat = DS.iconRailWidth
 
+    /// Screens are built once and then kept, rather than torn down and rebuilt on every visit.
+    ///
+    /// Measured: the first mount of the Library costs 150–270 ms of blocked main thread (SwiftUI
+    /// building and laying out the tree, plus CoreText resolving the bundled faces), while a second
+    /// visit to an already-built screen costs nothing. Switching used to pay that price every time.
+    ///
+    /// Keeping them alive is only safe because these screens are `.equatable()` on their state
+    /// object: an off-screen screen no longer re-renders when the window ticks. Screens are added on
+    /// first visit, so launch still builds only Analysis.
+    @ViewBuilder private var screenStack: some View {
+        ZStack {
+            if visitedScreens.contains(.analysis) || activeScreen == .analysis {
+                analysisLayout.screenLayer(active: activeScreen == .analysis)
+            }
+            if visitedScreens.contains(.database) {
+                DatabaseBrowserView(onGameSelected: { game in
+                    openGameInTab(game)
+                }, onReferenceGameSelected: { pgn in
+                    newTab()
+                    loadGameFromPGN(pgn)
+                }, onReviewGame: { game in
+                    reviewGame(game)
+                }, state: databaseState)
+                .equatable()
+                .screenLayer(active: activeScreen == .database)
+            }
+            if visitedScreens.contains(.repertoire) {
+                RepertoireBrowserView(onOpen: { rep in openRepertoireInTab(rep) },
+                                      onOpenGame: { game in openGameInTab(game) },
+                                      browserState: repertoireState,
+                                      pendingNewRepertoire: $pendingNewRepertoire)
+                .equatable()
+                .screenLayer(active: activeScreen == .repertoire)
+            }
+            if visitedScreens.contains(.chesscom) {
+                ChessComBrowserView(onGameSelected: { game in
+                    openGameInTab(game)
+                }, onReviewGame: { game in
+                    reviewGame(game)
+                }, state: chessComState)
+                .equatable()
+                .screenLayer(active: activeScreen == .chesscom)
+            }
+            // Rarely visited and cheap to build — no reason to keep these resident.
+            if activeScreen == .engine { EngineManagerView() }
+            if activeScreen == .settings { SettingsScreenView() }
+        }
+        .onChange(of: activeScreen) { _, screen in visitedScreens.insert(screen) }
+        .onAppear { visitedScreens.insert(activeScreen) }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Masthead — wordmark · centered nav tabs · contextual actions + settings gear.
@@ -125,38 +185,8 @@ struct MainWindowView: View {
             titlebarStrip
             HStack(spacing: 0) {
                 RailView(selected: $activeScreen, onSettings: openSettingsWindow)
-                Group {
-                    switch activeScreen {
-                case .analysis:
-                    analysisLayout
-                case .explorer:
-                    ExplorerScreenView()
-                case .database:
-                    DatabaseBrowserView(onGameSelected: { game in
-                        openGameInTab(game)
-                    }, onReferenceGameSelected: { pgn in
-                        newTab()
-                        loadGameFromPGN(pgn)
-                    }, onReviewGame: { game in
-                        reviewGame(game)
-                    })
-                case .repertoire:
-                    RepertoireBrowserView(onOpen: { rep in openRepertoireInTab(rep) },
-                                          onOpenGame: { game in openGameInTab(game) },
-                                          pendingNewRepertoire: $pendingNewRepertoire)
-                case .chesscom:
-                    ChessComBrowserView(onGameSelected: { game in
-                        openGameInTab(game)
-                    }, onReviewGame: { game in
-                        reviewGame(game)
-                    })
-                case .engine:
-                    EngineManagerView()
-                    case .settings:
-                        SettingsScreenView()
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                screenStack
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(GlassBackground(screen: activeScreen))
@@ -318,34 +348,63 @@ struct MainWindowView: View {
 
     private var titlebarStrip: some View {
         let count = windowModel.sessions.count
-        let tabWidth: CGFloat = count == 1 ? 280 : max(130, min(232, 232))
         return HStack(spacing: 0) {
-            Color.clear.frame(width: 86)   // native traffic lights live here
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(Array(windowModel.sessions.enumerated()), id: \.element.id) { index, session in
-                        let isActive = index == windowModel.activeIndex
-                        BoardTabView(
-                            title: isActive ? boardTabTitle : session.title,
-                            active: isActive,
-                            indicator: tabIndicator(for: session, active: isActive),
-                            showClose: count > 1,
-                            width: tabWidth,
-                            onSelect: { selectTab(index) },
-                            onClose: { closeTab(index) },
-                            onRename: { renameTab(index, $0) }
-                        )
+            // Native traffic lights live here. Painted as the rail so the column runs unbroken from
+            // the top of the window, carrying the rail's own trailing divider.
+            DS.railBg
+                .frame(width: DS.railWidth)
+                .overlay(alignment: .trailing) { Rectangle().fill(DS.hairline).frame(width: 1) }
+
+            // The tab lane claims whatever is left between the rail and the trailing actions. Reading
+            // its width here is what lets tabs shrink to fit instead of overflowing at a fixed size.
+            GeometryReader { geo in
+                let width = tabWidth(forLaneWidth: geo.size.width, count: count)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(windowModel.sessions.enumerated()), id: \.element.id) { index, session in
+                            let isActive = index == windowModel.activeIndex
+                            BoardTabView(
+                                title: isActive ? boardTabTitle : session.title,
+                                active: isActive,
+                                indicator: tabIndicator(for: session, active: isActive),
+                                showClose: count > 1,
+                                width: width,
+                                onSelect: { selectTab(index) },
+                                onClose: { closeTab(index) },
+                                onRename: { renameTab(index, $0) }
+                            )
+                        }
+                        NewTabButton(action: { newTab() })
                     }
-                    NewTabButton(action: { newTab() })
+                    .frame(height: DS.titlebarHeight)
                 }
             }
-            Spacer(minLength: 12)
+
             HStack(spacing: 10) { mastheadActions }
+                .padding(.leading, 12)
                 .padding(.trailing, 16)
+                .layoutPriority(1)   // actions size to content; the lane absorbs the rest
         }
         .frame(height: DS.titlebarHeight)
         .background(DS.adaptive(light: 0xEDE5D3, dark: 0x211C13))
         .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    /// Chrome-style tab sizing: tabs share the lane evenly, growing no wider than `maxTabWidth` and
+    /// shrinking as more open. At `minTabWidth` they stop shrinking and the lane scrolls instead —
+    /// otherwise a dozen tabs would each be a few unreadable pixels.
+    private func tabWidth(forLaneWidth lane: CGFloat, count: Int) -> CGFloat {
+        let maxTabWidth: CGFloat = 232
+        let minTabWidth: CGFloat = 96
+        let newTabButtonWidth: CGFloat = 36      // 30pt glyph + its 6pt leading padding
+
+        guard count > 0, lane > 0 else { return maxTabWidth }
+        let usable = max(0, lane - newTabButtonWidth)
+
+        // A lone tab gets extra room — there is nothing to share with.
+        if count == 1 { return max(minTabWidth, min(280, usable)) }
+
+        return max(minTabWidth, min(maxTabWidth, usable / CGFloat(count)))
     }
 
     private func tabIndicator(for session: BoardSession, active: Bool) -> TabLeadingIndicator {
@@ -839,11 +898,8 @@ struct MainWindowView: View {
             // Sync lives in the masthead on My Games (handled inside ChessComBrowserView).
             Button("Sync Now") { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) }
                 .buttonStyle(GlassButtonStyle())
-        case .database:
-            // Library keeps a Filters control in the masthead; import now lives in Settings.
-            mastheadPill(icon: "slider.horizontal.3", label: "Filters") {
-                NotificationCenter.default.post(name: .tabiaLibraryToggleFilters, object: nil)
-            }
+        // Library's Filters control moved into the ledger's own header row — it only applies inside
+        // a database, so it belongs next to that database's name rather than in window chrome.
         default:
             EmptyView()
         }
@@ -1267,7 +1323,7 @@ struct MainWindowView: View {
          .tabiaCopyFEN, .tabiaPasteFEN, .tabiaFlipBoard, .tabiaStartEngine, .tabiaStopEngine,
          .tabiaAnalyzePosition, .tabiaShowBestMove, .tabiaGoToStart, .tabiaPreviousMove,
          .tabiaNextMove, .tabiaGoToEnd,
-         .tabiaScreenAnalysis, .tabiaScreenExplorer, .tabiaScreenRepertoire, .tabiaScreenMyGames,
+         .tabiaScreenAnalysis, .tabiaScreenRepertoire, .tabiaScreenMyGames,
          .tabiaScreenLibrary, .tabiaSetUpPosition, .tabiaFullReview, .tabiaToggleEngine,
          .tabiaToggleAutoAnalyze, .tabiaDeleteMove, .tabiaAnnBrilliant, .tabiaAnnGood,
          .tabiaAnnInteresting, .tabiaAnnDubious, .tabiaAnnMistake, .tabiaAnnBlunder,
@@ -1316,7 +1372,6 @@ struct MainWindowView: View {
         case .tabiaNextMove:       _ = gameTree.goForward(); syncBoardWithGameTree()
         case .tabiaGoToEnd:        gameTree.goToEnd(); syncBoardWithGameTree()
         case .tabiaScreenAnalysis:   activeScreen = .analysis
-        case .tabiaScreenExplorer:   activeScreen = .explorer
         case .tabiaScreenRepertoire: activeScreen = .repertoire
         case .tabiaScreenMyGames:    activeScreen = .chesscom
         case .tabiaScreenLibrary:    activeScreen = .database

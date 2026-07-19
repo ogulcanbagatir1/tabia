@@ -10,7 +10,26 @@ struct RepertoireBrowserView: View {
     /// Open one of your own games — from the game-link badge on a line. Wired by MainWindowView.
     var onOpenGame: (GameRecord) -> Void = { _ in }
 
-    @State private var searchText = ""
+    /// Survives leaving the screen. See BrowserStates.swift for the ownership rule.
+    @ObservedObject var browserState: RepertoireBrowserState
+
+    // Forwarding accessors — the body is unchanged; these fields just live in `browserState`.
+    private var shelfFilter: ShelfFilter {
+        get { browserState.shelfFilter } nonmutating set { browserState.shelfFilter = newValue }
+    }
+    private var searchText: String {
+        get { browserState.searchText } nonmutating set { browserState.searchText = newValue }
+    }
+    private var selectedRepertoire: Repertoire? {
+        get { browserState.selectedRepertoire } nonmutating set { browserState.selectedRepertoire = newValue }
+    }
+    private var knowledge: [UUID: RepertoireKnowledge] {
+        get { browserState.knowledge } nonmutating set { browserState.knowledge = newValue }
+    }
+    private var forecastBuckets: [Int] {
+        get { browserState.forecastBuckets } nonmutating set { browserState.forecastBuckets = newValue }
+    }
+
     @State private var renamingRepertoire: Repertoire?
     @State private var newName = ""
     @State private var repertoireToDelete: Repertoire?
@@ -18,11 +37,9 @@ struct RepertoireBrowserView: View {
     // Active drill session (BEGIN DRILL) — presented full-screen over the library.
     @State private var drillSession: DrillSession?
     // The repertoire selected in the left shelf — its lines show in the center panel.
-    @State private var selectedRepertoire: Repertoire?
     @State private var showingKnowledge = false
 
     // Shelves (RepertoireFolder). The chip row above the grid narrows it to one shelf.
-    @State private var shelfFilter: ShelfFilter = .all
     @State private var renamingFolder: RepertoireFolder?
     @State private var folderToDelete: RepertoireFolder?
     @State private var showingDeleteFolderAlert = false
@@ -48,14 +65,14 @@ struct RepertoireBrowserView: View {
 
     enum ShelfFilter: Hashable {
         case all
+        /// Built-in shelf: every repertoire for one colour, regardless of folder.
+        case side(RepertoireSide)
         case unfiled
         case folder(UUID)
     }
 
     // Per-repertoire SM-2 knowledge (due/coverage/drilled…) + the 7-day due forecast, computed
     // from the position schedules and cached so cards and the training rail don't re-fetch on render.
-    @State private var knowledge: [UUID: RepertoireKnowledge] = [:]
-    @State private var forecastBuckets: [Int] = Array(repeating: 0, count: 7)
 
     var body: some View {
         Group {
@@ -444,6 +461,8 @@ struct RepertoireBrowserView: View {
         switch shelfFilter {
         case .all:
             onShelf = repertoireDB.repertoires
+        case .side(let side):
+            onShelf = repertoireDB.repertoires(side: side)
         case .unfiled:
             onShelf = repertoireDB.repertoires(in: nil)
         case .folder(let id):
@@ -547,6 +566,14 @@ struct RepertoireBrowserView: View {
             HStack(spacing: 8) {
                 shelfChip(title: "All", count: repertoireDB.repertoireCount, filter: .all)
 
+                // Colour is the one split every repertoire has, so it ships as a built-in shelf.
+                shelfChip(title: "White",
+                          count: repertoireDB.repertoires(side: .white).count,
+                          filter: .side(.white))
+                shelfChip(title: "Black",
+                          count: repertoireDB.repertoires(side: .black).count,
+                          filter: .side(.black))
+
                 ForEach(repertoireDB.folders, id: \.id) { folder in
                     shelfChip(title: folder.name,
                               count: repertoireDB.repertoiresInFolderCount(folder.id),
@@ -568,9 +595,6 @@ struct RepertoireBrowserView: View {
 
                 addButton(title: "Shelf", help: "New shelf") {
                     newShelfName = ""; pendingMoveRepertoire = nil; showingNewShelfAlert = true
-                }
-                addButton(title: "Repertoire", help: "New repertoire (⇧⌘R)") {
-                    newRepertoireName = ""; showingNewRepertoireAlert = true
                 }
             }
             .padding(.horizontal, 32)

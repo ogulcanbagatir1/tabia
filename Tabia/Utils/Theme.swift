@@ -46,6 +46,9 @@ extension DS {
     // MARK: Text / ink
     /// Primary text, filled controls, active segment bg — ink #1C1710 / paperText #EDE6DA
     static let ink    = adaptive(light: 0x1C1710, dark: 0xEDE6DA)
+    /// "ink-soft" — one step down from primary, above ink60. Used for card stat lines and table
+    /// result pills in the Library spec.
+    static let inkSoft = adaptive(light: 0x4A4130, dark: 0xC9BEA6)
     /// Secondary text — #6B6050 / #A99C82
     static let ink60  = adaptive(light: 0x6B6050, dark: 0xA99C82)
     /// Captions, section labels — #8A7E6B / #857A63
@@ -64,6 +67,9 @@ extension DS {
     static let redInk   = Color(hex: 0x9E2B25)
     /// Accent on surfaces: active tab underline, due counts, marks, logo dot — #9E2B25 / #C25048 (lifted)
     static let redAccent = adaptive(light: 0x9E2B25, dark: 0xC25048)
+    /// SYNCED badge — the one non-accent colour in the Library spec.
+    static let greenOk       = adaptive(light: 0x4E7A34, dark: 0x86A96B)
+    static let greenOkBorder = adaptive(light: 0x9DB08A, dark: 0x4E6138)
     /// Text/glyph on a red fill.
     static let onRed = Color(hex: 0xF7F1E1)
 
@@ -114,7 +120,13 @@ extension DS {
     static let rWindow: CGFloat = 13
 
     // MARK: Metrics — chrome + controls
-    static let titlebarHeight: CGFloat = 47
+    static let titlebarHeight: CGFloat = 38
+    /// Left rail width. The titlebar reserves exactly this much for the native traffic lights, so the
+    /// first tab's leading edge lines up with the rail's trailing edge.
+    static let railWidth: CGFloat = 84
+    /// Rail background. The titlebar's traffic-light block paints this too, so the rail reads as one
+    /// column from the top of the window instead of breaking shade at the titlebar.
+    static let railBg = adaptive(light: 0xEFE8D8, dark: 0x17130D)
     static let statusBarHeight: CGFloat = 28
     static let toggleWidth: CGFloat = 36
     static let toggleHeight: CGFloat = 21
@@ -165,6 +177,8 @@ enum AnnFont {
     // MARK: Serif — Newsreader (display + prose; italic = the commentary voice)
     enum SerifWeight { case regular, medium, semibold }
 
+
+
     static func serif(_ size: CGFloat, _ weight: SerifWeight = .regular, italic: Bool = false) -> Font {
         let name: String
         switch (weight, italic) {
@@ -185,7 +199,7 @@ enum AnnFont {
 
     // MARK: Label — Instrument Sans (ALWAYS uppercase + letter-spaced; use .annLabel())
     static func label(_ size: CGFloat, bold: Bool = false) -> Font {
-        .custom(bold ? "InstrumentSans-Bold" : "InstrumentSans-SemiBold", fixedSize: size)
+        return .custom(bold ? "InstrumentSans-Bold" : "InstrumentSans-SemiBold", fixedSize: size)
     }
 
     // MARK: Mono — Courier Prime (ALL data: SAN, evals, FEN, counts, dates, ECO, status bars)
