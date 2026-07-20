@@ -945,6 +945,16 @@ struct DatabaseBrowserView: View {
             // Body
             ScrollView {
                 VStack(spacing: 0) {
+                    // Result — the most common quick filter, so it sits at the top.
+                    filterSection(title: "Result") {
+                        HStack(spacing: 6) {
+                            resultOption("All", nil)
+                            resultOption("1-0", "1-0")
+                            resultOption("½-½", "1/2-1/2")
+                            resultOption("0-1", "0-1")
+                        }
+                    }
+
                     // White Player
                     filterSection(title: "White Player") {
                         filterSearchField(text: $state.filterWhite, placeholder: "Search players...")
@@ -1049,6 +1059,25 @@ struct DatabaseBrowserView: View {
     }
 
     // MARK: - Filter Section
+
+    /// One segment of the Result filter. `value` matches GameRecord.result ("1-0"/"1/2-1/2"/"0-1"),
+    /// or nil for "All". Selecting toggles the pending filterResult; Apply commits it like the rest.
+    private func resultOption(_ label: String, _ value: String?) -> some View {
+        let selected = filterResult == value
+        return Button(action: { filterResult = value }) {
+            Text(label)
+                .font(AnnFont.mono(12, bold: selected))
+                .foregroundColor(selected ? DS.onInk : DS.ink60)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(selected ? DS.ink : DS.fieldBg,
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(selected ? Color.clear : DS.borderChip, lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
 
     private func filterSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
