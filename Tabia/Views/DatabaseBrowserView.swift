@@ -59,9 +59,6 @@ struct DatabaseBrowserView: View {
     private var sortAscending: Bool {
         get { state.sortAscending } nonmutating set { state.sortAscending = newValue }
     }
-    private var ledgerSearch: String {
-        get { state.ledgerSearch } nonmutating set { state.ledgerSearch = newValue }
-    }
     private var cachedGames: [GameRecord] {
         get { state.cachedGames } nonmutating set { state.cachedGames = newValue }
     }
@@ -98,7 +95,6 @@ struct DatabaseBrowserView: View {
     @State private var showingFilters = false
     /// Held, not observed — ⌘⇧O fires it and only the pill re-renders.
     @State private var switcherTrigger = SwitcherTrigger()
-    @FocusState private var ledgerSearchFocused: Bool
 
     // Filters
 
@@ -351,13 +347,12 @@ struct DatabaseBrowserView: View {
             await refreshFolderCountsIfNeeded()
             measureStoreSizeIfNeeded()       // one file stat, cheap, and last in line
         }
-        .onChange(of: navigation) { _, _ in reloadGames() }
+        // Filters belong to the database you're inside, not the module: leaving one ledger (back to
+        // the shelf, or into a different database) clears them so database A's filter never carries
+        // into database B. resetFilters runs BEFORE reloadGames so the reload sees the cleared state.
+        .onChange(of: navigation) { _, _ in resetFilters(); reloadGames() }
         .onChange(of: sortColumn) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: sortAscending) { _, _ in scheduleReload(debounce: false) }
-        .onChange(of: ledgerSearch) { _, _ in scheduleReload(debounce: true) }
-        .onReceive(NotificationCenter.default.publisher(for: .tabiaFocusSearch)) { _ in
-            if navigation != .root && navigation != .reference { ledgerSearchFocused = true }
-        }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers: providers)
         }
@@ -594,27 +589,6 @@ struct DatabaseBrowserView: View {
         appliedFilter.event != nil || appliedFilter.opening != nil
     }
 
-    private var searchQuery: String { ledgerSearch.trimmingCharacters(in: .whitespaces) }
-    private var hasSearch: Bool { !searchQuery.isEmpty }
-    /// Either narrowing means the fetch must over-read (bigger batches) and post-filter in memory.
-    private var hasAnyNarrowing: Bool { hasClientSideFilters || hasSearch }
-
-    /// Apply the structured filter panel AND the free-text search to a fetched page, in memory.
-    private func narrow(_ games: [GameRecord]) -> [GameRecord] {
-        var result = hasClientSideFilters ? applyClientFilters(games, filter: appliedFilter) : games
-        if hasSearch {
-            let q = searchQuery
-            result = result.filter { g in
-                g.white.localizedCaseInsensitiveContains(q)
-                    || g.black.localizedCaseInsensitiveContains(q)
-                    || g.event.localizedCaseInsensitiveContains(q)
-                    || (g.opening ?? "").localizedCaseInsensitiveContains(q)
-                    || (g.eco ?? "").localizedCaseInsensitiveContains(q)
-            }
-        }
-        return result
-    }
-
     private var currentFolderId: UUID? {
         if case .folder(let id) = navigation { return id }
         return nil
@@ -671,7 +645,7 @@ struct DatabaseBrowserView: View {
     }
 
     private func performLoad(targetCount: Int) {
-        let batchSize = hasAnyNarrowing ? dbBatchSize : pageSize
+        let batchSize = hasClientSideFilters ? dbBatchSize : pageSize
 
         while cachedGames.count < targetCount && !allExhausted {
             let page = database.fetchLibraryGames(
@@ -695,8 +669,8 @@ struct DatabaseBrowserView: View {
                 allExhausted = true
             }
 
-            if hasAnyNarrowing {
-                cachedGames.append(contentsOf: narrow(page.games))
+            if hasClientSideFilters {
+                cachedGames.append(contentsOf: applyClientFilters(page.games, filter: appliedFilter))
             } else {
                 cachedGames.append(contentsOf: page.games)
             }
@@ -769,34 +743,22 @@ struct DatabaseBrowserView: View {
 
             Spacer(minLength: 8)
 
-            ledgerSearchField
             filterChip
         }
         .padding(.horizontal, 28).padding(.vertical, 11)
         .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
-    /// Free-text quick-find over the loaded games. ⌘F focuses it (tabiaFocusSearch).
-    private var ledgerSearchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 11)).foregroundColor(DS.ink25)
-            TextField("players, events, ECO…", text: $state.ledgerSearch)
-                .textFieldStyle(.plain)
-                .font(AnnFont.mono(11))
-                .focused($ledgerSearchFocused)
-            if !ledgerSearch.isEmpty {
-                Button(action: { ledgerSearch = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 10)).foregroundColor(DS.ink25)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .frame(width: 230)
-        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
+    /// Clear the filter panel — its editing fields, the applied query, and the open panel — so filters
+    /// don't leak across ledger sessions. Called on navigation change.
+    private func resetFilters() {
+        guard hasActiveFilters || hasPendingChanges || showingFilters else { return }
+        filterWhite = ""; filterBlack = ""; filterResult = nil
+        filterWhiteEloRange = 0...3000; filterBlackEloRange = 0...3000
+        filterDateFrom = ""; filterDateTo = ""
+        filterEvent = ""; filterOpening = ""
+        appliedFilter = GameFilter()
+        showingFilters = false
     }
 
     /// Filters live in the ledger header, not the masthead: they only mean anything inside a database.
@@ -1508,7 +1470,6 @@ struct DatabaseBrowserView: View {
         if activeFilterCount > 0 {
             parts.append("\(activeFilterCount) FILTER\(activeFilterCount == 1 ? "" : "S") ACTIVE")
         }
-        if hasSearch { parts.append("SEARCH") }
         parts.append("SORTED BY \(sortColumnLabel)")
         return parts.joined(separator: " · ")
     }

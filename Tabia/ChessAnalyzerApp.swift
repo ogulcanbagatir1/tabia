@@ -168,7 +168,6 @@ struct TabiaApp: App {
             CommandMenu("Library") {
                 menuItem("lib.sync")
                 menuItem("lib.filters")
-                menuItem("lib.search")
                 Divider()
                 menuItem("lib.newDb")
                 menuItem("rep.new")
