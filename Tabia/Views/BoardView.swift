@@ -18,6 +18,13 @@ struct BoardArrow: Identifiable, Equatable {
     }
 }
 
+/// A promotion awaiting the user's piece choice — the four candidate moves plus where they land.
+struct PendingPromotion {
+    let to: Position
+    let moves: [Move]        // ordered queen, rook, bishop, knight
+    let color: PieceColor
+}
+
 struct BoardView: View {
     @ObservedObject var board: ChessBoard
     @ObservedObject var gameTree: GameTree
@@ -30,6 +37,9 @@ struct BoardView: View {
     @State private var legalMoves: [Move] = []
     @State private var moveGenerator: MoveGenerator?
     @State private var lastMove: Move?
+
+    // A promotion the user started but hasn't chosen a piece for yet — the picker is showing.
+    @State private var pendingPromotion: PendingPromotion?
 
     // Drag & Drop state
     @State private var draggedPiece: Piece?
@@ -216,6 +226,33 @@ struct BoardView: View {
                                         .zIndex(10000)
                                         .id("annotation-\(move.to.file)-\(move.to.rank)")
                                 }
+
+                                // Layer 7: Promotion picker — a column of four choices over the
+                                // destination file, atop a scrim that cancels on an outside tap.
+                                if let pending = pendingPromotion {
+                                    Rectangle()
+                                        .fill(Color.black.opacity(0.34))
+                                        .frame(width: boardSize, height: boardSize)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { pendingPromotion = nil }
+                                        .zIndex(10001)
+
+                                    let visualFile = isFlipped ? (7 - pending.to.file) : pending.to.file
+                                    let visualRank = isFlipped ? pending.to.rank : (7 - pending.to.rank)
+                                    let dir = visualRank == 0 ? 1 : -1
+                                    ForEach(Array(pending.moves.enumerated()), id: \.offset) { idx, move in
+                                        PromotionChoice(
+                                            piece: Piece(type: move.promotionType ?? .queen, color: pending.color),
+                                            size: squareSize,
+                                            action: { choosePromotion(move) }
+                                        )
+                                        .position(
+                                            x: CGFloat(visualFile) * squareSize + squareSize / 2,
+                                            y: CGFloat(visualRank + dir * idx) * squareSize + squareSize / 2
+                                        )
+                                        .zIndex(10002)
+                                    }
+                                }
                             }
                             .frame(width: boardSize, height: boardSize)
                             .background(
@@ -284,6 +321,9 @@ struct BoardView: View {
             // BoardView.body pass on every move and every navigation step. Just clear selection.
             selectedSquare = nil
             legalMoves = []
+            // Drop a half-finished promotion if the position changed under it (navigation, a move
+            // played elsewhere), so the picker never lingers over the wrong board.
+            pendingPromotion = nil
         }
         .background(
             ScrollWheelHandler { delta in
@@ -331,6 +371,9 @@ struct BoardView: View {
         if let from = selectedSquare,
            let move = legalMoves.first(where: { $0.to == position })
                 ?? castlingMoveForRookDrop(from: from, target: position) {
+            // A promotion offers four pieces — show the picker instead of silently queening.
+            let promoMoves = legalMoves.filter { $0.to == position && $0.promotionType != nil }
+            if !promoMoves.isEmpty { beginPromotion(to: position, candidates: promoMoves); return }
             executeMove(move)
             return
         }
@@ -387,10 +430,14 @@ struct BoardView: View {
 
         let moveToExecute = legalMoves.first(where: { $0.to == targetPos })
             ?? castlingMoveForRookDrop(from: fromPos, target: targetPos)
+        // Capture the promotion candidates before clearDragState() empties legalMoves.
+        let promoMoves = legalMoves.filter { $0.to == targetPos && $0.promotionType != nil }
 
         clearDragState()
 
         guard targetPos.isValid() else { return }
+
+        if !promoMoves.isEmpty { beginPromotion(to: targetPos, candidates: promoMoves); return }
 
         if let move = moveToExecute {
             executeMove(move)
@@ -413,6 +460,24 @@ struct BoardView: View {
         dragOffset = .zero
         selectedSquare = nil
         legalMoves = []
+    }
+
+    // MARK: - Promotion
+
+    /// Open the promotion picker over the destination square. Candidates are ordered Q, R, B, N so
+    /// the queen sits nearest the promotion edge (the Lichess convention).
+    private func beginPromotion(to: Position, candidates: [Move]) {
+        let order: [PieceType] = [.queen, .rook, .bishop, .knight]
+        let ordered = order.compactMap { t in candidates.first { $0.promotionType == t } }
+        guard !ordered.isEmpty else { return }
+        pendingPromotion = PendingPromotion(to: to, moves: ordered, color: ordered[0].piece.color)
+        selectedSquare = nil
+        legalMoves = []
+    }
+
+    private func choosePromotion(_ move: Move) {
+        pendingPromotion = nil
+        executeMove(move)
     }
 
     // MARK: - Move Execution
@@ -611,6 +676,33 @@ struct PieceView: View {
             Text(piece.symbol)
                 .font(.system(size: size * 0.75))
         }
+    }
+}
+
+// MARK: - Promotion Choice
+
+/// One piece in the promotion picker: a white disc carrying the piece glyph, red-ringed on hover.
+struct PromotionChoice: View {
+    let piece: Piece
+    let size: CGFloat
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            PieceView(piece: piece, size: size * 0.82)
+                .frame(width: size, height: size)
+                .background(
+                    Circle()
+                        .fill(hover ? DS.hoverWash : Color.white)
+                        .overlay(Circle().strokeBorder(hover ? DS.redAccent : DS.hairline,
+                                                       lineWidth: hover ? 2 : 1))
+                        .shadow(color: .black.opacity(0.28), radius: 5, x: 0, y: 2)
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }
 
