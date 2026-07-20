@@ -38,6 +38,11 @@ final class BoardSession: ObservableObject, Identifiable {
     var snapDepth: Int = 0
     var snapFEN: String? = nil
 
+    // Full per-move engine review (the "Analyze game" pass), retained per tab so switching away and
+    // back — or relaunching — restores the whole review, not just the frozen eval. Nil until a review
+    // completes; a move that invalidates the analysis clears it back to nil on the next capture.
+    var analysisData: GameAnalysisData? = nil
+
     init() {
         let seed = GameTree()
         self.rootNode = seed.root
@@ -65,6 +70,9 @@ struct PersistedTab: Codable {
     /// The repertoire this tab records into, if any. Without it a restored repertoire tab looks
     /// intact but has lost its link, and Save silently falls through to the library-game branch.
     var repertoireId: String? = nil
+    /// The tab's completed engine review, so an unsaved analysis survives relaunch. Positional
+    /// (keyed by main-line index), so it re-maps onto the tree rebuilt from `pgn`.
+    var analysisData: GameAnalysisData? = nil
 }
 
 struct PersistedTabSet: Codable {

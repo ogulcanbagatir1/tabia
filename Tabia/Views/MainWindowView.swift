@@ -435,6 +435,9 @@ struct MainWindowView: View {
         s.snapEval = e.evaluation
         s.snapDepth = e.depth
         s.snapFEN = gameTree.currentNode.boardState.getFEN()
+        // Retain the full review with the tab. Returns nil unless a pass completed, so a move that
+        // reset the analyzer clears the stored review too.
+        s.analysisData = gameAnalyzer.exportAnalysisData()
     }
 
     private func beginBoardLoad() { suppressDirty = true }
@@ -463,7 +466,13 @@ struct MainWindowView: View {
         activeRepertoire = s.repertoireId.flatMap { id in repertoireDB.repertoires.first { $0.id == id } }
         isSyncingBoard = false
         refreshMoveSequences()
-        gameAnalyzer.reset()
+        // Bring the tab's own review back (if it had one) rather than blanking it. Positional restore
+        // needs the freshly-rebuilt main line above, so it runs here.
+        if let ad = s.analysisData {
+            gameAnalyzer.restoreFromAnalysisData(ad, gameTree: gameTree)
+        } else {
+            gameAnalyzer.reset()
+        }
         endBoardLoad(clean: false)   // keep the session's own dirty state across the swap
         // Show the frozen eval instantly for visual continuity. The currentNode swap above fires
         // onChange(currentNode.id), which re-targets the engine at the new position — so we do NOT
@@ -801,7 +810,8 @@ struct MainWindowView: View {
                 event: s.event, result: s.result, timeClass: s.timeClass,
                 openingName: s.openingName, openingECO: s.openingECO,
                 gameId: s.currentGameId?.uuidString,
-                repertoireId: s.repertoireId?.uuidString))
+                repertoireId: s.repertoireId?.uuidString,
+                analysisData: s.analysisData))
         }
         let payload = PersistedTabSet(tabs: out, activeIndex: windowModel.activeIndex)
         if let data = try? JSONEncoder().encode(payload) {
@@ -835,6 +845,7 @@ struct MainWindowView: View {
             s.event = pt.event; s.result = pt.result; s.timeClass = pt.timeClass
             s.openingName = pt.openingName; s.openingECO = pt.openingECO
             s.currentGameId = pt.gameId.flatMap { UUID(uuidString: $0) }
+            s.analysisData = pt.analysisData
             // Rebind the repertoire link. The tree was just rebuilt from PGN with fresh node ids, so
             // the bridge has to be re-derived by matching moves. A repertoire deleted since the last
             // launch drops the link rather than leaving a dangling id.
