@@ -1309,7 +1309,8 @@ struct MainWindowView: View {
          .tabiaAnnInteresting, .tabiaAnnDubious, .tabiaAnnMistake, .tabiaAnnBlunder,
          // Screen-scoped commands: intercepted here only to switch screens first, then re-posted
          // for the freshly mounted view to handle (see routeToScreen).
-         .tabiaNewRepertoire, .tabiaNewDatabase, .tabiaLibraryToggleFilters, .tabiaSyncGames]
+         .tabiaNewRepertoire, .tabiaNewDatabase, .tabiaLibraryToggleFilters, .tabiaSyncGames,
+         .tabiaFocusSearch]
             .map { NotificationCenter.default.publisher(for: $0) }
     )
 
@@ -1330,7 +1331,7 @@ struct MainWindowView: View {
             _ = routeToScreen(.repertoire, then: name)
             // The flag survives the screen switch; RepertoireBrowserView picks it up on appear.
             pendingNewRepertoire = true
-        case .tabiaNewDatabase, .tabiaLibraryToggleFilters:
+        case .tabiaNewDatabase, .tabiaLibraryToggleFilters, .tabiaFocusSearch:
             _ = routeToScreen(.database, then: name)
         case .tabiaSyncGames:
             _ = routeToScreen(.chesscom, then: name)

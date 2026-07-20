@@ -23,12 +23,6 @@ struct DatabaseBrowserView: View {
     private var selectedGame: GameRecord? {
         get { state.selectedGame } nonmutating set { state.selectedGame = newValue }
     }
-    private var rootSearchText: String {
-        get { state.rootSearchText } nonmutating set { state.rootSearchText = newValue }
-    }
-    private var sidebarCollapsed: Bool {
-        get { state.sidebarCollapsed } nonmutating set { state.sidebarCollapsed = newValue }
-    }
     private var filterWhite: String {
         get { state.filterWhite } nonmutating set { state.filterWhite = newValue }
     }
@@ -64,6 +58,9 @@ struct DatabaseBrowserView: View {
     }
     private var sortAscending: Bool {
         get { state.sortAscending } nonmutating set { state.sortAscending = newValue }
+    }
+    private var ledgerSearch: String {
+        get { state.ledgerSearch } nonmutating set { state.ledgerSearch = newValue }
     }
     private var cachedGames: [GameRecord] {
         get { state.cachedGames } nonmutating set { state.cachedGames = newValue }
@@ -101,6 +98,7 @@ struct DatabaseBrowserView: View {
     @State private var showingFilters = false
     /// Held, not observed — ⌘⇧O fires it and only the pill re-renders.
     @State private var switcherTrigger = SwitcherTrigger()
+    @FocusState private var ledgerSearchFocused: Bool
 
     // Filters
 
@@ -356,6 +354,10 @@ struct DatabaseBrowserView: View {
         .onChange(of: navigation) { _, _ in reloadGames() }
         .onChange(of: sortColumn) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: sortAscending) { _, _ in scheduleReload(debounce: false) }
+        .onChange(of: ledgerSearch) { _, _ in scheduleReload(debounce: true) }
+        .onReceive(NotificationCenter.default.publisher(for: .tabiaFocusSearch)) { _ in
+            if navigation != .root && navigation != .reference { ledgerSearchFocused = true }
+        }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers: providers)
         }
@@ -592,6 +594,27 @@ struct DatabaseBrowserView: View {
         appliedFilter.event != nil || appliedFilter.opening != nil
     }
 
+    private var searchQuery: String { ledgerSearch.trimmingCharacters(in: .whitespaces) }
+    private var hasSearch: Bool { !searchQuery.isEmpty }
+    /// Either narrowing means the fetch must over-read (bigger batches) and post-filter in memory.
+    private var hasAnyNarrowing: Bool { hasClientSideFilters || hasSearch }
+
+    /// Apply the structured filter panel AND the free-text search to a fetched page, in memory.
+    private func narrow(_ games: [GameRecord]) -> [GameRecord] {
+        var result = hasClientSideFilters ? applyClientFilters(games, filter: appliedFilter) : games
+        if hasSearch {
+            let q = searchQuery
+            result = result.filter { g in
+                g.white.localizedCaseInsensitiveContains(q)
+                    || g.black.localizedCaseInsensitiveContains(q)
+                    || g.event.localizedCaseInsensitiveContains(q)
+                    || (g.opening ?? "").localizedCaseInsensitiveContains(q)
+                    || (g.eco ?? "").localizedCaseInsensitiveContains(q)
+            }
+        }
+        return result
+    }
+
     private var currentFolderId: UUID? {
         if case .folder(let id) = navigation { return id }
         return nil
@@ -648,7 +671,7 @@ struct DatabaseBrowserView: View {
     }
 
     private func performLoad(targetCount: Int) {
-        let batchSize = hasClientSideFilters ? dbBatchSize : pageSize
+        let batchSize = hasAnyNarrowing ? dbBatchSize : pageSize
 
         while cachedGames.count < targetCount && !allExhausted {
             let page = database.fetchLibraryGames(
@@ -672,8 +695,8 @@ struct DatabaseBrowserView: View {
                 allExhausted = true
             }
 
-            if hasClientSideFilters {
-                cachedGames.append(contentsOf: applyClientFilters(page.games, filter: appliedFilter))
+            if hasAnyNarrowing {
+                cachedGames.append(contentsOf: narrow(page.games))
             } else {
                 cachedGames.append(contentsOf: page.games)
             }
@@ -746,10 +769,34 @@ struct DatabaseBrowserView: View {
 
             Spacer(minLength: 8)
 
+            ledgerSearchField
             filterChip
         }
         .padding(.horizontal, 28).padding(.vertical, 11)
         .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    /// Free-text quick-find over the loaded games. ⌘F focuses it (tabiaFocusSearch).
+    private var ledgerSearchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11)).foregroundColor(DS.ink25)
+            TextField("players, events, ECO…", text: $state.ledgerSearch)
+                .textFieldStyle(.plain)
+                .font(AnnFont.mono(11))
+                .focused($ledgerSearchFocused)
+            if !ledgerSearch.isEmpty {
+                Button(action: { ledgerSearch = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 10)).foregroundColor(DS.ink25)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .frame(width: 230)
+        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.borderStrong, lineWidth: 1))
     }
 
     /// Filters live in the ledger header, not the masthead: they only mean anything inside a database.
@@ -1443,42 +1490,50 @@ struct DatabaseBrowserView: View {
 
     // MARK: - Status Bar
 
+    private var sortColumnLabel: String {
+        switch sortColumn {
+        case .white: return "WHITE"
+        case .black: return "BLACK"
+        case .date: return "DATE"
+        case .result: return "RESULT"
+        case .event: return "EVENT"
+        case .site: return "SITE"
+        case .opening: return "OPENING"
+        }
+    }
+
+    /// "MY GAMES — 1,031 GAMES · 2 FILTERS ACTIVE · SEARCH · SORTED BY DATE"
+    private var statusLeftText: String {
+        var parts = ["\(currentFolderName.uppercased()) — \(totalCount.formatted()) GAMES"]
+        if activeFilterCount > 0 {
+            parts.append("\(activeFilterCount) FILTER\(activeFilterCount == 1 ? "" : "S") ACTIVE")
+        }
+        if hasSearch { parts.append("SEARCH") }
+        parts.append("SORTED BY \(sortColumnLabel)")
+        return parts.joined(separator: " · ")
+    }
+
     private var statusBar: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Text("\(cachedGames.count)\(allExhausted ? "" : "+") games")
-                    .font(AnnFont.mono(11))
-                    .foregroundColor(DS.ink60)
+            Text(statusLeftText)
+                .font(AnnFont.mono(9.5)).foregroundColor(DS.ink40)
+                .lineLimit(1)
 
-                if isLoadingGames {
-                    ProgressView()
-                        .scaleEffect(0.5)
-                }
-
-                Text("Synced")
-                    .font(AnnFont.label(10))
-                    .tracking(10 * 0.1)
-                    .foregroundColor(DS.semOnline)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(DS.semOnline.opacity(0.19), in: RoundedRectangle(cornerRadius: 6))
-            }
+            if isLoadingGames { ProgressView().scaleEffect(0.45) }
 
             Spacer()
 
             if selectedGameIds.count > 1 {
-                Text("\(selectedGameIds.count) selected")
-                    .font(AnnFont.mono(10))
-                    .foregroundColor(DS.redAccent)
+                Text("\(selectedGameIds.count) SELECTED")
+                    .font(AnnFont.mono(9.5)).foregroundColor(DS.redAccent)
             }
 
-            Text("Sorted by date")
-                .font(AnnFont.mono(11))
-                .foregroundColor(DS.ink25)
+            Text("⌘⇧O  SWITCH DATABASE")
+                .font(AnnFont.mono(9.5)).foregroundColor(DS.ink25)
         }
         .padding(.horizontal, 28)
-        .frame(height: 30)
-        .background(DS.chrome)
+        .frame(height: DS.statusBarHeight)
+        .background(DS.paperRaised)
         .overlay(alignment: .top) {
             Rectangle().fill(DS.hairline).frame(height: 1)
         }

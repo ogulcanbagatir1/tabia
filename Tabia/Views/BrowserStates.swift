@@ -62,8 +62,6 @@ final class DatabaseBrowserState: ObservableObject {
     var countsRevision: Int?
     @Published var selectedGameIds: Set<UUID> = []
     @Published var selectedGame: GameRecord?
-    @Published var rootSearchText = ""
-    @Published var sidebarCollapsed = false
 
     // Filter panel — the pending values the user is editing.
     @Published var filterWhite: String = ""
@@ -81,6 +79,10 @@ final class DatabaseBrowserState: ObservableObject {
 
     @Published var sortColumn: DatabaseBrowserView.SortColumn = .date
     @Published var sortAscending = false
+
+    /// Ledger free-text quick-find (players / events / opening / ECO). Applied client-side alongside
+    /// the structured filter panel, debounced. Survives leaving the screen like everything else here.
+    @Published var ledgerSearch = ""
 
     // The loaded page. Retaining these is what makes coming back instant: `onAppear` only refetches
     // when `cachedGames` is empty. They are the same SwiftData objects the context already holds, so
