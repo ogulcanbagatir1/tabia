@@ -67,8 +67,14 @@ final class IngestBoard {
         if let eq = b.firstIndex(of: 0x3D) {
             if eq + 1 < b.count { promo = promoCode(b[eq + 1]) }
             b.removeSubrange(eq...)
+        } else if let last = b.last, IngestBoard.isPromoLetter(last),
+                  b.count >= 3, b[b.count - 2] >= 49, b[b.count - 2] <= 56 {
+            // Promotion written without '=' (e.g. "e8Q", "exd8N"). Guarded on the promo letter
+            // following a rank digit, so a normal move (which ends in a rank) never trips it.
+            promo = promoCode(last)
+            b.removeLast()
         }
-        let isCapture = b.contains(120)
+        var isCapture = b.contains(120)
         if isCapture { b.removeAll { $0 == 120 } }
         guard b.count >= 2 else { return nil }
 
@@ -89,8 +95,13 @@ final class IngestBoard {
             i += 1
         }
 
+        // A pawn move whose source file (the disambiguation) differs from the destination file is a
+        // capture even when the SAN omits the 'x' — e.g. "ed5" for exd5. NotationEngine accepts this,
+        // so the index must resolve it too, otherwise Ingestor truncates the game's index.
+        if type == PAWN, dFile >= 0, dFile != destFile { isCapture = true }
+
         let want = IngestBoard.code(type, white)
-        var c0 = -1, c1 = -1, n = 0
+        var candidates: [Int] = []
         var file = dFile >= 0 ? dFile : 0
         let fileEnd = dFile >= 0 ? dFile + 1 : 8
         while file < fileEnd {
@@ -100,8 +111,7 @@ final class IngestBoard {
                 let from = rank * 8 + file
                 if sq[from] == want && canReach(type: type, white: white, from: from, fromFile: file, fromRank: rank,
                                                 to: dest, toFile: destFile, toRank: destRank, isCapture: isCapture) {
-                    if n == 0 { c0 = from } else if n == 1 { c1 = from }
-                    n += 1
+                    candidates.append(from)
                 }
                 rank += 1
             }
@@ -109,9 +119,11 @@ final class IngestBoard {
         }
 
         let from: Int
-        if n == 1 { from = c0 }
-        else if n == 0 { return nil }
-        else { from = legalOne(c0, c1, type: type, white: white, dest: dest, promo: promo) ?? c0 }
+        switch candidates.count {
+        case 0:  return nil
+        case 1:  from = candidates[0]
+        default: from = pickLegal(candidates, type: type, white: white, dest: dest, promo: promo)
+        }
 
         let isEP = type == PAWN && (from % 8) != destFile && sq[dest] == 0
         return Resolved(from: from, to: dest, promo: promo, isCastle: false, isEP: isEP)
@@ -229,17 +241,23 @@ final class IngestBoard {
         return true
     }
 
-    /// Pick the candidate whose move does not leave its own king in check (a pin).
-    private func legalOne(_ a: Int, _ b: Int, type: Int, white: Bool, dest: Int, promo: Int) -> Int? {
-        for from in [a, b] {
+    /// From several same-type candidates that all reach the square, pick the one whose move leaves
+    /// its own king safe (the rest are pinned). Tests EVERY candidate (not just the first two) and
+    /// models promotion and en-passant on the trial board, so an ambiguous EP capture is not
+    /// mis-judged by leaving the captured pawn standing (which would fake a rank pin).
+    private func pickLegal(_ candidates: [Int], type: Int, white: Bool, dest: Int, promo: Int) -> Int {
+        let kingCode = IngestBoard.code(KING, white)
+        for from in candidates {
             var copy = sq
-            copy[dest] = copy[from]; copy[from] = 0
-            let kingCode = IngestBoard.code(KING, white)
+            let isEP = type == PAWN && (from % 8) != (dest % 8) && copy[dest] == 0
+            copy[dest] = promo > 0 ? IngestBoard.code(promoType(promo), white) : copy[from]
+            copy[from] = 0
+            if isEP { copy[(from / 8) * 8 + (dest % 8)] = 0 }   // remove the EP-captured pawn
             var kingIdx = -1
-            for i in 0..<64 where copy[i] == kingCode { kingIdx = i; break }
-            if kingIdx >= 0 && !isAttacked(copy, kingIdx, byWhite: !white) { return from }
+            for k in 0..<64 where copy[k] == kingCode { kingIdx = k; break }
+            if kingIdx < 0 || !isAttacked(copy, kingIdx, byWhite: !white) { return from }
         }
-        return nil
+        return candidates[0]
     }
 
     private func isAttacked(_ board: [Int8], _ target: Int, byWhite: Bool) -> Bool {
@@ -287,6 +305,14 @@ final class IngestBoard {
     }
 
     // MARK: - Byte helpers
+
+    /// Promotion piece letters, upper or lower case (Q R B N q r b n).
+    private static func isPromoLetter(_ byte: UInt8) -> Bool {
+        switch byte {
+        case 81, 82, 66, 78, 113, 114, 98, 110: return true
+        default: return false
+        }
+    }
 
     private func pieceCode(_ byte: UInt8) -> Int? {
         switch byte {
