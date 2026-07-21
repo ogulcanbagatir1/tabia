@@ -155,6 +155,16 @@ struct ChessComBrowserView: View {
                 reloadGames()
             }
             loadRatings()
+            // An account connected from the Settings window while My Games was never open didn't fire
+            // this view's onChange, so its games were never fetched. Kick off the first import here for
+            // any connected platform that has nothing in the DB yet. (The sync guards above prevent a
+            // double if onChange already started one.)
+            if !savedUsername.isEmpty && database.chessComGamesCount(for: savedUsername) == 0 {
+                startProgressiveSync(fullImport: true)
+            }
+            if !lichessUsername.isEmpty && database.chessComGamesCount(for: lichessUsername) == 0 {
+                startLichessSync(fullImport: true)
+            }
         }
         // Ratings no longer depend on the loaded games — only the per-account counts do.
         .onChange(of: cachedGames.count) { _, _ in

@@ -18,6 +18,7 @@ extension ChessComBrowserView {
     // MARK: - Progressive Sync
 
     func startProgressiveSync(fullImport: Bool) {
+        guard !isSyncing else { return }   // a sync is already running — don't spawn a second racing one
         isSyncing = true
         importedCount = 0
         syncTimeClassCounts = [:]
@@ -128,6 +129,7 @@ extension ChessComBrowserView {
     // MARK: - Lichess Sync
 
     func startLichessSync(fullImport: Bool) {
+        guard !isLichessSyncing else { return }   // guard against a second concurrent Lichess sync
         isLichessSyncing = true
         if !isSyncing {
             isSyncing = true

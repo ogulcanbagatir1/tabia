@@ -48,6 +48,7 @@ struct MainWindowView: View {
     /// The engine's interactive MultiPV, saved while a game review temporarily forces ≥3 (needed so
     /// the !/!! classifier can see the 2nd/3rd-best lines), then restored when the review ends.
     @State private var reviewSavedMultiPV = 3
+    @State private var reviewForcedMultiPV = false
     @State private var arrowMonitor: Any? = nil
     @State private var evaluationDebounceTask: DispatchWorkItem?
     @State private var isSyncingBoard = false
@@ -279,7 +280,7 @@ struct MainWindowView: View {
                         engine.evaluatePosition(board: nextBoard, depth: gameAnalyzer.analysisDepth, movetime: gameAnalyzer.analysisMovetime)
                     } else if gameAnalyzer.isCompleted {
                         // Analysis finished — restore MultiPV, save to database and go to start
-                        engine.setMultiPV(reviewSavedMultiPV)
+                        restoreReviewMultiPVIfForced()
                         saveAnalysisToDatabase()
                         gameTree.goToStart()
                         syncBoardWithGameTree()
@@ -1590,6 +1591,10 @@ struct MainWindowView: View {
 
         multiEngine.stopAll()
 
+        // Self-heal the review's forced MultiPV on the paths that tear a review down without going
+        // through completion/cancel (open another game, reset, paste FEN, switch tab all land here).
+        restoreReviewMultiPVIfForced()
+
         // Get a fresh copy of the current board state and send to all engines
         let boardToEval = gameTree.currentNode.boardState.copy()
         multiEngine.evaluateAll(board: boardToEval)
@@ -1610,17 +1615,30 @@ struct MainWindowView: View {
         // Start game analysis using the selected engine only
         let engine = multiEngine.primaryEngine
         // The great/brilliant classifier reads the 2nd/3rd-best lines, so force MultiPV ≥ 3 for the
-        // review (restored when it finishes/cancels). Without this a MultiPV-1 engine yields no !/!!.
-        reviewSavedMultiPV = engine.multiPV
-        engine.setMultiPV(max(3, engine.multiPV))
+        // review. Only when it was lower, and remember to undo it — restoreReviewMultiPVIfForced()
+        // runs on completion, cancel, and (self-healing) the next interactive analysis, so a mid-review
+        // teardown (open another game, reset, paste FEN, switch tab) can't leave it stuck at 3.
+        if engine.multiPV < 3 {
+            reviewSavedMultiPV = engine.multiPV
+            reviewForcedMultiPV = true
+            engine.setMultiPV(3)
+        }
         if let firstBoard = gameAnalyzer.startAnalysis(gameTree: gameTree) {
             engine.evaluatePosition(board: firstBoard, depth: gameAnalyzer.analysisDepth, movetime: gameAnalyzer.analysisMovetime)
         }
     }
 
+    /// Put MultiPV back to the user's setting if a game review forced it up. Idempotent — safe to call
+    /// from every review-teardown path; only the first call after a forcing actually does anything.
+    private func restoreReviewMultiPVIfForced() {
+        guard reviewForcedMultiPV else { return }
+        reviewForcedMultiPV = false
+        multiEngine.primaryEngine.setMultiPV(reviewSavedMultiPV)
+    }
+
     private func cancelGameAnalysis() {
         gameAnalyzer.cancel()
-        multiEngine.primaryEngine.setMultiPV(reviewSavedMultiPV)   // undo the review's forced MultiPV
+        restoreReviewMultiPVIfForced()   // undo the review's forced MultiPV
         multiEngine.stopAll()
 
         // Resume normal analysis if auto-analyze is on
