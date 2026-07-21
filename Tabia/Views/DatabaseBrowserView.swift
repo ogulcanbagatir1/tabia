@@ -242,9 +242,9 @@ struct DatabaseBrowserView: View {
             )
         }
         .sheet(isPresented: $showingNewDatabaseSheet) {
-            NewDatabaseSheet { name, pgnURLs in
+            NewDatabaseSheet { name, summary, pgnURLs in
                 showingNewDatabaseSheet = false
-                let folder = database.createFolder(name: name)
+                let folder = database.createFolder(name: name, summary: summary)
                 if !pgnURLs.isEmpty {
                     pendingImportURLs = pgnURLs
                     pendingImportFolderId = folder.id
@@ -722,10 +722,12 @@ struct DatabaseBrowserView: View {
     private var ledgerHeaderBar: some View {
         HStack(spacing: 8) {
             Button(action: { navigation = .root }) {
-                Text("‹")
-                    .font(AnnFont.mono(13))
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(DS.ink40)
-                    .padding(.horizontal, 9).padding(.top, 2).padding(.bottom, 4)
+                    // A fixed box centres the glyph both ways — the old text chevron sat high on its
+                    // line and the uneven top/bottom padding never lined it up.
+                    .frame(width: 30, height: 30)
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .strokeBorder(DS.borderChip, lineWidth: 1))
                     .contentShape(Rectangle())
@@ -1315,7 +1317,7 @@ struct DatabaseBrowserView: View {
     }
 
     private func tableRow(_ game: GameRecord, isAlternate: Bool = false, cols: LedgerColumns) -> some View {
-        LedgerRowChrome(isAlternate: isAlternate) {
+        LedgerRowChrome(isAlternate: isAlternate, isSelected: state.selectedGameIds.contains(game.id)) {
             tableRowCells(game, cols: cols)
         }
     }

@@ -185,11 +185,12 @@ struct DualSlider: View {
 
 struct NewDatabaseSheet: View {
     @EnvironmentObject var referenceDatabase: ReferenceDatabase
-    let onCreate: (String, [URL]) -> Void
+    let onCreate: (String, String?, [URL]) -> Void
     let onCancel: () -> Void
     var onDownloadReference: (() -> Void)? = nil
 
     @State private var name = ""
+    @State private var summary = ""
     @State private var pgnURLs: [URL] = []
     @State private var isDropTargeted = false
     @State private var showingFilePicker = false
@@ -301,6 +302,25 @@ struct NewDatabaseSheet: View {
                         )
                 }
 
+                // Description — optional one-liner shown on the shelf card.
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("DESCRIPTION  ·  OPTIONAL")
+                        .font(AnnFont.label(10)).tracking(10 * 0.14)
+                        .foregroundColor(DS.ink40)
+
+                    TextField("e.g. My OTB games since 2020", text: $summary)
+                        .textFieldStyle(.plain)
+                        .font(AnnFont.serif(13))
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                        .background(DS.bg)
+                        .cornerRadius(DS.radiusSM)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.radiusSM)
+                                .strokeBorder(DS.border, lineWidth: 1)
+                        )
+                }
+
                 // Import PGN section
                 VStack(alignment: .leading, spacing: 8) {
                     Text("IMPORT PGN  ·  OPTIONAL")
@@ -394,7 +414,8 @@ struct NewDatabaseSheet: View {
                 Button(action: {
                     let trimmed = name.trimmingCharacters(in: .whitespaces)
                     let finalName = trimmed.isEmpty ? "Untitled" : trimmed
-                    onCreate(finalName, pgnURLs)
+                    let desc = summary.trimmingCharacters(in: .whitespaces)
+                    onCreate(finalName, desc.isEmpty ? nil : desc, pgnURLs)
                 }) {
                     Text(pgnURLs.isEmpty ? "Create Database" : "Create & Import")
                 }

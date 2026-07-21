@@ -859,8 +859,9 @@ class GameDatabase: ObservableObject {
     // MARK: - Folder Operations
 
     @discardableResult
-    func createFolder(name: String) -> GameFolder {
+    func createFolder(name: String, summary: String? = nil) -> GameFolder {
         let folder = GameFolder(name: name)
+        folder.summary = summary
         modelContext.insert(folder)
         save()
         return folder

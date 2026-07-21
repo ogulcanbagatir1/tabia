@@ -102,9 +102,10 @@ final class ChessComBrowserState: ObservableObject {
     @Published var filterTimeControl: String = "All"
     @Published var filterResult: String = "All"
     @Published var filterColor: String = "All"
+    @Published var filterOpponent: String = ""
     @Published var filterOpening: String = ""
-    @Published var filterDateFrom: Date? = nil
-    @Published var filterDateTo: Date? = nil
+    /// Recency window in days (0 = all time). Chosen from presets, so there is no fiddly date picker.
+    @Published var filterDateDays: Int = 0
     @Published var filterSource: String = "All"
 
     @Published var cachedGames: [GameRecord] = []

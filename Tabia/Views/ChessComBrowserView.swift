@@ -10,6 +10,9 @@ struct ChessComBrowserView: View {
     @StateObject var lichessService = LichessGameService()
     @ObservedObject private var lichessAuth = LichessAuthService.shared
     @ObservedObject var settings = AppSettings.shared
+    @Environment(\.openSettings) private var openSettings
+    /// Handshake with PreferencesView: set the target tab, then open Settings on it.
+    @AppStorage("settingsRequestedTab") private var settingsRequestedTab = -1
     @AppStorage("chesscom_username") var savedUsername: String = ""
     @AppStorage("chesscom_last_sync") var lastSyncTimestamp: Double = 0
     @AppStorage("lichess_username") var lichessUsername: String = ""
@@ -46,14 +49,14 @@ struct ChessComBrowserView: View {
     private var filterColor: String {
         get { state.filterColor } nonmutating set { state.filterColor = newValue }
     }
+    private var filterOpponent: String {
+        get { state.filterOpponent } nonmutating set { state.filterOpponent = newValue }
+    }
     private var filterOpening: String {
         get { state.filterOpening } nonmutating set { state.filterOpening = newValue }
     }
-    private var filterDateFrom: Date? {
-        get { state.filterDateFrom } nonmutating set { state.filterDateFrom = newValue }
-    }
-    private var filterDateTo: Date? {
-        get { state.filterDateTo } nonmutating set { state.filterDateTo = newValue }
+    private var filterDateDays: Int {
+        get { state.filterDateDays } nonmutating set { state.filterDateDays = newValue }
     }
     private var filterSource: String {
         get { state.filterSource } nonmutating set { state.filterSource = newValue }
@@ -131,9 +134,8 @@ struct ChessComBrowserView: View {
 
     private var hasClientSideFilters: Bool {
         filterResult != "All" || filterColor != "All" ||
-        !filterOpening.isEmpty ||
-        filterDateFrom != nil || filterDateTo != nil ||
-        filterSource != "All"
+        !filterOpponent.isEmpty || !filterOpening.isEmpty ||
+        filterDateDays > 0 || filterSource != "All"
     }
 
     private var activeTimeClass: String? {
@@ -174,11 +176,22 @@ struct ChessComBrowserView: View {
         .onReceive(NotificationCenter.default.publisher(for: .tabiaSyncGames)) { _ in
             if hasAnyAccount && !(service.isLoading || lichessService.isLoading) { refreshGames() }
         }
+        // Connecting / disconnecting a platform elsewhere (Settings → Accounts, or the in-page
+        // fields) only writes the @AppStorage username. The browser owns the sync/reload machinery,
+        // so it reacts here — the single place a username change turns into an import or a refresh.
+        .onChange(of: savedUsername) { old, new in
+            guard old != new else { return }
+            if new.isEmpty { refreshAfterAccountChange() } else { startProgressiveSync(fullImport: true) }
+        }
+        .onChange(of: lichessUsername) { old, new in
+            guard old != new else { return }
+            if new.isEmpty { refreshAfterAccountChange() } else { startLichessSync(fullImport: true) }
+        }
         .onChange(of: filterTimeControl) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterResult) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterColor) { _, _ in scheduleReload(debounce: false) }
-        .onChange(of: filterDateFrom) { _, _ in scheduleReload(debounce: false) }
-        .onChange(of: filterDateTo) { _, _ in scheduleReload(debounce: false) }
+        .onChange(of: filterOpponent) { _, _ in scheduleReload(debounce: true) }
+        .onChange(of: filterDateDays) { _, _ in scheduleReload(debounce: false) }
         .onChange(of: filterOpening) { _, _ in scheduleReload(debounce: true) }
         .onChange(of: filterSource) { _, _ in scheduleReload(debounce: false) }
     }
@@ -278,6 +291,15 @@ struct ChessComBrowserView: View {
                 }
             }
         }
+        if !filterOpponent.isEmpty {
+            let query = filterOpponent.lowercased()
+            result = result.filter { game in
+                // The opponent is whichever side isn't the synced account.
+                let username = game.sourceUsername ?? ""
+                let opponent = game.white.lowercased() == username ? game.black : game.white
+                return opponent.lowercased().contains(query)
+            }
+        }
         if !filterOpening.isEmpty {
             let query = filterOpening.lowercased()
             result = result.filter { game in
@@ -285,11 +307,9 @@ struct ChessComBrowserView: View {
                 game.eco?.lowercased().contains(query) == true
             }
         }
-        if let dateFrom = filterDateFrom {
-            result = result.filter { $0.dateAdded >= dateFrom }
-        }
-        if let dateTo = filterDateTo {
-            result = result.filter { $0.dateAdded <= dateTo }
+        if filterDateDays > 0,
+           let cutoff = Calendar.current.date(byAdding: .day, value: -filterDateDays, to: Date()) {
+            result = result.filter { $0.dateAdded >= cutoff }
         }
         return result
     }
@@ -339,10 +359,9 @@ struct ChessComBrowserView: View {
                             .textFieldStyle(.plain)
                             .font(AnnFont.serif(13))
                             .onSubmit {
-                                if !connectUsername.isEmpty {
-                                    savedUsername = connectUsername
-                                    startProgressiveSync(fullImport: true)
-                                }
+                                // Setting the username is the connect — onChange(savedUsername) runs
+                                // the import. Keeps one sync path shared with Settings → Accounts.
+                                if !connectUsername.isEmpty { savedUsername = connectUsername }
                             }
                     }
                     .padding(.horizontal, 10)
@@ -352,10 +371,7 @@ struct ChessComBrowserView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(DS.border, lineWidth: 1))
 
                     Button(action: {
-                        if !connectUsername.isEmpty {
-                            savedUsername = connectUsername
-                            startProgressiveSync(fullImport: true)
-                        }
+                        if !connectUsername.isEmpty { savedUsername = connectUsername }
                     }) {
                         Text("Connect")
                             .glassButtonPrimary()
@@ -387,10 +403,7 @@ struct ChessComBrowserView: View {
                                 .textFieldStyle(.plain)
                                 .font(AnnFont.serif(13))
                                 .onSubmit {
-                                    if !connectLichessUsername.isEmpty {
-                                        lichessUsername = connectLichessUsername
-                                        startLichessSync(fullImport: true)
-                                    }
+                                    if !connectLichessUsername.isEmpty { lichessUsername = connectLichessUsername }
                                 }
                         }
                         .padding(.horizontal, 10)
@@ -400,10 +413,7 @@ struct ChessComBrowserView: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(DS.border, lineWidth: 1))
 
                         Button(action: {
-                            if !connectLichessUsername.isEmpty {
-                                lichessUsername = connectLichessUsername
-                                startLichessSync(fullImport: true)
-                            }
+                            if !connectLichessUsername.isEmpty { lichessUsername = connectLichessUsername }
                         }) {
                             Text("Connect")
                                 .glassButtonPrimary()
@@ -509,6 +519,25 @@ struct ChessComBrowserView: View {
     }
 
     private var normalConnectedContent: some View {
+        ZStack(alignment: .trailing) {
+            normalConnectedColumn
+
+            // Slide-in filter panel (same pattern as the Library), dimming the list behind it.
+            if showingFilters {
+                Color.black.opacity(0.15)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.25)) { showingFilters = false } }
+                    .transition(.opacity)
+            }
+            gamesFilterPanel
+                .padding(.vertical, 14)
+                .padding(.trailing, 14)
+                .offset(x: showingFilters ? 0 : 400)
+                .animation(.easeInOut(duration: 0.25), value: showingFilters)
+        }
+    }
+
+    private var normalConnectedColumn: some View {
         VStack(spacing: 0) {
             // Profile Header
             HStack(spacing: 14) {
@@ -537,26 +566,25 @@ struct ChessComBrowserView: View {
                     }
                 }
 
+                gamesFilterButton
+
                 Menu {
-                    if !savedUsername.isEmpty {
-                        Button(action: { showingImportSheet = true }) {
-                            Label("Chess.com Settings", systemImage: "gearshape")
-                        }
+                    // The accounts page — where connect status, sync and disconnect all live.
+                    Button(action: openAccountsSettings) {
+                        Label("Manage Accounts…", systemImage: "gearshape")
                     }
 
+                    Divider()
+
+                    // Add the platform that isn't linked yet. Lichess sign-in fills the username in
+                    // for you; without a Chess.com account, point at the connect screen.
                     if lichessUsername.isEmpty {
                         Button(action: connectLichessFromMenu) {
                             Label("Connect Lichess", systemImage: "plus.circle")
                         }
-                    }
-
-                    if settings.lichessToken.isEmpty && !lichessUsername.isEmpty {
+                    } else if settings.lichessToken.isEmpty {
                         Button(action: loginLichess) {
-                            Label("Login to Lichess", systemImage: "person.badge.key")
-                        }
-                    } else if !settings.lichessToken.isEmpty {
-                        Button(action: logoutLichess) {
-                            Label("Logout Lichess", systemImage: "rectangle.portrait.and.arrow.right")
+                            Label("Sign in to Lichess for faster imports", systemImage: "person.badge.key")
                         }
                     }
 
@@ -587,17 +615,6 @@ struct ChessComBrowserView: View {
                 Rectangle().fill(DS.hairline).frame(height: 1)
             }
 
-            // Filter Pills
-            filterPillsRow
-                .padding(.horizontal, 28)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
-
-            if showingFilters {
-                chessComFilterPanel
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
             if cachedGames.isEmpty {
                 emptyGamesView
             } else {
@@ -616,11 +633,10 @@ struct ChessComBrowserView: View {
     // MARK: - Filter Bar
 
     @State private var showingFilters = false
-    @State private var chessComFilterCardHeight: CGFloat = 0
 
     private var hasActiveFilters: Bool {
         filterTimeControl != "All" || filterResult != "All" || filterColor != "All" ||
-        !filterOpening.isEmpty || filterDateFrom != nil || filterDateTo != nil ||
+        !filterOpponent.isEmpty || !filterOpening.isEmpty || filterDateDays > 0 ||
         filterSource != "All"
     }
 
@@ -629,8 +645,9 @@ struct ChessComBrowserView: View {
         if filterTimeControl != "All" { count += 1 }
         if filterResult != "All" { count += 1 }
         if filterColor != "All" { count += 1 }
+        if !filterOpponent.isEmpty { count += 1 }
         if !filterOpening.isEmpty { count += 1 }
-        if filterDateFrom != nil || filterDateTo != nil { count += 1 }
+        if filterDateDays > 0 { count += 1 }
         if filterSource != "All" { count += 1 }
         return count
     }
@@ -639,143 +656,169 @@ struct ChessComBrowserView: View {
         filterTimeControl = "All"
         filterResult = "All"
         filterColor = "All"
+        filterOpponent = ""
         filterOpening = ""
-        filterDateFrom = nil
-        filterDateTo = nil
+        filterDateDays = 0
         filterSource = "All"
     }
 
-    private var chessComFilterPanel: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                // Time Control
-                chessComFilterCard(title: "Time Control", icon: "clock", width: 150) {
-                    VStack(spacing: 4) {
-                        chessComFilterOption("All", current: filterTimeControl) { filterTimeControl = $0 }
-                        chessComFilterOption("Bullet", current: filterTimeControl) { filterTimeControl = $0 }
-                        chessComFilterOption("Blitz", current: filterTimeControl) { filterTimeControl = $0 }
-                        chessComFilterOption("Rapid", current: filterTimeControl) { filterTimeControl = $0 }
-                        chessComFilterOption("Daily", current: filterTimeControl) { filterTimeControl = $0 }
+    /// Compact icon control in the header row (sits beside the ⋯ menu). A red dot marks active
+    /// filters; tapping opens the slide-in panel.
+    private var gamesFilterButton: some View {
+        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showingFilters.toggle() } }) {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 14))
+                .foregroundColor(hasActiveFilters ? DS.redAccent : DS.textSecondary)
+                .overlay(alignment: .topTrailing) {
+                    if hasActiveFilters {
+                        Circle().fill(DS.redAccent).frame(width: 6, height: 6).offset(x: 3, y: -2)
                     }
-                    .frame(maxWidth: .infinity)
                 }
-
-                // Result
-                chessComFilterCard(title: "Result", icon: "flag", width: 150) {
-                    VStack(spacing: 4) {
-                        chessComFilterOption("All", current: filterResult) { filterResult = $0 }
-                        chessComFilterOption("Wins", current: filterResult) { filterResult = $0 }
-                        chessComFilterOption("Losses", current: filterResult) { filterResult = $0 }
-                        chessComFilterOption("Draws", current: filterResult) { filterResult = $0 }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                // Source
-                chessComFilterCard(title: "Source", icon: "globe", width: 150) {
-                    VStack(spacing: 4) {
-                        chessComFilterOption("All", current: filterSource) { filterSource = $0 }
-                        chessComFilterOption("Chess.com", current: filterSource) { filterSource = $0 }
-                        chessComFilterOption("Lichess", current: filterSource) { filterSource = $0 }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                // Played As
-                chessComFilterCard(title: "Played As", icon: "circle.lefthalf.filled", width: 150) {
-                    VStack(spacing: 4) {
-                        chessComFilterOption("All", current: filterColor) { filterColor = $0 }
-                        chessComFilterOption("White", current: filterColor) { filterColor = $0 }
-                        chessComFilterOption("Black", current: filterColor) { filterColor = $0 }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                // Reset
-                if hasActiveFilters {
-                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { clearFilters() } }) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.system(size: 14))
-                            Text("Reset")
-                                .font(AnnFont.label(10))
-                                .tracking(10 * 0.1)
-                        }
-                        .foregroundColor(DS.textSecondary)
-                        .frame(width: 50)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .onPreferenceChange(ChessComFilterCardHeightKey.self) { height in
-                if height > chessComFilterCardHeight {
-                    chessComFilterCardHeight = height
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
         }
-        .background(DS.bgSecondary)
+        .buttonStyle(.plain)
+        .help(hasActiveFilters ? "Filters · \(activeFilterCount) active" : "Filter your games")
     }
 
-    private func chessComFilterCard<Content: View>(title: String, icon: String, width: CGFloat = 150, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 9))
-                    .foregroundColor(DS.textSecondary)
-                Text(title)
-                    .font(AnnFont.label(10))
-                    .tracking(10 * 0.1)
-                    .foregroundColor(DS.textSecondary)
-                    .textCase(.uppercase)
+    // MARK: - Filter Panel (slide-in, same shape as the Library's)
+
+    private var gamesFilterPanel: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Text("Filters").font(AnnFont.serif(18, .semibold)).foregroundColor(DS.ink)
+                Spacer()
+                Button(action: { withAnimation(.easeInOut(duration: 0.25)) { showingFilters = false } }) {
+                    Image(systemName: "xmark").font(.system(size: 14)).foregroundColor(DS.ink40)
+                        .frame(width: 28, height: 28).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20).padding(.vertical, 14)
+            .background(DS.chrome)
+            .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+
+            // Body
+            ScrollView {
+                VStack(spacing: 0) {
+                    gamesFilterSection(title: "Result") {
+                        gamesChipRow(["All", "Wins", "Draws", "Losses"], current: filterResult) { filterResult = $0 }
+                    }
+                    gamesFilterSection(title: "Time Control") {
+                        gamesChipRow(["All", "Bullet", "Blitz", "Rapid", "Daily"], current: filterTimeControl) { filterTimeControl = $0 }
+                    }
+                    // Source only means something with more than one platform linked.
+                    if connectedPlatforms.count > 1 {
+                        gamesFilterSection(title: "Source") {
+                            gamesChipRow(["All", "Chess.com", "Lichess"], current: filterSource) { filterSource = $0 }
+                        }
+                    }
+                    gamesFilterSection(title: "Played As") {
+                        gamesChipRow(["All", "White", "Black"], current: filterColor) { filterColor = $0 }
+                    }
+                    gamesFilterSection(title: "Opponent") {
+                        gamesSearchField($state.filterOpponent, placeholder: "Search opponents...")
+                    }
+                    gamesFilterSection(title: "Opening") {
+                        gamesSearchField($state.filterOpening, placeholder: "Name or ECO...")
+                    }
+                    // Date (last section, no bottom border) — recency presets, no fiddly picker.
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Date")
+                            .font(AnnFont.label(9.5)).foregroundColor(DS.ink40).kerning(1.3)
+                        HStack(spacing: 6) {
+                            ForEach([("All", 0), ("7d", 7), ("30d", 30), ("90d", 90), ("1y", 365)], id: \.0) { item in
+                                gamesChip(item.0, selected: filterDateDays == item.1) {
+                                    withAnimation(.easeInOut(duration: 0.12)) { filterDateDays = item.1 }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20).padding(.vertical, 16)
+                }
             }
 
+            // Footer
+            HStack(spacing: 12) {
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { clearFilters() } }) {
+                    Text("CLEAR ALL").font(AnnFont.label(10)).tracking(10 * 0.1)
+                        .foregroundColor(DS.ink60).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasActiveFilters)
+                .opacity(hasActiveFilters ? 1 : 0.4)
+
+                Spacer()
+
+                Button(action: { withAnimation(.easeInOut(duration: 0.25)) { showingFilters = false } }) {
+                    Text("Done")
+                }
+                .buttonStyle(GlassPrimaryButtonStyle())
+            }
+            .padding(.horizontal, 20).padding(.vertical, 14)
+            .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
+            .background(DS.chrome)
+        }
+        .frame(width: 340)
+        .background(DS.paper)
+        .clipShape(RoundedRectangle(cornerRadius: DS.rWindow, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: DS.rWindow, style: .continuous)
+            .strokeBorder(DS.windowBorder, lineWidth: 1))
+        .shadow(color: DS.glassShadowColor, radius: 22, x: 0, y: 10)
+    }
+
+    private func gamesFilterSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(AnnFont.label(9.5)).foregroundColor(DS.ink40).kerning(1.3)
             content()
         }
-        .frame(width: width)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .background(GeometryReader { geo in
-            Color.clear.preference(key: ChessComFilterCardHeightKey.self, value: geo.size.height)
-        })
-        .frame(height: chessComFilterCardHeight > 0 ? chessComFilterCardHeight : nil, alignment: .top)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(DS.bgSecondary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(DS.border, lineWidth: 1)
-        )
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
     }
 
-    private func chessComFilterOption(_ option: String, current: String, onSelect: @escaping (String) -> Void) -> some View {
-        let isSelected = current == option
-        return Button(action: {
-            withAnimation(.easeInOut(duration: 0.12)) { onSelect(option) }
-        }) {
-            HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(isSelected ? chessComGreen : DS.bgSecondary)
-                    .frame(width: 14, height: 14)
-                    .overlay(
-                        isSelected ?
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.white)
-                        : nil
-                    )
-                Text(option)
-                    .font(AnnFont.label(11))
-                    .tracking(11 * 0.1)
-                    .foregroundColor(isSelected ? DS.textPrimary : DS.textSecondary)
+    private func gamesChipRow(_ options: [String], current: String, onSelect: @escaping (String) -> Void) -> some View {
+        HStack(spacing: 6) {
+            ForEach(options, id: \.self) { opt in
+                gamesChip(opt, selected: current == opt) {
+                    withAnimation(.easeInOut(duration: 0.12)) { onSelect(opt) }
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+        }
+    }
+
+    private func gamesChip(_ label: String, selected: Bool, onTap: @escaping () -> Void) -> some View {
+        Button(action: onTap) {
+            Text(label)
+                .font(AnnFont.mono(11, bold: selected))
+                .foregroundColor(selected ? DS.onInk : DS.ink60)
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(selected ? DS.ink : DS.fieldBg, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(selected ? Color.clear : DS.borderChip, lineWidth: 1))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
+
+    private func gamesSearchField(_ text: Binding<String>, placeholder: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundColor(DS.ink25).font(.system(size: 13))
+            TextField(placeholder, text: text).textFieldStyle(.plain).font(AnnFont.mono(10.5))
+            if !text.wrappedValue.isEmpty {
+                Button(action: { text.wrappedValue = "" }) {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(DS.ink25).font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10).frame(height: 34)
+        .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+    }
+
 
     // MARK: - Stats Cards Row
 
@@ -797,10 +840,12 @@ struct ChessComBrowserView: View {
                 Text(label.uppercased()).font(AnnFont.label(9)).tracking(0.9).foregroundColor(DS.ink40)
             }
             Text(rating.map(String.init) ?? "—")
-                .font(AnnFont.serif(27, .semibold)).foregroundColor(DS.ink)
+                .font(AnnFont.serif(23, .semibold)).foregroundColor(DS.ink)
+                // Never let a 4-digit rating wrap to two lines ("164" over "5").
+                .lineLimit(1).fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .frame(minWidth: 96, alignment: .leading)
+        .padding(.horizontal, 14).padding(.vertical, 9)
+        .frame(minWidth: 78, alignment: .leading)
         .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: DS.rControl, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: DS.rControl, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
     }
@@ -849,31 +894,6 @@ struct ChessComBrowserView: View {
             cachedRatings = cachedRatings.merging(fetched) { _, new in new }
         }
     }
-    // MARK: - Filter Pills
-
-    private var filterPillsRow: some View {
-        HStack(spacing: 6) {
-            ForEach(["All", "Bullet", "Blitz", "Rapid"], id: \.self) { option in
-                let isActive = filterTimeControl == option
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.12)) { filterTimeControl = option }
-                }) {
-                    Text(option)
-                        .font(AnnFont.label(11)).tracking(11 * 0.1)
-                        .foregroundColor(isActive ? DS.ink : DS.ink40)
-                        .padding(.vertical, 5).padding(.horizontal, 12)
-                        .background(isActive ? DS.selectedWash : DS.paperRaised,
-                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(isActive ? DS.borderStrong : DS.borderChip, lineWidth: 1))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-        }
-    }
-
     // MARK: - Games List
 
     /// Sorted view of `cachedGames`, recomputed only when the games or the sort change. As a computed
@@ -896,90 +916,76 @@ struct ChessComBrowserView: View {
     }
 
     private var gamesList: some View {
-        GameTableList(
-            games: sortedGames,
-            selectedGameIds: $state.selectedGameIds,
-            selectionAnchor: $state.lastSelectedGame,
-            hasMore: hasMorePages,
-            onOpen: onGameSelected,
-            onLoadMore: loadNextPage,
-            header: { chessComTableHeader },
-            row: { game, isAlternate in chessComTableRow(game, isAlternate: isAlternate) },
-            menu: { game in
-                Button("Open Game") { onGameSelected(game) }
-                Button("Analyze Game") { onReviewGame(game) }
-                Divider()
-                if selectedGameIds.count > 1 {
-                    moveToFolderMenu(gameIds: selectedGameIds, label: "Move \(selectedGameIds.count) Games to...")
-                } else {
-                    moveToFolderMenu(gameIds: [game.id], label: "Move to...")
+        // One width read drives header + rows so their columns line up (same shape as the Library).
+        GeometryReader { geo in
+            let cols = MyGamesColumns(totalWidth: geo.size.width)
+            GameTableList(
+                games: sortedGames,
+                selectedGameIds: $state.selectedGameIds,
+                selectionAnchor: $state.lastSelectedGame,
+                hasMore: hasMorePages,
+                onOpen: onGameSelected,
+                onLoadMore: loadNextPage,
+                header: { chessComTableHeader(cols) },
+                row: { game, isAlternate in chessComTableRow(game, isAlternate: isAlternate, cols: cols) },
+                menu: { game in
+                    Button("Open Game") { onGameSelected(game) }
+                    Button("Analyze Game") { onReviewGame(game) }
+                    Divider()
+                    if selectedGameIds.count > 1 {
+                        moveToFolderMenu(gameIds: selectedGameIds, label: "Move \(selectedGameIds.count) Games to...")
+                    } else {
+                        moveToFolderMenu(gameIds: [game.id], label: "Move to...")
+                    }
                 }
+            )
+        }
+    }
+
+    private func chessComTableHeader(_ cols: MyGamesColumns) -> some View {
+        HStack(spacing: MyGamesColumns.gap) {
+            mgHeaderCell("WHITE", .white, width: cols.white)
+            mgHeaderCell("BLACK", .black, width: cols.black)
+            mgHeaderCell("RESULT", .result, width: cols.result)
+            mgHeaderCell("OPENING", .opening, width: cols.opening)
+            mgHeaderCell("TIME", .timeControl, width: cols.time)
+            mgHeaderCell("SOURCE", .source, width: cols.source)
+            mgHeaderCell("DATE", .date, width: cols.date)
+            Color.clear.frame(width: cols.review, height: 1)
+        }
+        .padding(.horizontal, MyGamesColumns.hPadding)
+        .padding(.top, 12).padding(.bottom, 8)
+        .background(DS.paper)
+        .overlay(alignment: .bottom) { Rectangle().fill(DS.hairline).frame(height: 1) }
+    }
+
+    private func mgHeaderCell(_ title: String, _ column: SortColumn, width: CGFloat) -> some View {
+        HStack(spacing: 4) {
+            Text(title).font(AnnFont.label(9)).tracking(9 * 0.14).foregroundColor(DS.ink40)
+            if sortColumn == column {
+                Text(sortAscending ? "↑" : "↓").font(AnnFont.mono(9)).foregroundColor(DS.ink40)
             }
-        )
-    }
-
-    // Shared column widths — the header and rows use these same values so they line up exactly.
-    // (Opening is the flexible column; the trailing Review column holds the per-row review action.)
-    private enum CCW {
-        static let white: CGFloat = 220, black: CGFloat = 220, result: CGFloat = 64
-        static let time: CGFloat = 100, source: CGFloat = 100, date: CGFloat = 110, review: CGFloat = 92
-    }
-
-    private var chessComTableHeader: some View {
-        HStack(spacing: 0) {
-            ccHeader("White", .white, width: CCW.white)
-            ccHeader("Black", .black, width: CCW.black)
-            ccHeader("Result", .result, width: CCW.result)
-            ccHeader("Opening", .opening, width: nil)
-            ccHeader("Time", .timeControl, width: CCW.time)
-            ccHeader("Source", .source, width: CCW.source)
-            ccHeader("Date", .date, width: CCW.date)
-            Color.clear.frame(width: CCW.review)
         }
-        .padding(.horizontal, 28)
-        .frame(height: 36)
-        .background(DS.chrome)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
-        }
-    }
-
-    @ViewBuilder
-    private func ccHeader(_ title: String, _ column: SortColumn, width: CGFloat?) -> some View {
-        let btn = Button(action: {
+        .frame(width: width, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture {
             if sortColumn == column { sortAscending.toggle() }
             else { sortColumn = column; sortAscending = column != .date }
             resortGames()
-        }) {
-            HStack(spacing: 4) {
-                Text(title).font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink25)
-                if sortColumn == column {
-                    Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 8, weight: .bold)).foregroundColor(DS.ink25)
-                }
-            }
-            .padding(.horizontal, 8)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-
-        if let width { btn.frame(width: width, alignment: .leading) }
-        else { btn.frame(maxWidth: .infinity, alignment: .leading) }
     }
 
-    /// Player name with the reviewed accuracy in parentheses, e.g. "BidiBoy1 (91.4)".
-    /// `primary` = the White seat. The piece dot mirrors the Library table so the two lists read
-    /// the same way.
-    private func ccNameCell(_ name: String, primary: Bool, width: CGFloat) -> some View {
-        HStack(spacing: 6) {
-            Circle().fill(primary ? DS.boardWhitePiece : DS.boardBlackPiece)
+    /// Player name + piece dot, matching the Library's player cell so the two tables read identically.
+    private func mgPlayerCell(_ name: String, isWhite: Bool, width: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(isWhite ? DS.boardWhitePiece : DS.boardBlackPiece)
                 .frame(width: 9, height: 9)
-                .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 1))
-            Text(name).font(AnnFont.serif(13, primary ? .medium : .regular))
-                .foregroundColor(primary ? DS.ink : DS.ink60)
-                .lineLimit(1)
+                .overlay(Circle().strokeBorder(DS.boardBlackPiece, lineWidth: isWhite ? 1.5 : 0))
+            Text(name)
+                .font(AnnFont.serif(14.5, .medium)).foregroundColor(DS.ink)
+                .lineLimit(1).truncationMode(.tail)
         }
-        .padding(.horizontal, 8)
         .frame(width: width, alignment: .leading)
     }
 
@@ -1002,70 +1008,65 @@ struct ChessComBrowserView: View {
         }
     }
 
-    private func chessComTableRow(_ game: GameRecord, isAlternate: Bool = false) -> some View {
-        HStack(spacing: 0) {
-            ccNameCell(game.white, primary: true, width: CCW.white)
-            ccNameCell(game.black, primary: false, width: CCW.black)
+    private func chessComTableRow(_ game: GameRecord, isAlternate: Bool = false, cols: MyGamesColumns) -> some View {
+        LedgerRowChrome(isAlternate: isAlternate, isSelected: selectedGameIds.contains(game.id)) {
+            HStack(spacing: MyGamesColumns.gap) {
+                mgPlayerCell(game.white, isWhite: true, width: cols.white)
+                mgPlayerCell(game.black, isWhite: false, width: cols.black)
 
-            // Same bordered chip as the Library table.
-            HStack {
+                // Result — bordered pill, like the Library.
                 Text(chessComResultDisplay(game.result))
-                    .font(AnnFont.mono(10.5, bold: true))
-                    .foregroundColor(DS.ink)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(DS.paperRaised, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
-            }
-            .padding(.horizontal, 8).frame(width: CCW.result, alignment: .leading)
+                    .font(AnnFont.mono(11, bold: true)).foregroundColor(DS.inkSoft)
+                    .frame(maxWidth: .infinity).padding(.vertical, 1)
+                    .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(DS.borderChip, lineWidth: 1))
+                    .frame(width: cols.result)
 
-            Text(game.opening ?? game.eco ?? "—")
-                .font(AnnFont.voice(12.5)).foregroundColor(DS.ink60).lineLimit(1)
-                .padding(.horizontal, 8).frame(maxWidth: .infinity, alignment: .leading)
+                // Opening — ECO chip + name, like the Library.
+                HStack(spacing: 6) {
+                    if let eco = game.eco, !eco.isEmpty {
+                        Text(eco)
+                            .font(AnnFont.mono(10, bold: true)).foregroundColor(DS.ink60)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(DS.borderChip, lineWidth: 1))
+                    }
+                    Text(game.opening ?? "—")
+                        .font(AnnFont.voice(13.5)).foregroundColor(DS.inkSoft)
+                        .lineLimit(1).truncationMode(.tail)
+                }
+                .frame(width: cols.opening, alignment: .leading)
 
-            Text(chessComTimeClassLabel(game.timeClass))
-                .font(AnnFont.label(11)).tracking(0.5).foregroundColor(DS.ink60).lineLimit(1)
-                .padding(.horizontal, 8).frame(width: CCW.time, alignment: .leading)
+                Text(chessComTimeClassLabel(game.timeClass))
+                    .font(AnnFont.mono(10.5)).foregroundColor(DS.ink60).lineLimit(1)
+                    .frame(width: cols.time, alignment: .leading)
 
-            Text(game.sourcePlatform == "lichess" ? "Lichess" : "Chess.com")
-                .font(AnnFont.label(10)).tracking(0.5).foregroundColor(DS.ink40).lineLimit(1)
-                .padding(.horizontal, 8).frame(width: CCW.source, alignment: .leading)
+                Text(game.sourcePlatform == "lichess" ? "Lichess" : "Chess.com")
+                    .font(AnnFont.mono(10.5)).foregroundColor(DS.ink60).lineLimit(1)
+                    .frame(width: cols.source, alignment: .leading)
 
-            Text(chessComWhen(game))
-                .font(AnnFont.mono(10)).foregroundColor(DS.ink40).lineLimit(1)
-                .padding(.horizontal, 8).frame(width: CCW.date, alignment: .leading)
+                Text(chessComWhen(game))
+                    .font(AnnFont.mono(10.5)).foregroundColor(DS.ink60).lineLimit(1)
+                    .frame(width: cols.date, alignment: .leading)
 
-            // Analyze / accuracy — far right; a fixed-width cell (Color.clear holds it) so rows stay
-            // aligned. Reviewed games show white/black accuracy dots; unreviewed show the Analyze button.
-            Color.clear
-                .frame(width: CCW.review, height: 1)
-                .overlay(alignment: .trailing) {
-                    if game.analysisData == nil {
+                // Review — accuracy dots once analysed, otherwise the Analyze button.
+                Group {
+                    if let ad = game.analysisData {
+                        accDotsBadge(white: ad.whiteAccuracy, black: ad.blackAccuracy)
+                    } else {
                         Button(action: { onReviewGame(game) }) {
                             Text("Analyze")
-                                .font(AnnFont.label(9)).tracking(0.3)
-                                .foregroundColor(DS.redAccent)
+                                .font(AnnFont.label(9)).tracking(0.3).foregroundColor(DS.redAccent)
                                 .padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(DS.redAccent.opacity(0.10), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(DS.redAccent.opacity(0.35), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
-                        .padding(.trailing, 8)
-                    } else {
-                        accDotsBadge(white: game.analysisData?.whiteAccuracy ?? 0,
-                                     black: game.analysisData?.blackAccuracy ?? 0)
-                            .padding(.trailing, 8)
                     }
                 }
+                .frame(width: cols.review, alignment: .trailing)
+            }
         }
-        .padding(.horizontal, 28)
-        .frame(height: 40)
-        .background(
-            selectedGameIds.contains(game.id) ? DS.selectedWash : Color.clear
-        )
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.hairline).frame(height: 1)
-        }
-        .contentShape(Rectangle())
     }
 
     /// The account owner's accuracy for a reviewed game, or "—" if it hasn't been analyzed yet.
@@ -1207,11 +1208,9 @@ struct ChessComBrowserView: View {
         }
     }
 
-    private func disconnectChessComAccount() {
-        database.deleteCachedStats(for: savedUsername)
-        service.clearHistory(for: savedUsername)
-        savedUsername = ""
-        lastSyncTimestamp = 0
+    /// Drop the combined game list and rebuild it from whatever accounts remain. Shared by the
+    /// onChange handlers above, so a disconnect (from the menu OR Settings) refreshes the same way.
+    private func refreshAfterAccountChange() {
         cachedGames = []
         sortedGames = []
         totalGameCount = 0
@@ -1220,18 +1219,19 @@ struct ChessComBrowserView: View {
         if hasAnyAccount { reloadGames() }
     }
 
+    private func disconnectChessComAccount() {
+        database.deleteCachedStats(for: savedUsername)
+        service.clearHistory(for: savedUsername)
+        lastSyncTimestamp = 0
+        savedUsername = ""      // fires onChange → refreshAfterAccountChange()
+    }
+
     private func disconnectLichessAccount() {
         if !settings.lichessToken.isEmpty {
             lichessAuth.logout()
         }
-        lichessUsername = ""
         lichessLastSync = 0
-        cachedGames = []
-        sortedGames = []
-        totalGameCount = 0
-        dbOffset = 0
-        allDbGamesExhausted = false
-        if hasAnyAccount { reloadGames() }
+        lichessUsername = ""    // fires onChange → refreshAfterAccountChange()
     }
 
     private func loginLichess() {
@@ -1246,8 +1246,10 @@ struct ChessComBrowserView: View {
         }
     }
 
-    private func logoutLichess() {
-        lichessAuth.logout()
+    /// Open Settings on the Accounts tab — the one place all account status/sync/disconnect lives.
+    private func openAccountsSettings() {
+        settingsRequestedTab = 2        // index of "Accounts & Import" in PreferencesView
+        openSettings()
     }
 
     private func connectLichessFromMenu() {
@@ -1518,12 +1520,29 @@ struct ChessComBrowserView: View {
     }
 }
 
-// MARK: - ChessCom Filter Card Height Key
+/// Column widths for the My Games table — same responsive shape as the Library's `LedgerColumns`.
+/// Known-size columns are fixed; White/Black split the rest evenly and Opening takes the biggest slice.
+struct MyGamesColumns {
+    let white, black, result, opening, time, source, date, review: CGFloat
 
-private struct ChessComFilterCardHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+    static let gap: CGFloat = 14
+    static let hPadding: CGFloat = 28
+
+    init(totalWidth: CGFloat) {
+        result = 52
+        time = 56
+        source = 78
+        date = 82
+        review = 104          // "Analyze" button or the two-line accuracy badge
+
+        let fixed = result + time + source + date + review
+        let gaps = Self.gap * 7
+        let flexible = max(220, totalWidth - fixed - gaps - Self.hPadding * 2)
+        let unit = flexible / 3.8      // white 1.0 + black 1.0 + opening 1.8
+
+        white = unit
+        black = unit
+        opening = unit * 1.8
     }
 }
 

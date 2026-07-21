@@ -3,8 +3,18 @@ import SwiftUI
 struct PreferencesView: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var selectedTab = 0
+    /// Set by callers that want Settings to open on a specific tab (e.g. My Games → "Manage
+    /// Accounts…" → the Accounts tab). Consumed here and reset, so it fires whether the window was
+    /// already open (onChange) or is opening cold (onAppear).
+    @AppStorage("settingsRequestedTab") private var requestedTab = -1
 
     private let tabLabels = ["Appearance", "Engines", "Accounts & Import", "Shortcuts"]
+
+    private func consumeRequestedTab() {
+        guard requestedTab >= 0, requestedTab < tabLabels.count else { return }
+        selectedTab = requestedTab
+        requestedTab = -1
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +44,8 @@ struct PreferencesView: View {
         }
         .frame(width: 920, height: 620)
         .background(DS.paper)
+        .onAppear { consumeRequestedTab() }
+        .onChange(of: requestedTab) { _, _ in consumeRequestedTab() }
     }
 
     private var settingsTabBar: some View {
@@ -67,14 +79,21 @@ struct AccountsImportView: View {
     @ObservedObject var settings: AppSettings
     @AppStorage("chesscom_username") private var chessComUsername: String = ""
     @AppStorage("lichess_username") private var lichessUsername: String = ""
-    @Environment(\.dismiss) private var dismiss
+    @State private var chessComInput = ""
+    @State private var lichessInput = ""
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 accountRow(
-                    platform: "Chess.com", username: chessComUsername,
+                    platform: "Chess.com", username: chessComUsername, input: $chessComInput,
                     count: settings.chessComGameCount, lastSynced: settings.chessComLastSynced,
+                    onConnect: {
+                        let u = chessComInput.trimmingCharacters(in: .whitespaces)
+                        guard !u.isEmpty else { return }
+                        chessComUsername = u          // My Games reacts (onChange) and pulls the games
+                        chessComInput = ""
+                    },
                     onSync: { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) },
                     onDisconnect: {
                         chessComUsername = ""
@@ -84,8 +103,14 @@ struct AccountsImportView: View {
                 )
                 rowDivider
                 accountRow(
-                    platform: "Lichess", username: lichessUsername,
+                    platform: "Lichess", username: lichessUsername, input: $lichessInput,
                     count: settings.lichessGameCount, lastSynced: settings.lichessLastSynced,
+                    onConnect: {
+                        let u = lichessInput.trimmingCharacters(in: .whitespaces).lowercased()
+                        guard !u.isEmpty else { return }
+                        lichessUsername = u
+                        lichessInput = ""
+                    },
                     onSync: { NotificationCenter.default.post(name: .tabiaSyncGames, object: nil) },
                     onDisconnect: {
                         lichessUsername = ""
@@ -118,7 +143,9 @@ struct AccountsImportView: View {
     // MARK: Rows
 
     @ViewBuilder
-    private func accountRow(platform: String, username: String, count: Int, lastSynced: Double,
+    private func accountRow(platform: String, username: String, input: Binding<String>,
+                            count: Int, lastSynced: Double,
+                            onConnect: @escaping () -> Void,
                             onSync: @escaping () -> Void, onDisconnect: @escaping () -> Void) -> some View {
         HStack(spacing: 14) {
             Circle()
@@ -132,10 +159,17 @@ struct AccountsImportView: View {
             }
             Spacer(minLength: 12)
             if username.isEmpty {
-                pillButton("Connect", filled: true) {
-                    NotificationCenter.default.post(name: .tabiaOpenMyGames, object: nil)
-                    dismiss()
-                }
+                // Enter the username right here — no bounce out to another screen. Setting it starts
+                // the import over in My Games.
+                TextField("\(platform) username", text: input)
+                    .textFieldStyle(.plain)
+                    .font(AnnFont.serif(13.5)).foregroundColor(DS.ink)
+                    .frame(width: 190, height: 34)
+                    .padding(.horizontal, 12)
+                    .background(DS.fieldBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.hairline, lineWidth: 1))
+                    .onSubmit(onConnect)
+                pillButton("Connect", filled: true, action: onConnect)
             } else {
                 pillButton("Sync", filled: false, action: onSync)
                 pillButton("Disconnect", filled: false, muted: true, action: onDisconnect)
@@ -445,7 +479,7 @@ struct EngineSettingsView: View {
                     defaultEnginePicker
                 }
                 rowDivider
-                settingRow(title: "Review depth", subtitle: "DEEPER = SLOWER, STRICTER GRADES") {
+                settingRow(title: "Review depth", subtitle: reviewDepthSubtitle) {
                     depthSegmented
                 }
                 rowDivider
@@ -495,7 +529,17 @@ struct EngineSettingsView: View {
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)   // keep only our own chevron; drop the borderless-button's second one
         .fixedSize()
+    }
+
+    /// Spells out the per-move time budget for the chosen preset, so "review depth" isn't abstract.
+    private var reviewDepthSubtitle: String {
+        switch settings.reviewDepthRaw {
+        case "fast": return "~0.35s PER MOVE · QUICK, ROUGHER GRADES"
+        case "deep": return "~1.8s PER MOVE · SLOWEST, MOST ACCURATE"
+        default:     return "~0.8s PER MOVE · BALANCED — RECOMMENDED"
+        }
     }
 
     private var depthSegmented: some View {

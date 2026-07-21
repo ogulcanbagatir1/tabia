@@ -134,13 +134,17 @@ struct DatabaseSwitcherPill: View {
 
     var body: some View {
         Button(action: { showing.toggle() }) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Text(title)
-                    .font(AnnFont.serif(17.5, .semibold)).foregroundColor(DS.ink)
+                    .font(AnnFont.serif(16, .semibold)).foregroundColor(DS.ink)
                     .lineLimit(1)
-                Text("▾").font(AnnFont.mono(9)).foregroundColor(DS.ink60)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(DS.ink60)
             }
-            .padding(.horizontal, 12).padding(.vertical, 5)
+            // Fixed height so the label sits centred and the pill matches the back button beside it.
+            .frame(height: 30)
+            .padding(.horizontal, 12)
             .background(DS.hoverWash, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .strokeBorder(DS.borderChip, lineWidth: 1))
@@ -205,17 +209,24 @@ struct DatabaseSwitcherPill: View {
 /// pointer event. Contained here, a hover repaints one row.
 struct LedgerRowChrome<Content: View>: View {
     let isAlternate: Bool
+    var isSelected: Bool = false
     @ViewBuilder let content: () -> Content
 
     @State private var hover = false
 
+    private var fill: Color {
+        if isSelected { return DS.selectedWash }
+        if hover { return DS.hoverWash }
+        return isAlternate ? DS.paperRaised.opacity(0.45) : Color.clear
+    }
+
     var body: some View {
         content()
             .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(hover ? DS.hoverWash : (isAlternate ? DS.paperRaised.opacity(0.45) : Color.clear))
-            )
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(fill))
+            .overlay(isSelected
+                     ? RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.redAccent.opacity(0.45), lineWidth: 1)
+                     : nil)
             .padding(.horizontal, 16)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
@@ -239,24 +250,26 @@ struct LedgerColumns {
     let mark: CGFloat
     let action: CGFloat
 
-    static let gap: CGFloat = 12
+    static let gap: CGFloat = 14
     static let hPadding: CGFloat = 28
 
     init(totalWidth: CGFloat) {
-        result = 62
-        date = 88
+        // Known-size columns get exactly what their content needs and no more.
+        result = 52          // "1-0" / "½-½" / "0-1"
+        date = 74            // "2024.12.31"
+        event = 130          // bounded and meaningful — long names truncate instead of eating the row
         mark = 26
-        action = 90
+        action = 88
 
-        let fixed = result + date + mark + action
+        let fixed = result + date + event + mark + action
         let gaps = Self.gap * 7
-        let flexible = max(160, totalWidth - fixed - gaps - Self.hPadding * 2)
-        let unit = flexible / 4.65      // 1.05 + 1.05 + 1.5 + 1.05
+        let flexible = max(240, totalWidth - fixed - gaps - Self.hPadding * 2)
+        // Players split evenly; Opening — the longest, most-scanned field — takes the rest.
+        let unit = flexible / 3.8      // white 1.0 + black 1.0 + opening 1.8
 
-        white = unit * 1.05
-        black = unit * 1.05
-        opening = unit * 1.5
-        event = unit * 1.05
+        white = unit
+        black = unit
+        opening = unit * 1.8
     }
 }
 

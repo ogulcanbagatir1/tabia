@@ -177,6 +177,9 @@ struct TabiaApp: App {
         // Preferences window
         Settings {
             PreferencesView()
+                // Follow the app's appearance setting like every other window — without this the
+                // Settings window tracked the OS instead, so it opened dark while the app was light.
+                .preferredColorScheme(settings.appAppearance == .light ? .light : settings.appAppearance == .dark ? .dark : nil)
         }
         .handlesExternalEvents(matching: Set(arrayLiteral: "*"))
 

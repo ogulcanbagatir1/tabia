@@ -37,7 +37,7 @@ struct SetUpPositionView: View {
             Rectangle().fill(DS.hairline).frame(height: 1)
             footer
         }
-        .frame(width: 784, height: 582)
+        .frame(width: 784, height: 720)
         .background(DS.paper)
         .onAppear {
             syncCastlingMirrors()
@@ -70,9 +70,18 @@ struct SetUpPositionView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Text("EDIT · SET UP POSITION").font(AnnFont.mono(10)).tracking(0.5).foregroundColor(DS.ink25)
-            Spacer()
+        HStack(spacing: 12) {
+            // Right beside the button: a green all-clear, or the red reason it isn't ready yet — so a
+            // greyed-out "Set Up & Analyze" is never a mystery.
+            HStack(spacing: 6) {
+                Image(systemName: validation.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(validation.ok ? DS.semOnline : DS.redAccent)
+                Text(validation.message).font(AnnFont.mono(10.5)).tracking(0.3)
+                    .foregroundColor(validation.ok ? DS.ink40 : DS.redAccent)
+                    .lineLimit(1).fixedSize()
+            }
+            Spacer(minLength: 12)
             Button(action: { dismiss() }) {
                 Text("CANCEL").font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(DS.ink60)
                     .padding(.vertical, 9).padding(.horizontal, 20)
@@ -86,9 +95,10 @@ struct SetUpPositionView: View {
                 dismiss()
             }) {
                 Text("SET UP & ANALYZE").font(AnnFont.label(11)).tracking(11 * 0.1)
-                    .foregroundColor(DS.onRed)
+                    .foregroundColor(validation.ok ? DS.onRed : DS.ink40)
                     .padding(.vertical, 9).padding(.horizontal, 20)
-                    .background(validation.ok ? DS.redAccent : DS.ink25, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .background(validation.ok ? DS.redAccent : DS.paperRaised, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .overlay(validation.ok ? nil : RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(DS.borderChip, lineWidth: 1))
             }
             .buttonStyle(.plain)
             .disabled(!validation.ok)
@@ -139,7 +149,7 @@ struct SetUpPositionView: View {
     }
 
     private var boardGrid: some View {
-        let size: CGFloat = 396
+        let size: CGFloat = 360
         let sq = size / 8
         return VStack(spacing: 0) {
             ForEach(0..<8, id: \.self) { row in
@@ -152,6 +162,25 @@ struct SetUpPositionView: View {
                             Rectangle().fill(isLight ? lightSq : darkSq)
                             if let p = board.squares[file][rank] {
                                 pieceGlyph(p, size: sq * 0.82)
+                            }
+                            // Coordinates on the board edges: ranks 1-8 down the left column,
+                            // files a-h along the bottom row. Coloured with the opposite square so
+                            // they read on either shade.
+                            if col == 0 {
+                                Text("\(rank + 1)")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(isLight ? darkSq : lightSq)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                    .padding(3)
+                                    .allowsHitTesting(false)
+                            }
+                            if row == 7 {
+                                Text(String("abcdefgh"[String.Index(utf16Offset: file, in: "abcdefgh")]))
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(isLight ? darkSq : lightSq)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                                    .padding(3)
+                                    .allowsHitTesting(false)
                             }
                         }
                         .frame(width: sq, height: sq)
@@ -250,14 +279,21 @@ struct SetUpPositionView: View {
     private func sideButton(_ color: PieceColor, _ label: String) -> some View {
         let sel = board.turn == color
         return Button(action: { board.turn = color; refreshFEN() }) {
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 Circle().fill(color == .white ? Color(hex: 0xF2ECDD) : Color(hex: 0x2B2B2B))
-                    .frame(width: 9, height: 9)
+                    .frame(width: 12, height: 12)
                     .overlay(Circle().strokeBorder(DS.borderStrong, lineWidth: 0.5))
-                Text(label).font(AnnFont.label(11)).tracking(11 * 0.1).foregroundColor(sel ? DS.ink : DS.ink40)
+                Text(label).font(AnnFont.label(11)).tracking(11 * 0.1)
+                    .foregroundColor(sel ? DS.ink : DS.ink40)
             }
-            .padding(.vertical, 7).padding(.horizontal, 16)
-            .background(sel ? RoundedRectangle(cornerRadius: 7, style: .continuous).fill(DS.selectedWash) : nil)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            // Selected reads as a raised pill with a red outline; unselected stays flat on the track.
+            .background(sel ? DS.paper : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(sel ? DS.redAccent : Color.clear, lineWidth: 1.5))
+            .shadow(color: sel ? Color.black.opacity(0.10) : .clear, radius: 2, x: 0, y: 1)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
