@@ -153,6 +153,13 @@ class GameTree: ObservableObject {
         return true
     }
 
+    /// Nudge the move-list revision after a non-structural edit that's still visible in the column
+    /// (e.g. a move annotation / NAG). The list is gated on `structureVersion`, so a bare
+    /// objectWillChange wouldn't get it redrawn.
+    func annotationDidChange() {
+        structureVersion &+= 1
+    }
+
     /// Delete current variation
     func deleteCurrentVariation() {
         guard let parent = currentNode.parent,

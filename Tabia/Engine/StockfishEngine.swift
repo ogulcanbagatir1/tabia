@@ -156,6 +156,17 @@ class StockfishEngine: ObservableObject {
         set { analysisIdQueue.sync { _pendingAnalysisClear = newValue } }
     }
 
+    // Monotonic request counter. Every evaluatePosition() bumps it synchronously; the deferred
+    // "position/go" for that request only runs if it's still the newest. When moves are played faster
+    // than a search settles, each call fires "stop" but only the LAST one sends a new position — so
+    // the engine isn't handed a fresh position mid-search (a UCI violation that aborted the search,
+    // truncated MultiPV, and left it churning on stale positions the longer you played).
+    private var _analysisGeneration: Int = 0
+    /// Bump and return the new generation (atomic).
+    func nextAnalysisGeneration() -> Int { analysisIdQueue.sync { _analysisGeneration += 1; return _analysisGeneration } }
+    /// The newest generation issued so far.
+    var currentAnalysisGeneration: Int { analysisIdQueue.sync { _analysisGeneration } }
+
     // Track whether the last analysis completed naturally (received bestmove)
     // When true, we can skip sending "stop" and the 50ms flush delay
     var lastCompletedNaturally = false
@@ -547,6 +558,10 @@ class StockfishEngine: ObservableObject {
 
         debugLog("evaluatePosition: Using real Stockfish engine")
 
+        // Claim the newest generation. A rapid follow-up call bumps this again, so this request's
+        // deferred position/go below will detect it's been superseded and bow out (coalescing).
+        let requestGeneration = nextAnalysisGeneration()
+
         // Check if the previous analysis completed naturally (received bestmove).
         // If so, Stockfish is already idle — no need to send "stop" or wait for flush.
         let skipStopAndFlush: Bool = resultStateQueue.sync {
@@ -599,6 +614,13 @@ class StockfishEngine: ObservableObject {
         // Helper to send position and go commands
         let sendPositionAndGo = { [weak self] in
             guard let self = self else { return }
+
+            // Superseded by a newer move before this fired — don't hand the engine a stale position
+            // (and never on top of a live search). The newest request will send its own position/go.
+            guard self.currentAnalysisGeneration == requestGeneration else {
+                self.debugLog("evaluatePosition: request \(requestGeneration) superseded by \(self.currentAnalysisGeneration), skipping position/go")
+                return
+            }
 
             // Generate new analysis ID
             let newAnalysisId = UUID()

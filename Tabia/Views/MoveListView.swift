@@ -7,6 +7,13 @@ struct MoveListView: View, Equatable {
     /// ticks included — from rebuilding it. Closures are excluded as pure forwarders.
     nonisolated static func == (lhs: MoveListView, rhs: MoveListView) -> Bool {
         lhs.gameTree === rhs.gameTree
+            // Value snapshots of the tree revision + selection. `gameTree` is the SAME object on both
+            // sides, so its live properties can't tell an edit apart — these captured lets can. Without
+            // them the column relied on @ObservedObject redrawing *through* this EquatableView, which
+            // SwiftUI does not do reliably: a played move/variation left none of the compared metadata
+            // changed, so body was skipped and the new moves never appeared until an unrelated change.
+            && lhs.structureVersion == rhs.structureVersion
+            && lhs.currentNodeId == rhs.currentNodeId
             && lhs.whiteName == rhs.whiteName && lhs.blackName == rhs.blackName
             && lhs.event == rhs.event && lhs.openingName == rhs.openingName
             && lhs.eco == rhs.eco && lhs.result == rhs.result
@@ -15,6 +22,10 @@ struct MoveListView: View, Equatable {
     }
 
     @ObservedObject var gameTree: GameTree
+    // Captured at construction from `gameTree`, so this EquatableView redraws on real tree edits and
+    // navigation (not on engine ticks, which touch neither). See `==` above.
+    var structureVersion: Int = 0
+    var currentNodeId: UUID? = nil
     // Optional game metadata — shown as an editorial header above the moves when a game is loaded.
     var whiteName: String = ""
     var blackName: String = ""
@@ -95,7 +106,7 @@ struct MoveListView: View, Equatable {
                             },
                             onSetAnnotation: { node, annotation in
                                 node.setAnnotation(annotation)
-                                gameTree.objectWillChange.send()
+                                gameTree.annotationDidChange()
                             },
                             onDeleteMove: { node in
                                 gameTree.deleteFromNode(node)

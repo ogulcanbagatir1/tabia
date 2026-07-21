@@ -45,6 +45,9 @@ struct MainWindowView: View {
     @State private var showingSidebar = true
     @State private var showingSaveSheet = false
     @State private var showingSetupPosition = false
+    /// The engine's interactive MultiPV, saved while a game review temporarily forces ≥3 (needed so
+    /// the !/!! classifier can see the 2nd/3rd-best lines), then restored when the review ends.
+    @State private var reviewSavedMultiPV = 3
     @State private var arrowMonitor: Any? = nil
     @State private var evaluationDebounceTask: DispatchWorkItem?
     @State private var isSyncingBoard = false
@@ -275,7 +278,8 @@ struct MainWindowView: View {
                     if let nextBoard = gameAnalyzer.onEngineFinished(engine: engine) {
                         engine.evaluatePosition(board: nextBoard, depth: gameAnalyzer.analysisDepth, movetime: gameAnalyzer.analysisMovetime)
                     } else if gameAnalyzer.isCompleted {
-                        // Analysis finished — save to database and go to start
+                        // Analysis finished — restore MultiPV, save to database and go to start
+                        engine.setMultiPV(reviewSavedMultiPV)
                         saveAnalysisToDatabase()
                         gameTree.goToStart()
                         syncBoardWithGameTree()
@@ -1128,6 +1132,8 @@ struct MainWindowView: View {
                     // scroll, so the whole right column scrolls together — not just the move list.
                     MoveListView(
                         gameTree: gameTree,
+                        structureVersion: gameTree.structureVersion,
+                        currentNodeId: gameTree.currentNode.id,
                         whiteName: whiteName,
                         blackName: blackName,
                         event: currentEvent,
@@ -1479,6 +1485,8 @@ struct MainWindowView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
+        // Only offer PGNs — the picker was showing (and letting you pick) every file type.
+        if let pgn = UTType(filenameExtension: "pgn") { panel.allowedContentTypes = [pgn] }
         panel.message = "Open a PGN to view — this game is not saved to your library"
         panel.begin { response in
             guard response == .OK, let url = panel.url,
@@ -1601,6 +1609,10 @@ struct MainWindowView: View {
 
         // Start game analysis using the selected engine only
         let engine = multiEngine.primaryEngine
+        // The great/brilliant classifier reads the 2nd/3rd-best lines, so force MultiPV ≥ 3 for the
+        // review (restored when it finishes/cancels). Without this a MultiPV-1 engine yields no !/!!.
+        reviewSavedMultiPV = engine.multiPV
+        engine.setMultiPV(max(3, engine.multiPV))
         if let firstBoard = gameAnalyzer.startAnalysis(gameTree: gameTree) {
             engine.evaluatePosition(board: firstBoard, depth: gameAnalyzer.analysisDepth, movetime: gameAnalyzer.analysisMovetime)
         }
@@ -1608,6 +1620,7 @@ struct MainWindowView: View {
 
     private func cancelGameAnalysis() {
         gameAnalyzer.cancel()
+        multiEngine.primaryEngine.setMultiPV(reviewSavedMultiPV)   // undo the review's forced MultiPV
         multiEngine.stopAll()
 
         // Resume normal analysis if auto-analyze is on

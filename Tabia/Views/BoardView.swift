@@ -212,16 +212,20 @@ struct BoardView: View {
                                     .allowsHitTesting(false)
                                 }
 
-                                // Layer 6: Move annotation badge
+                                // Layer 6: Move annotation badge — pinned to the destination square's
+                                // top-right corner, honouring board flip, and clamped inside the board
+                                // so a badge on the top rank / h-file isn't clipped by the frame.
                                 if let move = gameTree.currentNode.move,
                                    !gameTree.currentNode.annotation.isEmpty {
                                     let ann = gameTree.currentNode.annotation
                                     let badgeSize = squareSize * 0.38
+                                    let vFile = isFlipped ? (7 - move.to.file) : move.to.file
+                                    let vRow  = isFlipped ? move.to.rank : (7 - move.to.rank)
+                                    let half = badgeSize / 2
+                                    let cx = min(max(CGFloat(vFile + 1) * squareSize, half), boardSize - half)
+                                    let cy = min(max(CGFloat(vRow) * squareSize, half), boardSize - half)
                                     AnnotationBadge(annotation: ann, size: badgeSize)
-                                        .position(
-                                            x: CGFloat(move.to.file + 1) * squareSize,
-                                            y: CGFloat(7 - move.to.rank) * squareSize
-                                        )
+                                        .position(x: cx, y: cy)
                                         .allowsHitTesting(false)
                                         .zIndex(10000)
                                         .id("annotation-\(move.to.file)-\(move.to.rank)")

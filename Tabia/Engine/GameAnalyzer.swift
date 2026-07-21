@@ -88,14 +88,11 @@ class GameAnalyzer: ObservableObject {
     @Published var evaluations: [Double] = []
     @Published var moveClassifications: [MoveClassification] = []
 
-    /// Time per position in milliseconds
-    static let gameAnalysisMovetime: Int = 350
+    /// The depth cap for analysis (set per review from the Fast/Balanced/Deep preset).
+    var analysisDepth: Int = 22
 
-    /// The depth cap for analysis
-    var analysisDepth: Int = 20
-
-    /// The movetime cap for analysis
-    var analysisMovetime: Int = 350
+    /// The movetime cap for analysis, in milliseconds (set per review from the preset).
+    var analysisMovetime: Int = 800
 
     /// Positions to evaluate (board states from the main line)
     private var positions: [ChessBoard] = []
@@ -144,18 +141,20 @@ class GameAnalyzer: ObservableObject {
             }
         }
 
-        // Honour Settings › Engines › Review depth. Movetime moves with depth: a deeper cap is
-        // pointless if the engine is cut off at the same 350ms.
+        // Honour Settings › Engines › Review depth. Movetime moves with depth — a deeper cap is
+        // pointless if the engine is cut off early. The old budgets (150–800 ms) were too short: the
+        // per-position eval was noisy, so a move could look like a blunder from search wobble alone.
+        // These give the engine enough time for stable evals, which is what the classifier grades on.
         switch AppSettings.shared.reviewDepthRaw {
         case "fast":
-            analysisDepth = 14
-            analysisMovetime = 150
+            analysisDepth = 16
+            analysisMovetime = 350
         case "deep":
-            analysisDepth = 26
-            analysisMovetime = 800
+            analysisDepth = 30
+            analysisMovetime = 1800
         default:   // "balanced"
-            analysisDepth = 20
-            analysisMovetime = Self.gameAnalysisMovetime
+            analysisDepth = 22
+            analysisMovetime = 800
         }
         currentMoveIndex = 0
         evaluations = []
@@ -299,8 +298,6 @@ class GameAnalyzer: ObservableObject {
                 moveRank = 0
             }
 
-            let isBestMove = moveRank == 1
-
             // Is the move a material sacrifice (but NOT a recapture)?
             let sacrifice = isSacrifice(moveIndex: i)
             let recapture = isRecapture(moveIndex: i)
@@ -364,84 +361,49 @@ class GameAnalyzer: ObservableObject {
     ) -> MoveQuality {
         let isBestMove = moveRank == 1
 
-        // Blunder: huge cp loss, position flip, or large WP swing
-        if cpLoss >= 200 {
-            return .blunder
-        }
-        if cpLoss >= 100 && positionFlipped {
-            return .blunder
-        }
-        if wpLoss >= 25 {
-            return .blunder
-        }
+        // Negative side — judged by the DROP IN WIN PROBABILITY (the Lichess model), not by raw
+        // centipawns. `wpLoss` is already in win-percent points on a 0…100 scale, so the thresholds
+        // are Lichess's: a 15/10/5-point drop = blunder/mistake/inaccuracy (their 0.3/0.2/0.1 on the
+        // ±1 winning-chances scale). Because the sigmoid saturates in decided positions, a big cp
+        // swing there is only a small win% drop — so "you can't blunder a won/lost game" falls out of
+        // the math for free, and mate scores (ceiling-mapped in winProbability) land in the right
+        // bucket without a special rule. This replaces the old absolute-cp thresholds, which flagged
+        // meaningless moves in won games and under-flagged swings near equality.
+        if wpLoss >= 15 { return .blunder }
+        if wpLoss >= 10 { return .mistake }
+        if wpLoss >= 5  { return .inaccuracy }
 
-        // Mistake
-        if cpLoss >= 100 {
-            return .mistake
-        }
+        // --- win% loss < 5 from here: a sound move. EVERY branch below returns a label, so no move
+        //     is ever left blank — it is book, !, !!, or graded best / good / okay. ---
 
-        // Inaccuracy
-        if cpLoss >= 50 {
-            return .inaccuracy
-        }
-
-        // Book move (takes priority for early game moves)
+        // Opening theory takes precedence for early moves.
         if isBookMove {
             return .book
         }
 
-        // --- Below here: cpLoss < 50 ---
-
-        // Brilliant requires ALL of:
-        //   - Best or near-best move
-        //   - Alternatives are much worse (line gap >= 150)
-        //   - True sacrifice (not a recapture)
-        //   - Position was competitive (not already winning hugely or already lost)
-        //   - After the move, player is NOT losing
+        // Brilliant / Great are upgrades over a plain "best" and need the 2nd-best line (MultiPV >= 2).
+        // A move that isn't the engine's best, or where the alternatives are also fine, can't be either.
         let isCompetitive = playerEvalBefore > -200 && playerEvalBefore < 500
         let notLosingAfter = playerEvalAfter >= -50
 
-        if cpLoss <= 5 && isBestMove && lineGap >= 150
-            && isSacrifice && !isRecapture
-            && isCompetitive && notLosingAfter
-        {
+        // Brilliant: the best move AND a sound material sacrifice AND essentially the only good option,
+        // in a competitive position where you're not losing after.
+        if isBestMove && lineGap >= 150 && isSacrifice && !isRecapture && isCompetitive && notLosingAfter {
             return .brilliant
         }
 
-        // Great: the ONLY move to maintain the position
-        // Must be best or near-best (cpLoss <= 10), not a recapture, not losing after.
-        // Alternatives must be genuinely bad:
-        //   - 2nd best gives opponent >= +0.5 advantage (secondBestPlayerEval <= -50), OR
-        //   - Player keeps clear advantage but all alternatives lose it (secondBest <= 0)
-        if cpLoss <= 10 && !isRecapture && playerEvalAfter >= -50,
-           let secondBest = secondBestPlayerEval {
-            if secondBest <= -50 {
-                // Only move to keep balance — alternatives give opponent real advantage
-                return .great
-            }
-            if playerEvalAfter >= 100 && secondBest <= 0 {
-                // Only move to keep advantage — alternatives equalize or worse
-                return .great
-            }
+        // Great: the (near-)only move that holds — alternatives are genuinely worse.
+        if !isRecapture && notLosingAfter, let secondBest = secondBestPlayerEval {
+            if secondBest <= -50 { return .great }                              // alternatives hand over the advantage
+            if playerEvalAfter >= 100 && secondBest <= 0 { return .great }      // only move to keep a clear edge
         }
 
-        // Best move (top engine choice, not already ! or !!)
-        if isBestMove && cpLoss <= 10 {
-            return .best
-        }
-
-        // Good move (second best engine choice)
-        if moveRank == 2 && cpLoss <= 20 {
-            return .good
-        }
-
-        // Okay move (third best engine choice)
-        if moveRank == 3 && cpLoss <= 30 {
-            return .okay
-        }
-
-        // Neutral - not bad but not special
-        return .neutral
+        // Quality ladder by win-probability loss — grades EVERY remaining move (no MultiPV needed).
+        // Graded on win% given up, not engine rank, so a move that costs nothing is "best" even if it
+        // wasn't literally the #1 line (e.g. two equally good moves).
+        if wpLoss < 1 { return .best }     // gave up essentially nothing — the engine's move
+        if wpLoss < 3 { return .good }     // a small, harmless imprecision
+        return .okay                        // 3 <= win% loss < 5 — fine, just not the sharpest
     }
 
     /// Detect a recapture: current move captures on the same square the opponent just captured on
@@ -516,7 +478,8 @@ class GameAnalyzer: ObservableObject {
                 wpLoss = max(0, (wpAfter - wpBefore) * 100)
             }
 
-            let moveAcc = max(0, min(100, 103.1668 * exp(-0.065 * wpLoss) - 3.1668))
+            // Lichess per-move accuracy curve (exact constants from AccuracyPercent.scala).
+            let moveAcc = max(0, min(100, 103.1668 * exp(-0.04354 * wpLoss) - 3.1669))
 
             if classification.isWhiteMove {
                 whiteAccuracies.append(moveAcc)
@@ -525,8 +488,19 @@ class GameAnalyzer: ObservableObject {
             }
         }
 
-        whiteAccuracy = whiteAccuracies.isEmpty ? 100 : whiteAccuracies.reduce(0, +) / Double(whiteAccuracies.count)
-        blackAccuracy = blackAccuracies.isEmpty ? 100 : blackAccuracies.reduce(0, +) / Double(blackAccuracies.count)
+        whiteAccuracy = aggregateAccuracy(whiteAccuracies)
+        blackAccuracy = aggregateAccuracy(blackAccuracies)
+    }
+
+    /// Combine per-move accuracies into one figure. Lichess averages a volatility-weighted mean with a
+    /// harmonic mean; we use the plain arithmetic + harmonic mean — the harmonic term is what makes a
+    /// single catastrophe genuinely drag the score down instead of being averaged away.
+    private func aggregateAccuracy(_ xs: [Double]) -> Double {
+        guard !xs.isEmpty else { return 100 }
+        let arithmetic = xs.reduce(0, +) / Double(xs.count)
+        let clamped = xs.map { max($0, 0.5) }        // guard the harmonic mean against ~0 values
+        let harmonic = Double(clamped.count) / clamped.reduce(0) { $0 + 1 / $1 }
+        return (arithmetic + harmonic) / 2
     }
 
     private func winProbability(cp: Double) -> Double {
