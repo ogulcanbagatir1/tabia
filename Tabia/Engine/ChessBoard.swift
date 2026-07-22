@@ -375,12 +375,22 @@ class ChessBoard: ObservableObject {
         // Active color
         fen += " \(turn == .white ? "w" : "b")"
         
-        // Castling rights
+        // Castling rights — only emit a right when the piece placement actually supports it (king on
+        // its home square AND the matching rook on its corner). A manually set-up position keeps the
+        // ChessBoard default "all rights = true" flags even when the king/rooks aren't home, so the
+        // naive version emitted e.g. "KQkq" for a middlegame board; that is an illegal FEN and the
+        // Lichess opening explorer rejects it with HTTP 400. For any legally-reached position the
+        // flags already imply the pieces are home, so this only ever corrects set-up positions.
+        func isPiece(_ file: Int, _ rank: Int, _ type: PieceType, _ color: PieceColor) -> Bool {
+            squares[file][rank].map { $0.type == type && $0.color == color } ?? false
+        }
+        let whiteKingHome = isPiece(4, 0, .king, .white)
+        let blackKingHome = isPiece(4, 7, .king, .black)
         var castling = ""
-        if whiteCanCastleKingside { castling += "K" }
-        if whiteCanCastleQueenside { castling += "Q" }
-        if blackCanCastleKingside { castling += "k" }
-        if blackCanCastleQueenside { castling += "q" }
+        if whiteCanCastleKingside,  whiteKingHome, isPiece(7, 0, .rook, .white) { castling += "K" }
+        if whiteCanCastleQueenside, whiteKingHome, isPiece(0, 0, .rook, .white) { castling += "Q" }
+        if blackCanCastleKingside,  blackKingHome, isPiece(7, 7, .rook, .black) { castling += "k" }
+        if blackCanCastleQueenside, blackKingHome, isPiece(0, 7, .rook, .black) { castling += "q" }
         fen += " \(castling.isEmpty ? "-" : castling)"
         
         // En passant target

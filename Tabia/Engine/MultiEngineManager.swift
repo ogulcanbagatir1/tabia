@@ -41,6 +41,10 @@ class MultiEngineManager: ObservableObject {
     /// so views that expect a non-optional StockfishEngine always work.
     private let fallbackEngine = StockfishEngine()
 
+    /// The board most recently handed to `evaluateAll` (a copy). Used to give a newly-added engine an
+    /// evaluation for the CURRENT position the moment it joins, so it isn't blank until the next move.
+    private var lastEvaluatedBoard: ChessBoard?
+
     // MARK: - Computed Helpers
 
     var selectedEngine: StockfishEngine? {
@@ -111,6 +115,14 @@ class MultiEngineManager: ObservableObject {
         }
 
         engine.start()
+
+        // Give the new engine an eval for the position on screen RIGHT NOW, instead of leaving it
+        // blank until the user makes a move. A cloud engine evaluates synchronously here (no process
+        // to wait on); a local engine still launching no-ops and gets picked up by the next
+        // evaluateAll(). Skipped before the first evaluateAll (nothing to replay yet).
+        if let board = lastEvaluatedBoard {
+            engine.evaluatePosition(board: board)
+        }
     }
 
     func removeEngine(id: UUID) {
@@ -177,6 +189,10 @@ class MultiEngineManager: ObservableObject {
 
     /// Send position to all active engines for parallel evaluation.
     func evaluateAll(board: ChessBoard, depth: Int? = nil, movetime: Int? = nil) {
+        // Remember the current position so an engine ADDED later (before the next move) can be given
+        // an immediate evaluation instead of sitting blank until the user advances a move. Copy so a
+        // subsequent in-place board mutation can't retroactively change what we replay.
+        lastEvaluatedBoard = board.copy()
         for slot in slots {
             // evaluatePosition() synchronously copies the board before any async work, so the extra
             // per-slot copy here was redundant — one wasted 64-square board allocation per engine

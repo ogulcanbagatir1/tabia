@@ -28,6 +28,7 @@ struct MainWindowView: View {
     @Environment(\.openSettings) private var openSettingsAction
     @Environment(\.scenePhase) private var scenePhase
     @State private var didRestoreTabs = false
+    @State private var persistDebounceTask: DispatchWorkItem?
 
     // Auto-analyze lives in AppSettings so the Preferences toggle and the in-app ⌃A toggle are the
     // same switch, and the choice survives relaunch.
@@ -241,6 +242,9 @@ struct MainWindowView: View {
             // A structural edit (move added / deleted / promoted) makes the active board dirty —
             // unless we're mid-load/swap. Dirty drives the amber tab dot + close-save prompt (§3.3).
             if !suppressDirty { windowModel.active.isDirty = true }
+            // Save the open tabs shortly after any edit, so a game survives even if the app is quit
+            // in a way that doesn't give the terminate-time save a chance to flush.
+            schedulePersist()
         }
         .onChange(of: gameTree.currentNode.id) { _, _ in
             refreshMoveSequences()
@@ -290,8 +294,14 @@ struct MainWindowView: View {
                     // Normal single-position analysis — cache eval on current node
                     gameTree.currentNode.evaluation = eval
 
-                    // Start look-ahead for the next position in the game tree
+                    // Start look-ahead for the next position in the game tree — but NEVER for a cloud
+                    // engine. Cloud eval publishes straight to the live display (it has no speculative
+                    // cache path), so pre-analyzing the NEXT position overwrites the CURRENT one and
+                    // the board ends up one ply out of sync with the shown line ("suggests a move for
+                    // the side that isn't to move"). A cloud engine re-evaluates the current position
+                    // normally on every navigation instead.
                     if settings.autoAnalyze, lookAheadNodeId == nil,
+                       multiEngine.selectedConfig?.source != .cloud,
                        let nextChild = gameTree.currentNode.children.first {
                         lookAheadNodeId = nextChild.id
                         let nextBoard = nextChild.boardState.copy()
@@ -794,10 +804,30 @@ struct MainWindowView: View {
         return path.reversed()
     }
 
+    /// Debounced background save of the open tabs. Called after edits / game loads so the on-disk
+    /// snapshot stays current during use — not only at quit, whose flush can be cut short by exit.
+    private func schedulePersist() {
+        persistDebounceTask?.cancel()
+        let task = DispatchWorkItem { persistTabs() }
+        persistDebounceTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: task)
+    }
+
     private func persistTabs() {
+        persistDebounceTask?.cancel()
+        persistDebounceTask = nil
         captureActiveSession()
         var out: [PersistedTab] = []
-        for s in windowModel.sessions {
+        var restoredActiveIndex = 0
+        for (i, s) in windowModel.sessions.enumerated() {
+            // Skip blank scratch boards. An untouched "New board" (no moves, not dirty, not linked to a
+            // saved game or repertoire) carries nothing worth restoring — persisting it is why the app
+            // reopened with a pile of empty tabs. Only meaningful tabs come back; if every tab is blank
+            // nothing is saved and the next launch starts with a single fresh board.
+            let hasMoves = !s.rootNode.children.isEmpty
+            let meaningful = hasMoves || s.isDirty || s.currentGameId != nil || s.repertoireId != nil
+            guard meaningful else { continue }
+            if i == windowModel.activeIndex { restoredActiveIndex = out.count }
             let t = GameTree()
             t.root = s.rootNode
             let headers: [String: String] = [
@@ -818,15 +848,39 @@ struct MainWindowView: View {
                 repertoireId: s.repertoireId?.uuidString,
                 analysisData: s.analysisData))
         }
-        let payload = PersistedTabSet(tabs: out, activeIndex: windowModel.activeIndex)
-        if let data = try? JSONEncoder().encode(payload) {
+        let payload = PersistedTabSet(tabs: out, activeIndex: restoredActiveIndex)
+        // JSONEncoder THROWS on a non-finite Double (NaN / ±Inf). A single stray one anywhere in a
+        // tab's analysisData used to fail the whole encode — silently, because the result was `try?`ed
+        // — so nothing was ever written and NO games came back on relaunch. Tolerate non-finite floats
+        // so a bad analysis value can never sink the whole save.
+        let encoder = JSONEncoder()
+        encoder.nonConformingFloatEncodingStrategy =
+            .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+        var data = try? encoder.encode(payload)
+        if data == nil {
+            // Last-ditch: drop the (best-effort) analysis blobs and persist the games alone, so a tab
+            // is never lost just because its stored review couldn't be serialised.
+            let stripped = PersistedTabSet(
+                tabs: out.map { var t = $0; t.analysisData = nil; return t },
+                activeIndex: restoredActiveIndex)
+            data = try? encoder.encode(stripped)
+        }
+        if let data {
             UserDefaults.standard.set(data, forKey: Self.openTabsKey)
+            // Force the write to disk NOW. This often runs from willTerminate, and UserDefaults
+            // normally flushes lazily via cfprefsd — the process was exiting before the flush landed,
+            // so the just-saved games were lost and an older (empty) snapshot stayed on disk. This is
+            // exactly the case synchronize() still exists for.
+            UserDefaults.standard.synchronize()
         }
     }
 
     private func restoreTabs() {
+        let decoder = JSONDecoder()
+        decoder.nonConformingFloatDecodingStrategy =
+            .convertFromString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
         guard let data = UserDefaults.standard.data(forKey: Self.openTabsKey),
-              let payload = try? JSONDecoder().decode(PersistedTabSet.self, from: data),
+              let payload = try? decoder.decode(PersistedTabSet.self, from: data),
               !payload.tabs.isEmpty else { return }
         let parser = PGNParser()
         var sessions: [BoardSession] = []
@@ -859,7 +913,12 @@ struct MainWindowView: View {
                 s.repertoireId = repId
                 s.repNodeMap = repertoireNodeMap(root: s.rootNode, repertoire: rep)
             }
-            sessions.append(s)
+            // Same guard as persistTabs, applied on the way back in too — so any blank scratch tabs
+            // saved by an OLD build (before the persist-side filter) are dropped on this launch instead
+            // of waiting for the next quit to clean them up.
+            let hasMoves = !s.rootNode.children.isEmpty
+            let meaningful = hasMoves || s.isDirty || s.currentGameId != nil || s.repertoireId != nil
+            if meaningful { sessions.append(s) }
         }
         guard !sessions.isEmpty else { return }
         windowModel.sessions = sessions
@@ -1308,6 +1367,10 @@ struct MainWindowView: View {
         // A freshly loaded library game matches the library — not dirty. Also refresh the tab title.
         endBoardLoad(clean: true)
         windowModel.active.title = boardTabTitle
+
+        // Loading swaps the tree by reference (no structural-edit event), so persist explicitly — the
+        // just-opened game should survive a relaunch even without any further edits.
+        schedulePersist()
 
         // Trigger evaluation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

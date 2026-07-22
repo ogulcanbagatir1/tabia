@@ -47,7 +47,10 @@ struct LichessExplorerView: View {
                 fetchData()
             }
         }
-        .onChange(of: currentMoves) { _, _ in
+        .onChange(of: board.getFEN()) { _, _ in
+            // Refetch whenever the actual position changes — keyed on the FEN, not the move list, so a
+            // manually set-up position (which may share a move count with the previous one) still
+            // refreshes.
             fetchData()
         }
     }
@@ -58,8 +61,12 @@ struct LichessExplorerView: View {
 
     private func fetchData() {
         syncToken()
-        let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-        explorerService.fetchExplorerData(fen: startingFEN, moves: currentMoves, topGames: 15)
+        // Query by the CURRENT position's own FEN. The old code always started from the standard
+        // opening FEN and replayed `currentMoves` through the `play` param — which breaks for a
+        // manually set-up position: those moves aren't legal from the standard start, so Lichess
+        // rejects the whole sequence with HTTP 400 and the explorer shows an error. A position's FEN
+        // describes it unambiguously regardless of how (or whether) it was reached by moves.
+        explorerService.fetchExplorerData(fen: board.getFEN(), topGames: 15)
     }
 
     // MARK: - Explorer Content

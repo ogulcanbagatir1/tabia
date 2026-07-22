@@ -129,7 +129,7 @@ struct GameAnalysisResultsView: View {
                 // Accuracies — big serif numbers, grouped to the left
                 HStack(alignment: .firstTextBaseline, spacing: 40) {
                     accuracyBlock("White Accuracy", gameAnalyzer.whiteAccuracy, color: DS.ink)
-                    accuracyBlock("Black Accuracy", gameAnalyzer.blackAccuracy, color: DS.ink60)
+                    accuracyBlock("Black Accuracy", gameAnalyzer.blackAccuracy, color: DS.ink)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 16).padding(.bottom, 14)

@@ -30,23 +30,41 @@ struct AnnBoardArea: View {
     private let topGap: CGFloat = 16
     private let bottomGap: CGFloat = 16
 
+    // External coordinate gutter: rank digits in a column to the LEFT of the grid, file letters in a
+    // row BELOW it. gutterInset = the column width / row height + the gap to the grid. Player rows and
+    // the plate line get this as leading padding so their content stays aligned with the grid's left
+    // edge (the gutter shifts the grid right).
+    private let coordGutter: CGFloat = 15
+    private let coordGap: CGFloat = 4
+    private var gutterInset: CGFloat { coordGutter + coordGap }
+    private var boardSquare: CGFloat { boardSize / 8 }
+
     var body: some View {
         VStack(spacing: 0) {
             // Top player (black by default; white when flipped)
             playerRow(isWhite: isFlipped)
-                .frame(width: boardSize + 50, height: playerRowHeight)
+                .frame(width: boardSize + 48, height: playerRowHeight)
+                .padding(.leading, gutterInset)
                 .padding(.bottom, topGap)
 
-            // The board grid now fills its frame flush (BoardView's centering spacers use minLength: 0),
-            // so the eval bar aligns simply by being top-aligned at the same height — no offset hack.
-            HStack(alignment: .top, spacing: 16) {
-                board_
+            // Grid fills its frame flush, so the eval bar aligns by being top-aligned at the same
+            // height. The rank column (left) and file row (below) are external, so they neither shrink
+            // the grid nor the eval bar — the bar stays exactly boardSize tall, matching the board.
+            HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: coordGap) {
+                    rankGutter
+                    VStack(spacing: coordGap) {
+                        board_
+                        fileGutter
+                    }
+                }
                 EvalBarView(engine: engine, boardSize: boardSize)
             }
 
             // Bottom player — same fixed height + same gap as the top row for exact symmetry.
             playerRow(isWhite: !isFlipped)
-                .frame(width: boardSize + 50, height: playerRowHeight)
+                .frame(width: boardSize + 48, height: playerRowHeight)
+                .padding(.leading, gutterInset)
                 .padding(.top, bottomGap)
 
             // Plate line
@@ -57,9 +75,47 @@ struct AnnBoardArea: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .frame(width: boardSize + 50)
+            .frame(width: boardSize + 48)
             .padding(.top, 20)
             .overlay(alignment: .top) { Rectangle().fill(DS.hairline).frame(height: 1) }
+            .padding(.leading, gutterInset)
+        }
+    }
+
+    // MARK: External coordinate gutters (flip-aware, tracking BoardView's own display order)
+
+    private var displayRanks: [Int] { isFlipped ? Array(0..<8) : Array((0..<8).reversed()) }
+    private var displayFiles: [Int] { isFlipped ? Array((0..<8).reversed()) : Array(0..<8) }
+
+    private var showCoords: Bool { AppSettings.shared.showCoordinates }
+
+    @ViewBuilder private var rankGutter: some View {
+        if showCoords {
+            VStack(spacing: 0) {
+                ForEach(displayRanks, id: \.self) { rank in
+                    Text("\(rank + 1)")
+                        .font(AnnFont.mono(max(9, boardSquare * 0.16)))
+                        .foregroundColor(DS.ink40)
+                        .frame(width: coordGutter, height: boardSquare)
+                }
+            }
+        } else {
+            Color.clear.frame(width: coordGutter, height: boardSize)
+        }
+    }
+
+    @ViewBuilder private var fileGutter: some View {
+        if showCoords {
+            HStack(spacing: 0) {
+                ForEach(displayFiles, id: \.self) { file in
+                    Text(String(UnicodeScalar(UInt8(97 + file))))
+                        .font(AnnFont.mono(max(9, boardSquare * 0.16)))
+                        .foregroundColor(DS.ink40)
+                        .frame(width: boardSquare, height: coordGutter)
+                }
+            }
+        } else {
+            Color.clear.frame(width: boardSize, height: coordGutter)
         }
     }
 
@@ -130,9 +186,9 @@ private struct EngineArrowBoard: View {
     let isFlipped: Bool
 
     var body: some View {
-        // showLabels: false — the framed Annotator board has no external coordinate gutter, so its grid
-        // fills the frame flush and the eval bar (same boardSize height) lines up with it exactly.
-        // (With labels on, the gutter shrank the grid ~20pt and the bar stuck out below it.)
+        // showLabels: false — the grid fills its frame flush so the eval bar (same boardSize) matches
+        // it exactly. Coordinates are drawn EXTERNALLY by AnnBoardArea (a rank column to the left and a
+        // file row below), which keeps them outside the grid without shrinking it or the eval bar.
         BoardView(board: board, gameTree: gameTree, explorerArrow: arrow, isFlipped: isFlipped, showLabels: false)
     }
 
@@ -153,6 +209,12 @@ private struct EngineArrowBoard: View {
         let from = Position(Int(fromFileAscii) - a, fromRank - 1)
         let to = Position(Int(toFileAscii) - a, toRank - 1)
         guard from.isValid() && to.isValid() else { return nil }
+
+        // Only draw the arrow if its origin square actually holds a piece of the side to move on the
+        // board CURRENTLY shown. A cloud engine lags behind by its network round-trip, so right after
+        // a move its best line is still the previous position's — drawing that on the new board points
+        // the arrow from the wrong side. This guard hides the stale arrow until the engine catches up.
+        guard let piece = board.pieceAt(from), piece.color == board.turn else { return nil }
 
         return BoardArrow(from: from, to: to, color: DS.accent.opacity(0.7))
     }

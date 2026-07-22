@@ -558,11 +558,16 @@ class GameAnalyzer: ObservableObject {
         // Collect annotations (one per move, starting from move 1)
         let annotations = moveClassifications.map { $0.quality.rawValue }
 
+        // Scrub any non-finite value (NaN / ±Inf). JSONEncoder throws on those, and this blob rides
+        // along in each tab's persisted state — one stray value used to make the whole open-tabs save
+        // un-encodable, silently losing every game on relaunch. Map Inf to the mate ceiling, NaN to 0.
+        func finite(_ x: Double) -> Double { x.isFinite ? x : (x > 0 ? 10000 : (x < 0 ? -10000 : 0)) }
+
         return GameAnalysisData(
-            evaluations: evaluations,
+            evaluations: evaluations.map(finite),
             annotations: annotations,
-            whiteAccuracy: whiteAccuracy,
-            blackAccuracy: blackAccuracy
+            whiteAccuracy: finite(whiteAccuracy),
+            blackAccuracy: finite(blackAccuracy)
         )
     }
 

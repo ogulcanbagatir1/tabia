@@ -208,6 +208,13 @@ class LichessExplorerService: ObservableObject {
                     } else if httpResponse.statusCode == 401 {
                         self.needsAuth = true
                         self.error = "Lichess now requires authentication to access the Masters database."
+                    } else if httpResponse.statusCode == 400 {
+                        // Lichess couldn't read this position (e.g. a manually set-up board that's
+                        // illegal — a king in check for the side not to move, a missing king, …).
+                        // Don't surface a raw "Server error"; clear any stale data and show a soft note
+                        // so the panel degrades gracefully instead of breaking.
+                        self.response = nil
+                        self.error = "No opening-explorer data for this position."
                     } else {
                         self.error = "Server error (\(httpResponse.statusCode))"
                     }
