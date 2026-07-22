@@ -130,7 +130,10 @@ private struct EngineArrowBoard: View {
     let isFlipped: Bool
 
     var body: some View {
-        BoardView(board: board, gameTree: gameTree, explorerArrow: arrow, isFlipped: isFlipped)
+        // showLabels: false — the framed Annotator board has no external coordinate gutter, so its grid
+        // fills the frame flush and the eval bar (same boardSize height) lines up with it exactly.
+        // (With labels on, the gutter shrank the grid ~20pt and the bar stuck out below it.)
+        BoardView(board: board, gameTree: gameTree, explorerArrow: arrow, isFlipped: isFlipped, showLabels: false)
     }
 
     /// The engine's top-PV first move as a board arrow, or nil when the arrow is disabled or there is
