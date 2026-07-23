@@ -57,7 +57,7 @@ final class ReferenceDatabase: ObservableObject {
 
     /// The hosted manifest URL. Set this to your Cloudflare R2 (or any static host) manifest.json.
     /// Empty = the in-app "Download reference database" button is disabled.
-    static let defaultManifestURLString = "https://tabiadb.ultravian.com/manifest.json"
+    static let defaultManifestURLString = "https://db.tabia-chess.com/manifest.json"
 
     private let store: GameStore?
 
